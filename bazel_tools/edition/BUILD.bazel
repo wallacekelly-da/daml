@@ -1,0 +1,26 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("defs.bzl", "edition_flag")
+
+edition_flag(
+    name = "edition",
+    build_setting_default = "community",
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "community",
+    flag_values = {
+        "//bazel_tools/edition:edition": "community",
+    },
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "enterprise",
+    flag_values = {
+        "//bazel_tools/edition:edition": "enterprise",
+    },
+    visibility = ["//visibility:public"],
+)

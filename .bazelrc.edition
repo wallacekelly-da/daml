@@ -1,0 +1,2 @@
+build --flag_alias=edition=//bazel_tools/edition:edition
+cquery --flag_alias=edition=//bazel_tools/edition:edition

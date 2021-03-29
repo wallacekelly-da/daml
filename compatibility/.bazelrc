@@ -16,6 +16,12 @@ build:darwin --repository_cache=.bazel-cache/repo
 fetch:darwin --repository_cache=.bazel-cache/repo
 sync:darwin --repository_cache=.bazel-cache/repo
 
+# The labels to the edition flag are different between the daml workspace and
+# the compatibility workspace. We factor the setting out into a separate file
+# to hide this difference from ./fmt.sh, which checks that both .bazelrc files
+# are identical.
+import %workspace%/.bazelrc.edition
+
 build:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
 fetch:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
 query:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
