@@ -14,6 +14,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # --- end runfiles.bash initialization v2 ---
 
 set -eou pipefail
+set -x
 
 JAVA=$(rlocation "$TEST_WORKSPACE/$1")
 SDK_CE=$(rlocation "$TEST_WORKSPACE/$2")

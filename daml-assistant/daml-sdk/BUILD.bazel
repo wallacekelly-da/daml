@@ -2,12 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
+    "//bazel_tools/edition:defs.bzl",
+    "edition_binary",
+)
+load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
 )
 load("@os_info//:os_info.bzl", "is_windows")
-load(":util.bzl", "deps")
 
 scala_deps = [
     "@maven//:com_typesafe_akka_akka_http_spray_json",
@@ -38,23 +41,41 @@ da_scala_binary(
     unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     runtime_deps = runtime_deps,
-    deps = deps("ce"),
+    deps = [
+        "//extractor",
+        "//language-support/codegen-main:codegen-main-lib",
+        "//navigator/backend:navigator-library",
+        "//triggers/runner:trigger-runner-lib",
+        "//triggers/service:trigger-service",
+        "//triggers/service/auth:oauth2-middleware",
+        "//navigator/backend:backend-resources",
+        "//navigator/backend:frontend-resources",
+    ] + select({
+        "//bazel_tools/edition:community": [
+            "//daml-script/runner:script-runner-lib-ce",
+            "//ledger-service/http-json:http-json-ce",
+            "//ledger/sandbox:sandbox-ce",
+            "//ledger/sandbox-classic:sandbox-classic-ce",
+        ],
+        "//bazel_tools/edition:enterprise": [
+            "//daml-script/runner:script-runner-lib-ee",
+            "//ledger-service/http-json:http-json-ee",
+            "//ledger/sandbox:sandbox-ee",
+            "//ledger/sandbox-classic:sandbox-classic-ee",
+        ],
+    }),
 )
 
-da_scala_binary(
-    name = "sdk_ee",
-    srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.daml.sdk.SdkMain",
-    resources = glob(["src/main/resources/**/*"]),
-    scala_deps = scala_deps,
-    scala_runtime_deps = scala_runtime_deps,
-    # Navigator resources trigger this incorrectly
-    unused_dependency_checker_mode = "off",
-    visibility = ["//visibility:public"],
-    runtime_deps = runtime_deps + [
-        "@maven//:com_oracle_database_jdbc_ojdbc8",
-    ],
-    deps = deps("ee"),
+edition_binary(
+    name = "sdk-ce",
+    edition = "community",
+    executable = "sdk",
+)
+
+edition_binary(
+    name = "sdk-ee",
+    edition = "enterprise",
+    executable = "sdk",
 )
 
 # This is deliberately an sh_test on the actual SDK jars to test
@@ -66,11 +87,11 @@ sh_test(
     args = [
         "$(location @local_jdk//:bin/java.exe)" if is_windows else "$(location @local_jdk//:bin/java)",
         "$(location :sdk_deploy.jar)",
-        "$(location :sdk_ee_deploy.jar)",
+        #"$(location :sdk_deploy.jar)",
     ],
     data = [
         ":sdk_deploy.jar",
-        ":sdk_ee_deploy.jar",
+        #":sdk_deploy.jar",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
     ],
     deps = [

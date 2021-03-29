@@ -26,24 +26,13 @@ inputs = {
     "templates": "//templates:templates-tarball.tar.gz",
     "trigger_dars": "//triggers/daml:daml-trigger-dars",
     "script_dars": "//daml-script/daml:daml-script-dars",
-    "sdk_deploy_jar": {
-        "ce": "//daml-assistant/daml-sdk:sdk_deploy.jar",
-        "ee": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
-    },
+    "sdk_deploy_jar": "//daml-assistant/daml-sdk:sdk_deploy.jar",
 }
 
-def input_target(config, name):
-    targets = inputs.get(name)
-    if type(targets) == "string":
-        return targets
-    else:
-        return targets.get(config)
-
-def sdk_tarball(name, version, config):
-    kwargs = {name: input_target(config, name) for name in inputs.keys()}
+def sdk_tarball(name, version):
     native.genrule(
         name = name,
-        srcs = [input_target(config, name) for name in inputs.keys()],
+        srcs = [inputs.values()],
         outs = ["{}.tar.gz".format(name)],
         tools = ["//bazel_tools/sh:mktgz"],
         cmd = """
@@ -103,7 +92,7 @@ def sdk_tarball(name, version, config):
           $$MKTGZ $$OUT_PATH $$(basename $$OUT)
         """.format(
             version = version,
-            **kwargs
+            **inputs
         ),
         visibility = ["//visibility:public"],
     )

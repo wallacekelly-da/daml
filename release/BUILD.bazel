@@ -67,20 +67,7 @@ protos_zip(
     name = "protobufs",
 ) if not is_windows else None
 
-[
-    sdk_tarball(
-        "sdk-release-tarball-{}".format(edition),
-        sdk_version,
-        edition,
-    )
-    for edition in [
-        "ce",
-        "ee",
-    ]
-]
-
-alias(
-    name = "sdk-release-tarball",
-    actual = "sdk-release-tarball-ce",
-    visibility = ["//visibility:public"],
+sdk_tarball(
+    "sdk-release-tarball-{}".format(edition),
+    sdk_version,
 )
