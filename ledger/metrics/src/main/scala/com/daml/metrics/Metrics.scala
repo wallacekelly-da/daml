@@ -353,6 +353,9 @@ final class Metrics(val registry: MetricRegistry) {
       val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
       val publishConfiguration: Timer = registry.timer(Prefix :+ "publish_configuration")
 
+      val transactionTreesInputBufferLength: Counter =
+        registry.counter(Prefix :+ "transaction_trees_buffer_length")
+
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
         private val Prefix: MetricName = index.Prefix :+ "db"

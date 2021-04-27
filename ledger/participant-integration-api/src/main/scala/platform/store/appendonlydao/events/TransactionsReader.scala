@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
 import com.daml.platform.ApiOffset
+import com.daml.platform.indexer.parallel.PerfSupport
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
@@ -226,12 +227,16 @@ private[appendonlydao] final class TransactionsReader(
         )
         .mapMaterializedValue(_ => NotUsed)
 
-    groupContiguous(events)(by = _.transactionId)
-      .mapConcat { events =>
-        val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
-        response.map(r => offsetFor(r) -> r)
-      }
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+    PerfSupport
+      .instrumentedBufferedSource(
+        original = groupContiguous(events)(by = _.transactionId)
+          .mapConcat { events =>
+            val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
+            response.map(r => offsetFor(r) -> r)
+          },
+        counter = metrics.daml.index.transactionTreesInputBufferLength,
+        size = outputStreamBufferSize,
+      )
       .wireTap(_ match {
         case (_, response) =>
           response.transactions.foreach(txn =>
