@@ -60,7 +60,7 @@ private[appendonlydao] final class TransactionsReader(
   private val outputStreamBufferSize = 128
 
   // TODO: make this parameter configurable
-  private val ContractStateEventsStreamParallelismLevel = 4
+  private val ContractStateEventsStreamParallelismLevel = 8
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
@@ -209,13 +209,21 @@ private[appendonlydao] final class TransactionsReader(
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
-            verbose,
-            dbMetrics.getTransactionTrees,
-            query,
-            nextPageRange[TreeEvent](requestedRange.endInclusive),
-          )(requestedRange)
+          PaginatingAsyncStream.streamFrom(
+            requestedRange,
+            nextPageRange[Raw.TreeEvent](requestedRange.endInclusive),
+          ) { range1 =>
+            if (EventsRange.isEmpty(range1))
+              Future.successful(Vector.empty)
+            else
+              dispatcher.executeSql(dbMetrics.getTransactionTrees)(query(range1))
+          }
         })
+        .async
+        .mapAsync(ContractStateEventsStreamParallelismLevel)(ev =>
+          Timed
+            .future(dbMetrics.getTransactionTrees.translationTimer, deserializeEntry(verbose)(ev))
+        )
         .mapMaterializedValue(_ => NotUsed)
 
     groupContiguous(events)(by = _.transactionId)
