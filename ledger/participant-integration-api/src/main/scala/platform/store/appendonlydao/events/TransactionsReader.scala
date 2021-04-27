@@ -198,7 +198,7 @@ private[appendonlydao] final class TransactionsReader(
             .preparePagedGetTransactionTrees(sqlFunctions)(
               eventsRange = EventsRange(range.startExclusive._2, range.endInclusive._2),
               requestingParties = requestingParties,
-              pageSize = pageSize,
+              pageSize = 5000,
             )
             .executeSql,
           range.startExclusive._1,
