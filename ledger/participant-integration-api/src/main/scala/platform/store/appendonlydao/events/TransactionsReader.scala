@@ -327,17 +327,6 @@ private[appendonlydao] final class TransactionsReader(
   override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
       implicit loggingContext: LoggingContext
   ): Source[((Offset, Long), ContractStateEvent), NotUsed] = {
-
-    val query = (range: EventsRange[(Offset, Long)]) => {
-      implicit connection: Connection =>
-        QueryNonPruned.executeSqlOrThrow(
-          ContractStateEventsReader.readRawEvents(range),
-          range.startExclusive._1,
-          pruned =>
-            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
-    }
-
     val endMarker = Source.single(
       endInclusive -> ContractStateEvent.LedgerEndMarker(
         eventOffset = endInclusive._1,
@@ -345,11 +334,17 @@ private[appendonlydao] final class TransactionsReader(
       )
     )
 
-    streamContractStateEvents(
-      dbMetrics.getContractStateEvents,
-      query,
-      nextPageRangeContracts(endInclusive),
-    )(EventsRange(startExclusive, endInclusive)).async
+    // TODO re-implement prunning checks
+    val pageBounds = splitIntoPages(startExclusive._2, endInclusive._2)
+
+    Source
+      .fromIterator(() => pageBounds.iterator)
+      .mapAsync(4) { case (startExclusive, endInclusive) =>
+        dispatcher.executeSql(dbMetrics.getContractStateEvents)(implicit conn =>
+          ContractStateEventsReader.readRawEvents(EventsRange(startExclusive, endInclusive))
+        )
+      }
+      .flatMapConcat(Source(_))
       .mapAsync(ContractStateEventsStreamParallelismLevel) { raw =>
         Timed.future(
           metrics.daml.index.decodeStateEvent,
@@ -362,18 +357,32 @@ private[appendonlydao] final class TransactionsReader(
       .concat(endMarker)
   }
 
+  private def splitIntoPages(
+      startExclusive: Long,
+      endInclusive: Long,
+  ): Seq[(Long, Long)] = {
+    val diff = endInclusive - startExclusive
+    if (diff <= pageSize)
+      Seq(startExclusive -> endInclusive)
+    else {
+      var lastStart = startExclusive
+      val pageBounds = (0L until diff / pageSize.toLong).map { _ =>
+        val newStart = lastStart + pageSize
+        val r = (lastStart, newStart)
+        lastStart = newStart
+        r
+      }
+      if (pageBounds.last._2 < endInclusive)
+        pageBounds :+ (pageBounds.last._2 -> endInclusive)
+      else
+        pageBounds
+    }
+  }
+
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
       a: EventsTable.Entry[E]
   ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
-
-  private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
-      raw: ContractStateEventsReader.RawContractStateEvent
-  ): EventsRange[(Offset, Long)] =
-    EventsRange(
-      startExclusive = (raw.offset, raw.eventSequentialId),
-      endInclusive = endEventSeqId,
-    )
 
   private def getAcsEventSeqIdRange(activeAt: Offset)(implicit
       loggingContext: LoggingContext
@@ -442,23 +451,6 @@ private[appendonlydao] final class TransactionsReader(
           )
         )
       }
-    }
-
-  private def streamContractStateEvents(
-      queryMetric: DatabaseMetrics,
-      query: EventsRange[(Offset, Long)] => Connection => Vector[
-        ContractStateEventsReader.RawContractStateEvent
-      ],
-      getNextPageRange: ContractStateEventsReader.RawContractStateEvent => EventsRange[
-        (Offset, Long)
-      ],
-  )(range: EventsRange[(Offset, Long)])(implicit
-      loggingContext: LoggingContext
-  ): Source[ContractStateEventsReader.RawContractStateEvent, NotUsed] =
-    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
-      if (EventsRange.isEmpty(range1))
-        Future.successful(Vector.empty)
-      else dispatcher.executeSql(queryMetric)(query(range1))
     }
 
   private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {

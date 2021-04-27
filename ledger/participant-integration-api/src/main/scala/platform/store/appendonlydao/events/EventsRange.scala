@@ -83,12 +83,14 @@ private[events] object EventsRange {
         else {
           val fetchRatio = found / (guessedPageEnd - range.startExclusive).toDouble
           val remainingToBeFetched = minPageSize - found
+          val rangeEnd = (guessedPageEnd + 2 * (remainingToBeFetched / fetchRatio).toLong)
+            .min(range.endInclusive)
           SqlSequence
             .vector(
               read(
                 range.copy(
                   startExclusive = guessedPageEnd,
-                  endInclusive = guessedPageEnd + 2 * (remainingToBeFetched / fetchRatio).toLong,
+                  endInclusive = rangeEnd,
                 ),
                 s"limit $remainingToBeFetched",
               ) withFetchSize Some(minPageSize - found),
