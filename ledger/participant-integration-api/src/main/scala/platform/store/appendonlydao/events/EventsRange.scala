@@ -80,16 +80,22 @@ private[events] object EventsRange {
         val found = arithPage.size
         if (guessedPageEnd == range.endInclusive || found >= minPageSize)
           SqlSequence point arithPage
-        else
+        else {
+          val fetchRatio = found / (guessedPageEnd - range.startExclusive).toDouble
+          val remainingToBeFetched = minPageSize - found
           SqlSequence
             .vector(
               read(
-                range copy (startExclusive = guessedPageEnd),
-                s"limit ${minPageSize - found: Int}",
+                range.copy(
+                  startExclusive = guessedPageEnd,
+                  endInclusive = guessedPageEnd + 2 * (remainingToBeFetched / fetchRatio).toLong,
+                ),
+                s"limit $remainingToBeFetched",
               ) withFetchSize Some(minPageSize - found),
               row,
             )
             .map(arithPage ++ _)
+        }
       }
   }
 }
