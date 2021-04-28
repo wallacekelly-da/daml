@@ -130,7 +130,9 @@ final class Runner[T <: ReadWriteService, Extra](
             servicesExecutionContext <- ResourceOwner
               .forExecutorService(() =>
                 new InstrumentedExecutorService(
-                  Executors.newWorkStealingPool(),
+                  Executors.newWorkStealingPool(
+                    (Runtime.getRuntime.availableProcessors() * 1.3).toInt
+                  ),
                   metrics.registry,
                   metrics.daml.lapi.threadpool.apiServices.toString,
                 )
