@@ -79,7 +79,7 @@ private[appendonlydao] sealed class ContractsReader(
          );
          """
             .as(
-              (contractId("contract_id") ~ flatEventWitnessesColumn("flat_event_witnesses")).map {
+              (contractId("contract_id") ~ eventWitnessesColumn("flat_event_witnesses")).map {
                 case cId ~ stakeholders => KeyAssigned(cId, stakeholders)
               }.singleOpt
             )
@@ -380,7 +380,7 @@ private[appendonlydao] object ContractsReader {
   private val fullDetailsContractRowParser: RowParser[
     (Option[String], Set[Party], Option[InputStream], Option[Int], Int, Option[Instant])
   ] =
-    str("template_id").? ~ flatEventWitnessesColumn("flat_event_witnesses") ~ binaryStream(
+    str("template_id").? ~ eventWitnessesColumn("flat_event_witnesses") ~ binaryStream(
       "create_argument"
     ).? ~ int(
       "create_argument_compression"

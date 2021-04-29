@@ -20,6 +20,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.appendonlydao.events.{
   ChoiceName => LfChoiceName,
   DottedName => LfDottedName,
@@ -215,7 +216,10 @@ final class LfValueTranslation(
   private def eventKey(s: String) =
     LfValueTranslationCache.EventCache.Key(EventId.assertFromString(s))
 
-  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
+  def decompressAndDeserialize(
+      algorithm: Compression.Algorithm,
+      value: InputStream,
+  ): VersionedValue[events.ContractId] =
     ValueSerializer.deserializeValue(algorithm.decompress(value))
 
   private[this] def enricher: ValueEnricher = {

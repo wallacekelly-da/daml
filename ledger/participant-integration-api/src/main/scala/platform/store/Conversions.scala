@@ -283,7 +283,7 @@ private[platform] object Conversions {
   def contractId(columnName: String): RowParser[Value.ContractId] =
     SqlParser.get[Value.ContractId](columnName)(columnToContractId)
 
-  def flatEventWitnessesColumn(columnName: String): RowParser[Set[Party]] =
+  def eventWitnessesColumn(columnName: String): RowParser[Set[Party]] =
     SqlParser
       .get[Array[String]](columnName)(Column.columnToArray)
       .map(_.iterator.map(Party.assertFromString).toSet)

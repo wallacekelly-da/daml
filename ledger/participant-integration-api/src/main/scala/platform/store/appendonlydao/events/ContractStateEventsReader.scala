@@ -31,7 +31,7 @@ object ContractStateEventsReader {
       binaryStream("create_argument").? ~
       int("create_argument_compression").? ~
       long("event_sequential_id") ~
-      flatEventWitnessesColumn("flat_event_witnesses") ~
+      eventWitnessesColumn("flat_event_witnesses") ~
       offset("event_offset")).map {
       case eventKind ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
         RawContractStateEvent(

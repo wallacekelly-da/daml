@@ -18,9 +18,22 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.ReadOnlySqlLedgerWithMutableCache.DispatcherLagMeter
 import com.daml.platform.store.appendonlydao.EventSequentialId
+import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.{
+  CreatedEvent,
+  ExercisedEvent,
+  TransactionEvent,
+}
+import com.daml.platform.store.appendonlydao.events.{
+  BufferedTransactions,
+  BufferedTransactionsReader,
+  Contract,
+  Key,
+  Party,
+}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
 import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
@@ -54,7 +67,12 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             metrics.daml.execution.cache.dispatcherLag
           )
         )
-        contractStore <- contractStoreOwner(dispatcherLagMeter, contractStateEventsDispatcher)
+        bufferedTransactions = new BufferedTransactions(1000)
+        contractStore <- contractStoreOwner(
+          dispatcherLagMeter,
+          contractStateEventsDispatcher,
+          bufferedTransactions,
+        )
         ledger <- ledgerOwner(
           contractStateEventsDispatcher,
           generalDispatcher,
@@ -86,6 +104,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
     private def contractStoreOwner(
         signalNewLedgerHead: SignalNewLedgerHead,
         contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
+        bufferedTransactions: BufferedTransactions,
     )(implicit
         context: ResourceContext
     ) =
@@ -97,14 +116,58 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             .startingAt(
               offset -> eventSequentialId,
               RangeSource(
-                ledgerDao.transactionsReader.getContractStateEvents(_, _)
+                ledgerDao.transactionsReader.getTransactionEvents(_, _)
               ),
             )
-            .map(_._2),
+            .alsoTo {
+              Sink.foreach {
+                case ((offset, _), event: BufferedTransactionsReader.Transaction) =>
+                  bufferedTransactions.push(offset, event)
+                case _ => ()
+              }
+            }
+            .flatMapConcat(tx => toContractStateEvents(tx._2)),
         metrics = metrics,
         maxContractsCacheSize = maxContractStateCacheSize,
         maxKeyCacheSize = maxContractKeyStateCacheSize,
       )
+
+    private def toContractStateEvents(tx: TransactionEvent): Source[ContractStateEvent, NotUsed] =
+      tx match {
+        case tx: BufferedTransactionsReader.Transaction =>
+          Source.fromIterator(() =>
+            tx.events.iterator.collect {
+              case createdEvent: CreatedEvent =>
+                ContractStateEvent.Created(
+                  contractId = createdEvent.contractId,
+                  contract = Contract(
+                    template = createdEvent.templateId,
+                    arg = createdEvent.createArgument,
+                    agreementText = "",
+                  ),
+                  globalKey = createdEvent.contractKey.map(k =>
+                    Key.assertBuild(createdEvent.templateId, k.value)
+                  ),
+                  ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
+                  stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
+                  eventOffset = createdEvent.eventOffset,
+                  eventSequentialId = createdEvent.eventSequentialId,
+                )
+              case exercisedEvent: ExercisedEvent if exercisedEvent.consuming =>
+                ContractStateEvent.Archived(
+                  contractId = exercisedEvent.contractId,
+                  globalKey = exercisedEvent.contractKey.map(k =>
+                    Key.assertBuild(exercisedEvent.templateId, k.value)
+                  ),
+                  stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
+                  eventOffset = exercisedEvent.eventOffset,
+                  eventSequentialId = exercisedEvent.eventSequentialId,
+                )
+            }
+          )
+        case BufferedTransactionsReader.LedgerEndMarker(eventOffset, eventSequentialId) =>
+          Source.single(ContractStateEvent.LedgerEndMarker(eventOffset, eventSequentialId))
+      }
 
     private def dispatcherOffsetSeqIdOwner(ledgerEnd: Offset, evtSeqId: Long) = {
       Dispatcher.owner(

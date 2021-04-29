@@ -328,12 +328,13 @@ da_scala_test_suite(
 
 conformance_test(
     name = "conformance-test-append-only",
-    ports = [6865],
+    ports = [6868],
     server = ":conformance-test-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865",
+        "--participant participant-id=conformance-test,port=6868",
         "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
     ],
     tags = [],
     test_tool_args = [
@@ -349,6 +350,7 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865",
         "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
     ],
     tags = [],
     test_tool_args = [
@@ -365,6 +367,7 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865",
         "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
     ],
     tags = [],
     test_tool_args = [

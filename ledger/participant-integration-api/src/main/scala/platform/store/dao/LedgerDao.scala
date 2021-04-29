@@ -26,6 +26,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.events.{FilterRelation, TransactionsWriter}
@@ -36,6 +37,7 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.Future
 
@@ -85,6 +87,18 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit
       loggingContext: LoggingContext
   ): Source[((Offset, Long), ContractStateEvent), NotUsed]
+
+  def getTransactionEvents(
+      startExclusive: (Offset, Long),
+      endInclusive: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[((Offset, Long), BufferedTransactionsReader.TransactionEvent), NotUsed] = {
+    discard(startExclusive)
+    discard(endInclusive)
+    discard(loggingContext)
+    throw new UnsupportedOperationException("getTransactionEvents")
+  }
 }
 
 private[platform] trait LedgerDaoCommandCompletionsReader {
