@@ -16,7 +16,8 @@ import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.{Value => LfValue}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.participant.util.LfEngineToApi
@@ -28,94 +29,18 @@ import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.timestamp.Timestamp
 
+import scala.collection.mutable
 import scala.concurrent.Future
 
 // TDT Handle verbose lf decode
 class BufferedTransactionsReader(
     protected val delegate: TransactionsReader,
-    bufferedTransactions: BufferedTransactions,
+    val bufferedTransactions: BufferedTransactions,
+    metrics: Metrics,
 ) extends LedgerDaoTransactionsReader
     with DelegateTransactionsReader {
 
-  private def toTxTree(tx: Transaction, requestingParties: Set[Party]): TransactionTree = {
-    val treeEvents = tx.events
-      .collect {
-        // TDT handle multi-party submissions
-        case createdEvent: BufferedTransactionsReader.CreatedEvent
-            if requestingParties == createdEvent.treeEventWitnesses =>
-          TreeEvent(
-            TreeEvent.Kind.Created(
-              com.daml.ledger.api.v1.event.CreatedEvent(
-                eventId = createdEvent.eventId.toLedgerString,
-                contractId = createdEvent.contractId.toString,
-                templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
-                contractKey = createdEvent.contractKey
-                  .map(LfEngineToApi.lfVersionedValueToApiValue(false, _))
-                  .map(_.getOrElse(throw new RuntimeException("Could not convert to API value"))),
-                createArguments = Some(
-                  LfEngineToApi
-                    .lfVersionedValueToApiRecord(verbose = false, createdEvent.createArgument)
-                    .getOrElse(throw new RuntimeException("Could not convert to API value"))
-                ),
-                witnessParties = createdEvent.treeEventWitnesses.toSeq,
-                signatories = createdEvent.createSignatories.toSeq,
-                observers = createdEvent.createObservers.toSeq,
-                agreementText = createdEvent.createAgreementText.orElse(Some("")),
-              )
-            )
-          )
-        case exercisedEvent: BufferedTransactionsReader.ExercisedEvent
-            if requestingParties == exercisedEvent.treeEventWitnesses =>
-          TreeEvent(
-            TreeEvent.Kind.Exercised(
-              com.daml.ledger.api.v1.event.ExercisedEvent(
-                eventId = exercisedEvent.eventId.toLedgerString,
-                contractId = exercisedEvent.contractId.toString,
-                templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
-                choice = exercisedEvent.choice,
-                choiceArgument = Some(
-                  LfEngineToApi
-                    .lfVersionedValueToApiValue(verbose = false, exercisedEvent.exerciseArgument)
-                    .getOrElse(throw new RuntimeException("Could not convert to API value"))
-                ),
-                actingParties = exercisedEvent.actingParties.toSeq,
-                consuming = false,
-                witnessParties = exercisedEvent.treeEventWitnesses.toSeq,
-                childEventIds = exercisedEvent.children,
-                exerciseResult = exercisedEvent.exerciseResult.map(
-                  LfEngineToApi
-                    .lfVersionedValueToApiValue(false, _)
-                    .getOrElse(throw new RuntimeException("Could not convert to API value"))
-                ),
-              )
-            )
-          )
-      }
-
-    val visible = treeEvents.map(_.eventId)
-    val visibleSet = visible.toSet
-    val eventsById = treeEvents.iterator
-      .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
-      .toMap
-
-    // All event identifiers that appear as a child of another item in this response
-    val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
-
-    // The roots for this request are all visible items
-    // that are not a child of some other visible item
-    val rootEventIds = visible.filterNot(children)
-
-    TransactionTree(
-      transactionId = tx.transactionId,
-      commandId = tx.commandId.getOrElse(""), // TDT use submitters predicate to set commandId
-      workflowId = tx.workflowId.getOrElse(""),
-      effectiveAt = Some(instantToTimestamp(tx.effectiveAt)),
-      offset = ApiOffset.toApiString(tx.offset),
-      eventsById = eventsById,
-      rootEventIds = rootEventIds,
-      traceContext = None,
-    )
-  }
+  private val logger = ContextualizedLogger.get(getClass)
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -126,25 +51,169 @@ class BufferedTransactionsReader(
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     bufferedTransactions.getTransactions(startExclusive, endInclusive) match {
-      case (bufferedStartExclusive, bufferedSource) =>
-        if (bufferedStartExclusive > startExclusive)
+      case ((bufferedStartExclusive, bufferedEndInclusive), bufferedSource) =>
+        if (bufferedStartExclusive > startExclusive) {
+          val bufferedTxs = bufferedSource
+            .map { case (offset, tx) =>
+              offset -> toTxTree(tx, requestingParties, verbose)
+            }
+            .collect { case (offset, Some(tree)) =>
+              metrics.daml.index.transactionEventsResolvedFromBuffer.inc()
+              offset -> GetTransactionTreesResponse(Seq(tree))
+            }
+
+          logger.info(
+            s"Buffered $startExclusive -> $bufferedStartExclusive -> $bufferedEndInclusive -> $endInclusive"
+          )
+
+          val transactionsAfterBuffer =
+            if (bufferedEndInclusive < endInclusive)
+              delegate
+                .getTransactionTrees(
+                  bufferedEndInclusive,
+                  endInclusive,
+                  requestingParties,
+                  verbose,
+                )
+            else Source.empty
+
           delegate
             .getTransactionTrees(startExclusive, bufferedStartExclusive, requestingParties, verbose)
-            .concat(bufferedSource.map { case (offset, tx) =>
-              offset -> GetTransactionTreesResponse(Seq(toTxTree(tx, requestingParties)))
+            .concat(bufferedTxs)
+            .concat(transactionsAfterBuffer)
+            .map(tx => {
+              metrics.daml.index.totalTransactionsRetrieved.inc()
+              tx
             })
-        else
-          bufferedSource.map { case (offset, tx) =>
-            offset -> GetTransactionTreesResponse(Seq(toTxTree(tx, requestingParties)))
-          }
+        } else {
+          val transactionsAfterBuffer =
+            if (bufferedEndInclusive < endInclusive)
+              delegate
+                .getTransactionTrees(
+                  bufferedEndInclusive,
+                  endInclusive,
+                  requestingParties,
+                  verbose,
+                )
+            else Source.empty
+
+          bufferedSource
+            .map { case (offset, tx) =>
+              offset -> toTxTree(tx, requestingParties, verbose)
+            }
+            .collect { case (offset, Some(tree)) =>
+              metrics.daml.index.transactionEventsResolvedFromBuffer.inc()
+              offset -> GetTransactionTreesResponse(Seq(tree))
+            }
+            .concat(transactionsAfterBuffer)
+            .map(tx => {
+              metrics.daml.index.totalTransactionsRetrieved.inc()
+              tx
+            })
+        }
     }
+
+  private def toTxTree(
+      tx: Transaction,
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Option[TransactionTree] = {
+    val treeEvents = tx.events
+      .collect {
+        // TDT handle multi-party submissions
+        case createdEvent: BufferedTransactionsReader.CreatedEvent
+            if createdEvent.treeEventWitnesses
+              .intersect(requestingParties.asInstanceOf[Set[String]])
+              .nonEmpty =>
+          TreeEvent(
+            TreeEvent.Kind.Created(
+              com.daml.ledger.api.v1.event.CreatedEvent(
+                eventId = createdEvent.eventId.toLedgerString,
+                contractId = createdEvent.contractId.coid,
+                templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+                contractKey = createdEvent.contractKey
+                  .map(LfEngineToApi.lfVersionedValueToApiValue(verbose, _))
+                  .map(_.getOrElse(throw new RuntimeException("Could not convert to API value"))),
+                createArguments = Some(
+                  LfEngineToApi
+                    .lfVersionedValueToApiRecord(verbose = verbose, createdEvent.createArgument)
+                    .getOrElse(throw new RuntimeException("Could not convert to API value"))
+                ),
+                witnessParties = createdEvent.treeEventWitnesses.toSeq,
+                signatories = createdEvent.createSignatories.toSeq,
+                observers = createdEvent.createObservers.toSeq,
+                agreementText = createdEvent.createAgreementText.orElse(Some("")),
+              )
+            )
+          )
+        case exercisedEvent: BufferedTransactionsReader.ExercisedEvent
+            if exercisedEvent.treeEventWitnesses
+              .intersect(requestingParties.asInstanceOf[Set[String]])
+              .nonEmpty =>
+          TreeEvent(
+            TreeEvent.Kind.Exercised(
+              com.daml.ledger.api.v1.event.ExercisedEvent(
+                eventId = exercisedEvent.eventId.toLedgerString,
+                contractId = exercisedEvent.contractId.coid,
+                templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+                choice = exercisedEvent.choice,
+                choiceArgument = Some(
+                  LfEngineToApi
+                    .lfVersionedValueToApiValue(verbose = verbose, exercisedEvent.exerciseArgument)
+                    .getOrElse(throw new RuntimeException("Could not convert to API value"))
+                ),
+                actingParties = exercisedEvent.actingParties.toSeq,
+                consuming = exercisedEvent.consuming,
+                witnessParties = exercisedEvent.treeEventWitnesses.toSeq,
+                childEventIds = exercisedEvent.children,
+                exerciseResult = exercisedEvent.exerciseResult.map(
+                  LfEngineToApi
+                    .lfVersionedValueToApiValue(verbose, _)
+                    .getOrElse(throw new RuntimeException("Could not convert to API value"))
+                ),
+              )
+            )
+          )
+      }
+
+    if (treeEvents.isEmpty)
+      Option.empty
+    else {
+
+      val visible = treeEvents.map(_.eventId)
+      val visibleSet = visible.toSet
+      val eventsById = treeEvents.iterator
+        .map(e => e.eventId -> e.filterChildEventIds(visibleSet))
+        .toMap
+
+      // All event identifiers that appear as a child of another item in this response
+      val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+
+      // The roots for this request are all visible items
+      // that are not a child of some other visible item
+      val rootEventIds = visible.filterNot(children)
+
+      Some(
+        TransactionTree(
+          transactionId = tx.transactionId,
+          commandId = tx.commandId.getOrElse(""), // TDT use submitters predicate to set commandId
+          workflowId = tx.workflowId.getOrElse(""),
+          effectiveAt = Some(instantToTimestamp(tx.effectiveAt)),
+          offset = ApiOffset.toApiString(tx.offset),
+          eventsById = eventsById,
+          rootEventIds = rootEventIds,
+          traceContext = None,
+        )
+      )
+    }
+  }
 
   private def instantToTimestamp(t: Instant): Timestamp =
     Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
 }
 
 class BufferedTransactions(maxTransactions: Int) {
-  private val buffer = scala.collection.concurrent.TrieMap.empty[Offset, Transaction]
+  private val buffer = mutable.SortedMap.empty[Offset, Transaction]
 
   def push(offset: Offset, transaction: Transaction): Unit = buffer.synchronized {
     discard {
@@ -159,36 +228,36 @@ class BufferedTransactions(maxTransactions: Int) {
   def getTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
-  ): (Offset, Source[(Offset, Transaction), NotUsed]) =
-    buffer.lastOption
-      .map {
-        case (bufferEndInclusive, _) if bufferEndInclusive < endInclusive =>
-          // TDT extract into proper Error
-          throw new RuntimeException(
-            s"Requested endInclusive $endInclusive supersedes bufferedEndInclusive $bufferEndInclusive"
-          )
-        case _ =>
-          buffer.head match {
-            case (bufferStartExclusive, _) if bufferStartExclusive >= endInclusive =>
-              startExclusive -> Source.empty
-            case _ =>
-              var bufferedStartExclusive = startExclusive
+  ): ((Offset, Offset), Source[(Offset, Transaction), NotUsed]) =
+    buffer.synchronized {
+      buffer.headOption
+        .map {
+          case (bufferStartExclusive, _) if bufferStartExclusive >= endInclusive =>
+            (startExclusive, startExclusive) -> Source.empty
+          case _ =>
+            var bufferedStartExclusive = startExclusive
+            var bufferedEndInclusive = startExclusive
 
-              val source = Source.fromIterator(() =>
-                buffer
-                  .dropWhile { case (offset, _) =>
-                    offset > startExclusive && {
-                      bufferedStartExclusive = offset
-                      true
-                    }
-                  }
-                  .takeWhile(_._1 <= endInclusive)
-                  .toIterator
-              )
-              bufferedStartExclusive -> source
-          }
-      }
-      .getOrElse(startExclusive -> Source.empty)
+            val slice = buffer
+              .dropWhile { case (offset, _) =>
+                offset <= startExclusive && {
+                  bufferedStartExclusive = offset
+                  bufferedEndInclusive = offset
+                  true
+                }
+              }
+              .takeWhile { case (offset, _) =>
+                offset <= endInclusive && {
+                  bufferedEndInclusive = offset
+                  true
+                }
+              }
+
+            val source = Source.fromIterator(() => slice.iterator)
+            (bufferedStartExclusive, bufferedEndInclusive) -> source
+        }
+        .getOrElse((startExclusive, startExclusive) -> Source.empty)
+    }
 }
 
 object BufferedTransactionsReader {

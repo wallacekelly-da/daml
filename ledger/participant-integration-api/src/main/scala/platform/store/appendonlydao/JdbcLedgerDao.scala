@@ -5,6 +5,7 @@ package com.daml.platform.store.appendonlydao
 import java.sql.Connection
 import java.time.Instant
 import java.util.Date
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
@@ -37,6 +38,8 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.CommandCompletionsTable.prepareCompletionsDelete
 import com.daml.platform.store.appendonlydao.events.{
+  BufferedTransactions,
+  BufferedTransactionsReader,
   ContractsReader,
   EventsTableDelete,
   LfValueTranslation,
@@ -47,6 +50,7 @@ import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.{
   DeduplicationKeyMaker,
   LedgerDao,
+  LedgerDaoTransactionsReader,
   LedgerReadDao,
   MeteredLedgerDao,
   MeteredLedgerReadDao,
@@ -633,10 +637,15 @@ private class JdbcLedgerDao(
       loadPackage = (packageId, loggingContext) => this.getLfArchive(packageId)(loggingContext),
     )
 
-  override val transactionsReader: TransactionsReader =
-    new TransactionsReader(dbDispatcher, dbType, eventsPageSize, metrics, translation)(
-      servicesExecutionContext
+  override val transactionsReader: LedgerDaoTransactionsReader = {
+    new BufferedTransactionsReader(
+      delegate = new TransactionsReader(dbDispatcher, dbType, eventsPageSize, metrics, translation)(
+        servicesExecutionContext
+      ),
+      bufferedTransactions = new BufferedTransactions(10000),
+      metrics = metrics,
     )
+  }
 
   override val contractsReader: ContractsReader =
     ContractsReader(dbDispatcher, dbType, metrics)(

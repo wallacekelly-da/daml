@@ -126,6 +126,7 @@ object TransactionEventsReader {
             raw.exerciseChoice.getOrElse(throw new RuntimeException("Missing exercise_choice")),
           actingParties = raw.exerciseActors
             .getOrElse(throw new RuntimeException("Missing exercise_actors"))
+            .iterator
             .map(Ref.Party.assertFromString)
             .toSet,
           children = raw.exerciseChildEventIds

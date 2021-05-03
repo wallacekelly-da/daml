@@ -328,17 +328,18 @@ da_scala_test_suite(
 
 conformance_test(
     name = "conformance-test-append-only",
-    ports = [6868],
+    ports = [6871],
     server = ":conformance-test-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6868",
+        "--participant participant-id=conformance-test,port=6871",
         "--index-append-only-schema-unsafe",
         "--mutable-contract-state-cache-unsafe",
     ],
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--include=TransactionServiceIT"
     ],
 )
 

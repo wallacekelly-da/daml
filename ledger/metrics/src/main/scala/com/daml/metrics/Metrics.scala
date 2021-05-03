@@ -349,6 +349,11 @@ final class Metrics(val registry: MetricRegistry) {
         registry.timer(Prefix :+ "stop_deduplicating_command")
       val prune: Timer = registry.timer(Prefix :+ "prune")
 
+      val totalTransactionsRetrieved: Counter =
+        registry.counter(Prefix :+ "total_transactions_retrieved")
+      val transactionEventsResolvedFromBuffer: Counter =
+        registry.counter(Prefix :+ "transaction_events_from_buffer")
+
       val publishTransaction: Timer = registry.timer(Prefix :+ "publish_transaction")
       val publishPartyAllocation: Timer = registry.timer(Prefix :+ "publish_party_allocation")
       val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")

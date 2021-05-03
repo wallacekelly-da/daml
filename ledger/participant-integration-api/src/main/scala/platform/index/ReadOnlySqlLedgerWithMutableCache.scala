@@ -67,11 +67,10 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             metrics.daml.execution.cache.dispatcherLag
           )
         )
-        bufferedTransactions = new BufferedTransactions(1000)
         contractStore <- contractStoreOwner(
           dispatcherLagMeter,
           contractStateEventsDispatcher,
-          bufferedTransactions,
+          ledgerDao.transactionsReader.asInstanceOf[BufferedTransactionsReader].bufferedTransactions,
         )
         ledger <- ledgerOwner(
           contractStateEventsDispatcher,
@@ -119,12 +118,11 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
                 ledgerDao.transactionsReader.getTransactionEvents(_, _)
               ),
             )
-            .alsoTo {
-              Sink.foreach {
-                case ((offset, _), event: BufferedTransactionsReader.Transaction) =>
-                  bufferedTransactions.push(offset, event)
-                case _ => ()
-              }
+            .map {
+              case ev @ ((offset, _), event: BufferedTransactionsReader.Transaction) =>
+                bufferedTransactions.push(offset, event)
+                ev
+              case ev => ev
             }
             .flatMapConcat(tx => toContractStateEvents(tx._2)),
         metrics = metrics,
