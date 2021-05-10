@@ -223,8 +223,7 @@ class BufferedTransactionsReader(
 }
 
 class BufferedTransactions(maxTransactions: Int, metrics: Metrics) {
-  private val buffer = mutable.SortedMap.empty[Offset, Transaction]
-  private var size = 0
+  private val buffer = mutable.Queue.empty[(Offset, Transaction)]
 
   def push(offset: Offset, transaction: Transaction): Unit = buffer.synchronized {
     Timed.value(
@@ -233,11 +232,10 @@ class BufferedTransactions(maxTransactions: Int, metrics: Metrics) {
           {
             if (buffer.size == maxTransactions) {
               metrics.daml.index.bufferSize.dec()
-              size -= 1
-              buffer.drop(1)
+              discard(buffer.dequeue())
+              buffer
             } else buffer
-          } += {
-            size += 1
+          }.enqueue {
             metrics.daml.index.bufferSize.inc()
             offset -> transaction
           }
