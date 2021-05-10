@@ -17,7 +17,7 @@ import com.daml.lf.data.Ref.IdString
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.participant.util.LfEngineToApi
@@ -49,69 +49,79 @@ class BufferedTransactionsReader(
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
-    bufferedTransactions.getTransactions(startExclusive, endInclusive) match {
-      case ((bufferedStartExclusive, bufferedEndInclusive), bufferedSource) =>
-        if (bufferedStartExclusive > startExclusive) {
-          val bufferedTxs = bufferedSource
-            .map { case (offset, tx) =>
-              offset -> toTxTree(tx, requestingParties, verbose)
-            }
-            .collect { case (offset, Some(tree)) =>
-              metrics.daml.index.transactionEventsResolvedFromBuffer.inc()
-              offset -> GetTransactionTreesResponse(Seq(tree))
-            }
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+    Timed.source(
+      metrics.daml.index.getTransactionsSource, {
+        bufferedTransactions.getTransactions(startExclusive, endInclusive) match {
+          case ((bufferedStartExclusive, bufferedEndInclusive), bufferedSource) =>
+            if (bufferedStartExclusive > startExclusive) {
+              val bufferedTxs = bufferedSource
+                .map { case (offset, tx) =>
+                  offset -> toTxTree(tx, requestingParties, verbose)
+                }
+                .collect { case (offset, Some(tree)) =>
+                  metrics.daml.index.transactionEventsResolvedFromBuffer.inc()
+                  offset -> GetTransactionTreesResponse(Seq(tree))
+                }
 
-          logger.info(
-            s"Buffered $startExclusive -> $bufferedStartExclusive -> $bufferedEndInclusive -> $endInclusive"
-          )
+              logger.info(
+                s"Buffered $startExclusive -> $bufferedStartExclusive -> $bufferedEndInclusive -> $endInclusive"
+              )
 
-          val transactionsAfterBuffer =
-            if (bufferedEndInclusive < endInclusive)
+              val transactionsAfterBuffer =
+                if (bufferedEndInclusive < endInclusive)
+                  delegate
+                    .getTransactionTrees(
+                      bufferedEndInclusive,
+                      endInclusive,
+                      requestingParties,
+                      verbose,
+                    )
+                else Source.empty
+
               delegate
                 .getTransactionTrees(
-                  bufferedEndInclusive,
-                  endInclusive,
+                  startExclusive,
+                  bufferedStartExclusive,
                   requestingParties,
                   verbose,
                 )
-            else Source.empty
+                .concat(bufferedTxs)
+                .concat(transactionsAfterBuffer)
+                .map(tx => {
+                  metrics.daml.index.totalTransactionsRetrieved.inc()
+                  tx
+                })
+            } else {
+              val transactionsAfterBuffer =
+                if (bufferedEndInclusive < endInclusive)
+                  delegate
+                    .getTransactionTrees(
+                      bufferedEndInclusive,
+                      endInclusive,
+                      requestingParties,
+                      verbose,
+                    )
+                else Source.empty
 
-          delegate
-            .getTransactionTrees(startExclusive, bufferedStartExclusive, requestingParties, verbose)
-            .concat(bufferedTxs)
-            .concat(transactionsAfterBuffer)
-            .map(tx => {
-              metrics.daml.index.totalTransactionsRetrieved.inc()
-              tx
-            })
-        } else {
-          val transactionsAfterBuffer =
-            if (bufferedEndInclusive < endInclusive)
-              delegate
-                .getTransactionTrees(
-                  bufferedEndInclusive,
-                  endInclusive,
-                  requestingParties,
-                  verbose,
-                )
-            else Source.empty
-
-          bufferedSource
-            .map { case (offset, tx) =>
-              offset -> toTxTree(tx, requestingParties, verbose)
+              bufferedSource
+                .map { case (offset, tx) =>
+                  offset -> toTxTree(tx, requestingParties, verbose)
+                }
+                .collect { case (offset, Some(tree)) =>
+                  metrics.daml.index.transactionEventsResolvedFromBuffer.inc()
+                  offset -> GetTransactionTreesResponse(Seq(tree))
+                }
+                .concat(transactionsAfterBuffer)
+                .map(tx => {
+                  metrics.daml.index.totalTransactionsRetrieved.inc()
+                  tx
+                })
             }
-            .collect { case (offset, Some(tree)) =>
-              metrics.daml.index.transactionEventsResolvedFromBuffer.inc()
-              offset -> GetTransactionTreesResponse(Seq(tree))
-            }
-            .concat(transactionsAfterBuffer)
-            .map(tx => {
-              metrics.daml.index.totalTransactionsRetrieved.inc()
-              tx
-            })
         }
-    }
+      },
+    )
+  }
 
   private def toTxTree(
       tx: Transaction,
@@ -212,17 +222,28 @@ class BufferedTransactionsReader(
     Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
 }
 
-class BufferedTransactions(maxTransactions: Int) {
+class BufferedTransactions(maxTransactions: Int, metrics: Metrics) {
   private val buffer = mutable.SortedMap.empty[Offset, Transaction]
+  private var size = 0
 
   def push(offset: Offset, transaction: Transaction): Unit = buffer.synchronized {
-    discard {
-      {
-        if (buffer.size == maxTransactions)
-          buffer.drop(1)
-        else buffer
-      } += (offset -> transaction)
-    }
+    Timed.value(
+      metrics.daml.index.bufferPushTransaction, {
+        discard {
+          {
+            if (buffer.size == maxTransactions) {
+              metrics.daml.index.bufferSize.dec()
+              size -= 1
+              buffer.drop(1)
+            } else buffer
+          } += {
+            size += 1
+            metrics.daml.index.bufferSize.inc()
+            offset -> transaction
+          }
+        }
+      },
+    )
   }
 
   def getTransactions(
@@ -238,23 +259,27 @@ class BufferedTransactions(maxTransactions: Int) {
             var bufferedStartExclusive = startExclusive
             var bufferedEndInclusive = startExclusive
 
-            val slice = buffer
-              .dropWhile { case (offset, _) =>
-                offset <= startExclusive && {
-                  bufferedStartExclusive = offset
-                  bufferedEndInclusive = offset
-                  true
-                }
-              }
-              .takeWhile { case (offset, _) =>
-                offset <= endInclusive && {
-                  bufferedEndInclusive = offset
-                  true
-                }
-              }
+            Timed.value(
+              metrics.daml.index.bufferGetTransactions, {
+                val slice = buffer
+                  .dropWhile { case (offset, _) =>
+                    offset <= startExclusive && {
+                      bufferedStartExclusive = offset
+                      bufferedEndInclusive = offset
+                      true
+                    }
+                  }
+                  .takeWhile { case (offset, _) =>
+                    offset <= endInclusive && {
+                      bufferedEndInclusive = offset
+                      true
+                    }
+                  }
 
-            val source = Source.fromIterator(() => slice.iterator)
-            (bufferedStartExclusive, bufferedEndInclusive) -> source
+                val source = Source.fromIterator(() => slice.iterator)
+                (bufferedStartExclusive, bufferedEndInclusive) -> source
+              },
+            )
         }
         .getOrElse((startExclusive, startExclusive) -> Source.empty)
     }

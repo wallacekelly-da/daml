@@ -354,10 +354,16 @@ final class Metrics(val registry: MetricRegistry) {
       val transactionEventsResolvedFromBuffer: Counter =
         registry.counter(Prefix :+ "transaction_events_from_buffer")
 
+      val getTransactionsSource: Timer = registry.timer(Prefix :+ "get_transactions_source")
+
       val publishTransaction: Timer = registry.timer(Prefix :+ "publish_transaction")
       val publishPartyAllocation: Timer = registry.timer(Prefix :+ "publish_party_allocation")
       val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
       val publishConfiguration: Timer = registry.timer(Prefix :+ "publish_configuration")
+
+      val bufferGetTransactions: Timer = registry.timer(Prefix :+ "buffer_get_transactions")
+      val bufferPushTransaction: Timer = registry.timer(Prefix :+ "buffer_put_transaction")
+      val bufferSize: Counter = registry.counter(Prefix :+ "transactions_buffer_size")
 
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
