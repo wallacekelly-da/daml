@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
 import com.daml.platform.ApiOffset
+import com.daml.platform.indexer.parallel.PerfSupport.instrumentedBufferedSource
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
@@ -270,14 +271,16 @@ private[appendonlydao] final class TransactionsReader(
         )
       }
 
-    groupContiguous(eventsSource)(by = _.transactionId)
-      .map { v =>
-        val tx = toTransaction(v)
-        (tx.offset, tx.lastEventSequentialId) -> tx
-      }
-      .mapMaterializedValue(_ => NotUsed)
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
-      .concat(endMarker)
+    instrumentedBufferedSource(
+      original = groupContiguous(eventsSource)(by = _.transactionId)
+        .map { v =>
+          val tx = toTransaction(v)
+          (tx.offset, tx.lastEventSequentialId) -> tx
+        }
+        .mapMaterializedValue(_ => NotUsed),
+      counter = metrics.daml.index.transactionEventsBufferSize,
+      size = outputStreamBufferSize,
+    ).concat(endMarker)
   }
 
   private def splitRange(

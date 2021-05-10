@@ -20,6 +20,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
+import com.daml.platform.indexer.parallel.PerfSupport.instrumentedBufferedSource
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.Transaction
@@ -42,6 +43,8 @@ class BufferedTransactionsReader(
 
   private val logger = ContextualizedLogger.get(getClass)
 
+  private val outputStreamBufferSize = 128
+
   override def getTransactionTrees(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -50,7 +53,7 @@ class BufferedTransactionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    Timed.source(
+    val transactionTreesSource = Timed.source(
       metrics.daml.index.getTransactionsSource, {
         bufferedTransactions.getTransactions(startExclusive, endInclusive) match {
           case ((bufferedStartExclusive, bufferedEndInclusive), bufferedSource) =>
@@ -120,6 +123,12 @@ class BufferedTransactionsReader(
             }
         }
       },
+    )
+
+    instrumentedBufferedSource(
+      original = transactionTreesSource,
+      counter = metrics.daml.index.transactionTreesBufferSize,
+      size = outputStreamBufferSize,
     )
   }
 
