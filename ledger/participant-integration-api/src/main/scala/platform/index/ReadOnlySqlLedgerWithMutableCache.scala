@@ -117,13 +117,11 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
                 ledgerDao.transactionsReader.getTransactionEvents(_, _)
               ),
             )
-            .map {
-              case ev @ ((offset, _), event: BufferedTransactionsReader.Transaction) =>
-                bufferedTransactions.push(offset, event)
-                ev
-              case ev => ev
+            .map { case ((offset, _), event) =>
+              bufferedTransactions.push(offset, event)
+              event
             }
-            .flatMapConcat(tx => toContractStateEvents(tx._2)),
+            .flatMapConcat(tx => toContractStateEvents(tx)),
         metrics = metrics,
         maxContractsCacheSize = maxContractStateCacheSize,
         maxKeyCacheSize = maxContractKeyStateCacheSize,
