@@ -339,7 +339,6 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--include=TransactionServiceIT"
     ],
 )
 

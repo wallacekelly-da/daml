@@ -17,14 +17,13 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.ReadOnlySqlLedgerWithMutableCache.DispatcherLagMeter
-import com.daml.platform.store.appendonlydao.EventSequentialId
+import com.daml.platform.store.appendonlydao.{EventSequentialId, TransactionsBuffer}
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.{
   CreatedEvent,
   ExercisedEvent,
   TransactionEvent,
 }
 import com.daml.platform.store.appendonlydao.events.{
-  BufferedTransactions,
   BufferedTransactionsReader,
   Contract,
   Key,
@@ -103,7 +102,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
     private def contractStoreOwner(
         signalNewLedgerHead: SignalNewLedgerHead,
         contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
-        bufferedTransactions: BufferedTransactions,
+        bufferedTransactions: TransactionsBuffer,
     )(implicit
         context: ResourceContext
     ) =

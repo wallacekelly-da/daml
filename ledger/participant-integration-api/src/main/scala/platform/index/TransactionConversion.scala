@@ -98,7 +98,8 @@ private[platform] object TransactionConversion {
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Option[ApiTransaction] = {
-    val allFlatEvents = collect(entry.transaction)(toFlatEvent(entry.transactionId, verbose))
+    val allFlatEvents: Seq[Event] =
+      collect(entry.transaction)(toFlatEvent(entry.transactionId, verbose))
     val flatEvents = removeTransient(allFlatEvents)
     val filtered = flatEvents.flatMap(EventFilter(_)(filter).toList)
     val requestingParties = filter.filtersByParty.keySet

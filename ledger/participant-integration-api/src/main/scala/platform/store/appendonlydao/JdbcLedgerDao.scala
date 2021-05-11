@@ -38,7 +38,6 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.CommandCompletionsTable.prepareCompletionsDelete
 import com.daml.platform.store.appendonlydao.events.{
-  BufferedTransactions,
   BufferedTransactionsReader,
   ContractsReader,
   EventsTableDelete,
@@ -642,7 +641,7 @@ private class JdbcLedgerDao(
       delegate = new TransactionsReader(dbDispatcher, dbType, eventsPageSize, metrics, translation)(
         servicesExecutionContext
       ),
-      bufferedTransactions = new BufferedTransactions(10000, metrics),
+      bufferedTransactions = new TransactionsBuffer(10000, metrics),
       metrics = metrics,
     )
   }

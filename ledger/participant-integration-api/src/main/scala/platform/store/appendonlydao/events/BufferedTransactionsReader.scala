@@ -4,8 +4,9 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent, Transaction => FlatTx}
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -22,21 +23,19 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.indexer.parallel.PerfSupport.instrumentedBufferedSource
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.Transaction
+import com.daml.platform.store.appendonlydao.{TransactionsBuffer, events}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
-import com.daml.scalautil.Statement.discard
 import com.google.protobuf.timestamp.Timestamp
 
-import scala.collection.mutable
 import scala.concurrent.Future
 
 // TDT Handle verbose lf decode
 class BufferedTransactionsReader(
     protected val delegate: TransactionsReader,
-    val bufferedTransactions: BufferedTransactions,
+    val bufferedTransactions: TransactionsBuffer,
     metrics: Metrics,
 ) extends LedgerDaoTransactionsReader
     with DelegateTransactionsReader {
@@ -45,6 +44,22 @@ class BufferedTransactionsReader(
 
   private val outputStreamBufferSize = 128
 
+  override def getFlatTransactions(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
+    getTransactions(startExclusive, endInclusive, filter, verbose)(
+      toApiTx = toFlatTx,
+      toApiResponse = (tx: FlatTx) => GetTransactionsResponse(Seq(tx)),
+      fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
+      sourceTimer = metrics.daml.index.getFlatTransactionsSource,
+      resolvedFromBufferCounter = metrics.daml.index.flatTransactionEventsResolvedFromBuffer,
+      totalRetrievedCounter = metrics.daml.index.totalFlatTransactionsRetrieved,
+      bufferSizeCounter = metrics.daml.index.flatTransactionsBufferSize,
+    )
+
   override def getTransactionTrees(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -52,19 +67,48 @@ class BufferedTransactionsReader(
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val transactionTreesSource = Timed.source(
-      metrics.daml.index.getTransactionsSource, {
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    getTransactions(startExclusive, endInclusive, requestingParties, verbose)(
+      toApiTx = toTxTree,
+      toApiResponse = (tx: TransactionTree) => GetTransactionTreesResponse(Seq(tx)),
+      fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
+      sourceTimer = metrics.daml.index.getTransactionTreesSource,
+      resolvedFromBufferCounter = metrics.daml.index.transactionTreeEventsResolvedFromBuffer,
+      totalRetrievedCounter = metrics.daml.index.totalTransactionTreesRetrieved,
+      bufferSizeCounter = metrics.daml.index.transactionTreesBufferSize,
+    )
+
+  private def getTransactions[FILTER, API_TX, API_RESPONSE](
+      startExclusive: Offset,
+      endInclusive: Offset,
+      filter: FILTER,
+      verbose: Boolean,
+  )(
+      toApiTx: (Transaction, FILTER, Boolean) => Option[API_TX],
+      toApiResponse: API_TX => API_RESPONSE,
+      fetchTransactions: (
+          Offset,
+          Offset,
+          FILTER,
+          Boolean,
+      ) => Source[(Offset, API_RESPONSE), NotUsed],
+      sourceTimer: Timer,
+      resolvedFromBufferCounter: Counter,
+      totalRetrievedCounter: Counter,
+      bufferSizeCounter: Counter,
+  )(implicit loggingContext: LoggingContext): Source[(Offset, API_RESPONSE), NotUsed] = {
+    val transactionsSource = Timed.source(
+      sourceTimer, {
         bufferedTransactions.getTransactions(startExclusive, endInclusive) match {
           case ((bufferedStartExclusive, bufferedEndInclusive), bufferedSource) =>
             if (bufferedStartExclusive > startExclusive) {
               val bufferedTxs = bufferedSource
                 .map { case (offset, tx) =>
-                  offset -> toTxTree(tx, requestingParties, verbose)
+                  offset -> toApiTx(tx, filter, verbose)
                 }
-                .collect { case (offset, Some(tree)) =>
-                  metrics.daml.index.transactionEventsResolvedFromBuffer.inc()
-                  offset -> GetTransactionTreesResponse(Seq(tree))
+                .collect { case (offset, Some(tx)) =>
+                  resolvedFromBufferCounter.inc()
+                  offset -> toApiResponse(tx)
                 }
 
               logger.info(
@@ -73,51 +117,33 @@ class BufferedTransactionsReader(
 
               val transactionsAfterBuffer =
                 if (bufferedEndInclusive < endInclusive)
-                  delegate
-                    .getTransactionTrees(
-                      bufferedEndInclusive,
-                      endInclusive,
-                      requestingParties,
-                      verbose,
-                    )
+                  fetchTransactions(bufferedEndInclusive, endInclusive, filter, verbose)
                 else Source.empty
 
-              delegate
-                .getTransactionTrees(
-                  startExclusive,
-                  bufferedStartExclusive,
-                  requestingParties,
-                  verbose,
-                )
+              fetchTransactions(bufferedEndInclusive, endInclusive, filter, verbose)
                 .concat(bufferedTxs)
                 .concat(transactionsAfterBuffer)
                 .map(tx => {
-                  metrics.daml.index.totalTransactionsRetrieved.inc()
+                  totalRetrievedCounter.inc()
                   tx
                 })
             } else {
               val transactionsAfterBuffer =
                 if (bufferedEndInclusive < endInclusive)
-                  delegate
-                    .getTransactionTrees(
-                      bufferedEndInclusive,
-                      endInclusive,
-                      requestingParties,
-                      verbose,
-                    )
+                  fetchTransactions(bufferedEndInclusive, endInclusive, filter, verbose)
                 else Source.empty
 
               bufferedSource
                 .map { case (offset, tx) =>
-                  offset -> toTxTree(tx, requestingParties, verbose)
+                  offset -> toApiTx(tx, filter, verbose)
                 }
-                .collect { case (offset, Some(tree)) =>
-                  metrics.daml.index.transactionEventsResolvedFromBuffer.inc()
-                  offset -> GetTransactionTreesResponse(Seq(tree))
+                .collect { case (offset, Some(tx)) =>
+                  resolvedFromBufferCounter.inc()
+                  offset -> toApiResponse(tx)
                 }
                 .concat(transactionsAfterBuffer)
                 .map(tx => {
-                  metrics.daml.index.totalTransactionsRetrieved.inc()
+                  totalRetrievedCounter.inc()
                   tx
                 })
             }
@@ -126,10 +152,140 @@ class BufferedTransactionsReader(
     )
 
     instrumentedBufferedSource(
-      original = transactionTreesSource,
-      counter = metrics.daml.index.transactionTreesBufferSize,
+      original = transactionsSource,
+      counter = bufferSizeCounter,
       size = outputStreamBufferSize,
     )
+  }
+
+  // TDT return only witnesses from within the requestors
+  private def flatTxPredicate(
+      event: BufferedTransactionsReader.Event,
+      filter: FilterRelation,
+  ): Boolean =
+    if (filter.size == 1) {
+      val (party, templateIds) = filter.iterator.next()
+      if (templateIds.isEmpty)
+        event.flatEventWitnesses.contains(party)
+      else
+        // Single-party request, restricted to a set of template identifiers
+        event.flatEventWitnesses.contains(party) && templateIds.contains(event.templateId)
+    } else {
+      // Multi-party requests
+      // If no party requests specific template identifiers
+      val parties = filter.keySet
+      if (filter.forall(_._2.isEmpty))
+        event.flatEventWitnesses.intersect(parties.map(_.toString)).nonEmpty
+      else {
+        // If all parties request the same template identifier
+        val templateIds = filter.valuesIterator.flatten.toSet
+        if (filter.valuesIterator.forall(_ == templateIds)) {
+          event.flatEventWitnesses.intersect(parties.map(_.toString)).nonEmpty &&
+          templateIds.contains(event.templateId)
+        } else {
+          // If there are different template identifier but there are no wildcard parties
+          val partiesAndTemplateIds = Relation.flatten(filter).toSet
+          val wildcardParties = filter.filter(_._2.isEmpty).keySet
+          if (wildcardParties.isEmpty) {
+            partiesAndTemplateIds.exists { case (party, identifier) =>
+              event.flatEventWitnesses.contains(party) && identifier == event.templateId
+            }
+          } else {
+            // If there are wildcard parties and different template identifiers
+            partiesAndTemplateIds.exists { case (party, identifier) =>
+              event.flatEventWitnesses.contains(party) && identifier == event.templateId
+            } || event.flatEventWitnesses.intersect(wildcardParties.map(_.toString)).nonEmpty
+          }
+        }
+      }
+    }
+
+  private def permanent(events: Seq[BufferedTransactionsReader.Event]): Set[ContractId] =
+    events.foldLeft(Set.empty[ContractId]) {
+      case (contractIds, event: BufferedTransactionsReader.CreatedEvent) =>
+        contractIds + event.contractId
+      case (contractIds, event) if !contractIds.contains(event.contractId) =>
+        contractIds + event.contractId
+      case (contractIds, event) => contractIds - event.contractId
+    }
+
+  private def toFlatEvent(
+      event: BufferedTransactionsReader.Event,
+      verbose: Boolean,
+  ): Option[com.daml.ledger.api.v1.event.Event] =
+    event match {
+      case createdEvent: BufferedTransactionsReader.CreatedEvent =>
+        Some(
+          com.daml.ledger.api.v1.event.Event(
+            event = com.daml.ledger.api.v1.event.Event.Event.Created(
+              value = com.daml.ledger.api.v1.event.CreatedEvent(
+                eventId = createdEvent.eventId.toLedgerString,
+                contractId = createdEvent.contractId.coid,
+                templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+                contractKey = createdEvent.contractKey
+                  .map(LfEngineToApi.lfVersionedValueToApiValue(verbose, _))
+                  .map(_.getOrElse(throw new RuntimeException("Could not convert to API value"))),
+                createArguments = Some(
+                  LfEngineToApi
+                    .lfVersionedValueToApiRecord(verbose = verbose, createdEvent.createArgument)
+                    .getOrElse(throw new RuntimeException("Could not convert to API value"))
+                ),
+                witnessParties = createdEvent.treeEventWitnesses.toSeq,
+                signatories = createdEvent.createSignatories.toSeq,
+                observers = createdEvent.createObservers.toSeq,
+                agreementText = createdEvent.createAgreementText.orElse(Some("")),
+              )
+            )
+          )
+        )
+      case exercisedEvent: BufferedTransactionsReader.ExercisedEvent if exercisedEvent.consuming =>
+        Some(
+          com.daml.ledger.api.v1.event.Event(
+            event = com.daml.ledger.api.v1.event.Event.Event.Archived(
+              value = com.daml.ledger.api.v1.event.ArchivedEvent(
+                eventId = exercisedEvent.eventId.toLedgerString,
+                contractId = exercisedEvent.contractId.coid,
+                templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+                witnessParties = exercisedEvent.flatEventWitnesses.toSeq,
+              )
+            )
+          )
+        )
+      case _ => None
+    }
+
+  private def toFlatTx(
+      tx: Transaction,
+      filter: FilterRelation,
+      verbose: Boolean,
+  ): Option[FlatTx] = {
+    val aux = tx.events
+      .filter(flatTxPredicate(_, filter))
+    val nonTransientIds = permanent(aux)
+    val events = aux
+      .filter(ev => nonTransientIds(ev.contractId))
+
+    events.headOption.flatMap { first =>
+      if (first.commandId.nonEmpty || events.nonEmpty) {
+        val flatEvents = events.map(toFlatEvent(_, verbose)).collect { case Some(ev) =>
+          ev
+        }
+        if (flatEvents.isEmpty)
+          None
+        else
+          Some(
+            FlatTx(
+              transactionId = first.transactionId,
+              commandId = first.commandId.getOrElse(""),
+              workflowId = first.workflowId.getOrElse(""),
+              effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+              events = flatEvents,
+              offset = ApiOffset.toApiString(tx.offset),
+              traceContext = None,
+            )
+          )
+      } else None
+    }
   }
 
   private def toTxTree(
@@ -229,67 +385,7 @@ class BufferedTransactionsReader(
 
   private def instantToTimestamp(t: Instant): Timestamp =
     Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
-}
 
-class BufferedTransactions(maxTransactions: Int, metrics: Metrics) {
-  private val buffer = mutable.Queue.empty[(Offset, Transaction)]
-
-  def push(offset: Offset, transaction: Transaction): Unit = buffer.synchronized {
-    Timed.value(
-      metrics.daml.index.bufferPushTransaction, {
-        discard {
-          {
-            if (buffer.size == maxTransactions) {
-              metrics.daml.index.bufferSize.dec()
-              discard(buffer.dequeue())
-              buffer
-            } else buffer
-          }.enqueue {
-            metrics.daml.index.bufferSize.inc()
-            offset -> transaction
-          }
-        }
-      },
-    )
-  }
-
-  def getTransactions(
-      startExclusive: Offset,
-      endInclusive: Offset,
-  ): ((Offset, Offset), Source[(Offset, Transaction), NotUsed]) =
-    buffer.synchronized {
-      buffer.headOption
-        .map {
-          case (bufferStartExclusive, _) if bufferStartExclusive >= endInclusive =>
-            (startExclusive, startExclusive) -> Source.empty
-          case _ =>
-            var bufferedStartExclusive = startExclusive
-            var bufferedEndInclusive = startExclusive
-
-            Timed.value(
-              metrics.daml.index.bufferGetTransactions, {
-                val slice = buffer
-                  .dropWhile { case (offset, _) =>
-                    offset <= startExclusive && {
-                      bufferedStartExclusive = offset
-                      bufferedEndInclusive = offset
-                      true
-                    }
-                  }
-                  .takeWhile { case (offset, _) =>
-                    offset <= endInclusive && {
-                      bufferedEndInclusive = offset
-                      true
-                    }
-                  }
-
-                val source = Source.fromIterator(() => slice.iterator)
-                (bufferedStartExclusive, bufferedEndInclusive) -> source
-              },
-            )
-        }
-        .getOrElse((startExclusive, startExclusive) -> Source.empty)
-    }
 }
 
 object BufferedTransactionsReader {
@@ -318,6 +414,9 @@ object BufferedTransactionsReader {
     def commandId: Option[String]
     def workflowId: Option[String]
     def ledgerEffectiveTime: Instant
+    def flatEventWitnesses: Set[String]
+    def templateId: Identifier
+    def contractId: ContractId
   }
 
   final case class ExercisedEvent(
@@ -365,14 +464,6 @@ object BufferedTransactionsReader {
 
 trait DelegateTransactionsReader extends LedgerDaoTransactionsReader {
   protected def delegate: TransactionsReader
-
-  override def getFlatTransactions(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      filter: FilterRelation,
-      verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
-    delegate.getFlatTransactions(startExclusive, endInclusive, filter, verbose)
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
