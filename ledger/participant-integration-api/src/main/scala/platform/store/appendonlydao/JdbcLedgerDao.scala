@@ -641,7 +641,7 @@ private class JdbcLedgerDao(
       delegate = new TransactionsReader(dbDispatcher, dbType, eventsPageSize, metrics, translation)(
         servicesExecutionContext
       ),
-      bufferedTransactions = new TransactionsBuffer(10000, metrics),
+      bufferedTransactions = new TransactionsBuffer(1000, metrics),
       metrics = metrics,
     )
   }
