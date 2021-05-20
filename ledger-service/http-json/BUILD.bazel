@@ -65,11 +65,14 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
+            "//ledger/metrics",
             "//libs-scala/auth-utils",
             "//libs-scala/contextualized-logging",
             "//libs-scala/doobie-slf4j",
             "//libs-scala/ports",
             "//libs-scala/scala-utils",
+            "@maven//:io_opentelemetry_opentelemetry_api",
+            "@maven//:io_opentelemetry_opentelemetry_context",
         ],
     )
     for edition in [

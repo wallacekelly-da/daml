@@ -18,6 +18,8 @@ object SpanAttribute {
   val Submitter: SpanAttribute = SpanAttribute("daml.submitter")
   val TransactionId: SpanAttribute = SpanAttribute("daml.transaction_id")
   val WorkflowId: SpanAttribute = SpanAttribute("daml.workflow_id")
+  val InstanceUUID: SpanAttribute = SpanAttribute("daml.instance_uuid")
+  val RequestID: SpanAttribute = SpanAttribute("daml.request_id")
 
   def apply(key: String): SpanAttribute = SpanAttribute(AttributeKey.stringKey(key))
 }

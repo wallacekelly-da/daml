@@ -39,7 +39,10 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
-import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingContextOf}
+import com.daml.telemetry.{RootDefaultTelemetryContext, SpanKind, TelemetryContext}
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.trace.SpanBuilder
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -62,57 +65,70 @@ class Endpoints(
   import util.ErrorOps._
   import Uri.Path._
 
+  def fillInLoggingContext(spanBuilder: SpanBuilder)(implicit lc: LoggingContext): SpanBuilder = {
+    for ((key, value) <- lc.ctxMap) {
+      spanBuilder.setAttribute(key, value)
+    }
+    spanBuilder
+  }
+
   def all(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID
-    ] => Future[HttpResponse]] = {
+    ] => TelemetryContext => Future[HttpResponse]] = {
       // Parenthesis are required because otherwise scalafmt breaks.
       case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) =>
-        (implicit lc => httpResponse(create(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(create(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) =>
-        (implicit lc => httpResponse(exercise(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(exercise(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/create-and-exercise"), _, _, _) =>
-        (implicit lc => httpResponse(createAndExercise(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(createAndExercise(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) =>
-        (implicit lc => httpResponse(fetch(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(fetch(req)))
       case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) =>
-        (implicit lc => httpResponse(retrieveAll(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(retrieveAll(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) =>
-        (implicit lc => httpResponse(query(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(query(req)))
       case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) =>
-        (implicit lc => httpResponse(allParties(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(allParties(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) =>
-        (implicit lc => httpResponse(parties(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(parties(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/parties/allocate"), _, _, _) =>
-        (implicit lc => httpResponse(allocateParty(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(allocateParty(req)))
       case req @ HttpRequest(GET, Uri.Path("/v1/packages"), _, _, _) =>
-        (implicit lc => httpResponse(listPackages(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(listPackages(req)))
       // format: off
-                case req @ HttpRequest(GET,
-                    Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
-                    _, _, _) => (implicit lc => downloadPackage(req, packageId))
-                // format: on
+      case req @ HttpRequest(GET,
+          Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
+          _, _, _) => (implicit lc => implicit telemetryContext => downloadPackage(req, packageId))
+      // format: on
       case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
-        (implicit lc => httpResponse(uploadDarFile(req)))
+        (implicit lc => implicit telemetryContext => httpResponse(uploadDarFile(req)))
       case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>
-        _ => Future.successful(HttpResponse(status = StatusCodes.OK))
+        _ => _ => Future.successful(HttpResponse(status = StatusCodes.OK))
       case HttpRequest(GET, Uri.Path("/readyz"), _, _, _) =>
-        _ => healthService.ready().map(_.toHttpResponse)
+        _ => _ => healthService.ready().map(_.toHttpResponse)
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
-      extendWithRequestIdLogCtx(implicit lc =>
+      extendWithRequestIdLogCtx(implicit lc => {
         // TODO: Refactor this somehow into an own function
-        for {
-          _ <- Future.unit
-          _ = logger.trace(s"Incoming request on ${req.uri}")
-          t0 = System.nanoTime()
-          res <- lcFhr(lc)
-          _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-        } yield res
-      )
+        val rootTelemetryContext =
+          RootDefaultTelemetryContext(OpenTelemetry.getDefault.getTracer("IDK HOW TO NAME THIS"))
+        rootTelemetryContext.runFutureInNewSpan("RequestProcessing", SpanKind.Server)(
+          telemetryContext =>
+            for {
+              _ <- Future.unit
+              _ = logger.trace(s"Incoming request on ${req.uri}")
+              t0 = System.nanoTime()
+              res <- lcFhr(lc)(telemetryContext)
+              tComplete = System.nanoTime() - t0
+              _ = logger.trace(s"Processed request after ${tComplete}ns")
+            } yield res
+        )
+      })
     }
   }
 

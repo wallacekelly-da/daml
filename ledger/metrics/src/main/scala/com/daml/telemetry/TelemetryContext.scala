@@ -86,10 +86,34 @@ trait TelemetryContext {
 
 }
 
+object TelemetryContext {
+
+  def setAttribute(attribute: SpanAttribute, value: String)(implicit tc: TelemetryContext): TelemetryContext = tc.setAttribute(attribute, value)
+
+  def runFutureInNewSpan[T]( spanName: String,
+                             kind: SpanKind,
+                             attributes: (SpanAttribute, String)*)
+                           ( body: TelemetryContext => Future[T])(implicit tc: TelemetryContext): Future[T] =
+    tc.runFutureInNewSpan(spanName, kind, attributes:_*)(, body)
+
+  def runInNewSpan[T](
+                       spanName: String,
+                       kind: SpanKind,
+                       attributes: (SpanAttribute, String)*
+                     )(
+                       body: TelemetryContext => T
+                     )(implicit tc: TelemetryContext): T = tc.runInNewSpan(spanName, kind, attributes:_*)(body)
+
+  def runInOpenTelemetryScope[T](body: => T)(implicit tc: TelemetryContext): T = tc.runInOpenTelemetryScope(body)
+
+  def encodeMetadata(implicit tc: TelemetryContext): jMap[String, String] = tc.encodeMetadata()
+
+  def openTelemetryContext(implicit tc: TelemetryContext): Context = tc.openTelemetryContext
+}
+
 /** Default implementation of TelemetryContext. Uses OpenTelemetry to generate and gather traces.
   */
-protected class DefaultTelemetryContext(protected val tracer: Tracer, protected val span: Span)
-    extends TelemetryContext {
+class DefaultTelemetryContext(val tracer: Tracer, val span: Span) extends TelemetryContext {
 
   def setAttribute(attribute: SpanAttribute, value: String): TelemetryContext = {
     span.setAttribute(attribute.key, value)
@@ -176,9 +200,9 @@ object DefaultTelemetryContext {
     new DefaultTelemetryContext(tracer, span)
 }
 
-protected class RootDefaultTelemetryContext(override protected val tracer: Tracer)
+class RootDefaultTelemetryContext(override val tracer: Tracer)
     extends DefaultTelemetryContext(tracer, Span.getInvalid) {
-  override protected def createSubSpan(
+  override def createSubSpan(
       spanName: String,
       kind: SpanKind,
       attributes: (SpanAttribute, String)*
@@ -197,6 +221,8 @@ protected class RootDefaultTelemetryContext(override protected val tracer: Trace
 object RootDefaultTelemetryContext {
   def apply(tracer: Tracer): RootDefaultTelemetryContext =
     new RootDefaultTelemetryContext(tracer)
+
+
 }
 
 /** Implementation of Telemetry that does nothing.

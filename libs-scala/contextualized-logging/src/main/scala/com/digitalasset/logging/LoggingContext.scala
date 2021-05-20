@@ -75,10 +75,11 @@ object LoggingContext {
     f(loggingContext ++ (kv +: kvs))
 
   val ForTesting: LoggingContext = new LoggingContext(Map.empty)
+  val empty: LoggingContext = ForTesting
 
 }
 
-final class LoggingContext private (ctxMap: Map[String, String]) {
+case class LoggingContext(ctxMap: Map[String, String]) {
 
   private lazy val forLogging: Marker with StructuredArgument =
     new MapEntriesAppendingMarker(ctxMap.asJava)
