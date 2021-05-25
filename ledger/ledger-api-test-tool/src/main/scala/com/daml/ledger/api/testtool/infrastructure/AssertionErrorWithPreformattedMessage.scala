@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-final case class AssertionErrorWithPreformattedMessage[T](
+final case class AssertionErrorWithPreformattedMessage(
     preformattedMessage: String,
     message: String,
 ) extends AssertionError(message)

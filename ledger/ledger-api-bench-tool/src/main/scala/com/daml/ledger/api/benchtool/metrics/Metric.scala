@@ -216,7 +216,7 @@ object Metric {
         override def isViolatedBy(metricValue: Value): Boolean =
           metricValue.meanDelaySeconds.exists(_ > maxDelaySeconds)
 
-        override def moreViolatingOf(first: Value, second: Value): Value =
+        override def moreViolatingOf(first: Value, second: Value): Value = {
           (first.meanDelaySeconds, second.meanDelaySeconds) match {
             case (Some(fir), Some(sec)) =>
               if (fir > sec) first
@@ -225,6 +225,7 @@ object Metric {
             case (None, Some(_)) => second
             case (None, None) => first
           }
+        }
 
         override def formatted: String =
           s"max allowed delay: $maxDelaySeconds [s]"
