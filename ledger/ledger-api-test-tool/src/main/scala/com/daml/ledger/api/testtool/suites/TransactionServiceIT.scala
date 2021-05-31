@@ -334,9 +334,9 @@ class TransactionServiceIT extends LedgerTestSuite {
       assert(
         fullSequence == concatenation,
         s"The result of processing items in two chunk should yield the same result as getting the overall stream of transactions in the end but there are differences. " +
-          s"Full sequence: ${fullSequence.map(_.commandId).mkString(", ")}, " +
-          s"first section: ${firstSection.map(_.commandId).mkString(", ")}, " +
-          s"second section: ${secondSection.map(_.commandId).mkString(", ")}",
+          s"Full sequence: ${fullSequence.mkString(", ")}, " +
+          s"first section: ${firstSection.mkString(", ")}, " +
+          s"second section: ${secondSection.mkString(", ")}",
       )
     }
   })

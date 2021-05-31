@@ -29,6 +29,27 @@ final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   def toInputStream: InputStream = bytes.toInputStream
 
   def toHexString: Ref.HexString = bytes.toHexString
+
+  def predecessorOption: Either[String, Offset] = {
+    def lexicographicalPredecessor(bytes: Bytes): Bytes = {
+      val unsigned = bytes.toByteArray.map(_ & 255)
+      val raw = unsigned
+        .foldRight((Array.newBuilder[Int], true)) { case (b, (p, carry)) =>
+          if (b == 0 && carry) (p.addOne(255), true)
+          else (p.addOne(b - { if (carry) 1 else 0 }), false)
+        }
+        ._1
+        .result()
+        .map(_.toByte)
+      Bytes.fromByteArray(raw.reverse)
+    }
+
+    Either.cond(
+      bytes.nonEmpty && BigInt(toByteArray) != BigInt(0),
+      Offset(lexicographicalPredecessor(bytes)),
+      "Predecessor of beforeBegin not allowed",
+    )
+  }
 }
 
 object Offset {

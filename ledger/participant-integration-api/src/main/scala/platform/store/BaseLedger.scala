@@ -34,7 +34,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
 
@@ -46,6 +46,7 @@ private[platform] abstract class BaseLedger(
     ledgerDao: LedgerReadDao,
     contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
+    transactionsReader: LedgerDaoTransactionsReader,
 ) extends ReadOnlyLedger {
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
@@ -65,7 +66,7 @@ private[platform] abstract class BaseLedger(
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
-      RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
+      RangeSource(transactionsReader.getFlatTransactions(_, _, filter, verbose)),
       endInclusive,
     )
 
@@ -80,7 +81,7 @@ private[platform] abstract class BaseLedger(
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(
-        ledgerDao.transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)
+        transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)
       ),
       endInclusive,
     )
@@ -106,7 +107,7 @@ private[platform] abstract class BaseLedger(
       loggingContext: LoggingContext
   ): (Source[GetActiveContractsResponse, NotUsed], Offset) = {
     val activeAt = ledgerEnd()
-    (ledgerDao.transactionsReader.getActiveContracts(activeAt, filter, verbose), activeAt)
+    (transactionsReader.getActiveContracts(activeAt, filter, verbose), activeAt)
   }
 
   override def lookupContract(
@@ -121,13 +122,13 @@ private[platform] abstract class BaseLedger(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
-    ledgerDao.transactionsReader.lookupFlatTransactionById(transactionId, requestingParties)
+    transactionsReader.lookupFlatTransactionById(transactionId, requestingParties)
 
   override def lookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    ledgerDao.transactionsReader.lookupTransactionTreeById(transactionId, requestingParties)
+    transactionsReader.lookupTransactionTreeById(transactionId, requestingParties)
 
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]

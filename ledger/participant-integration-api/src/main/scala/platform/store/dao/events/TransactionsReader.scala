@@ -29,6 +29,7 @@ import com.daml.platform.store.dao.{
   DbDispatcher,
   LedgerDaoTransactionsReader,
   PaginatingAsyncStream,
+  events,
 }
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
@@ -50,9 +51,10 @@ private[dao] final class TransactionsReader(
     dbType: DbType,
     pageSize: Int,
     metrics: Metrics,
-    lfValueTranslation: LfValueTranslation,
+    val lfValueTranslation: LfValueTranslation,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
+  type LfValueTranslation = events.LfValueTranslation
 
   private val dbMetrics = metrics.daml.index.db
 

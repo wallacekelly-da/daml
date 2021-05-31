@@ -14,7 +14,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
-import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -46,6 +46,7 @@ private[index] object ReadOnlySqlLedgerWithTranslationCache {
             ledgerDao,
             contractsStore,
             dispatcher,
+            ledgerDao.transactionsReader,
           )
         )
 
@@ -67,12 +68,14 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
     ledgerDao: LedgerReadDao,
     contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
+    transactionsReader: LedgerDaoTransactionsReader,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadOnlySqlLedger(
       ledgerId,
       ledgerDao,
       contractStore,
       dispatcher,
+      transactionsReader,
     ) {
 
   protected val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =

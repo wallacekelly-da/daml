@@ -25,7 +25,7 @@ import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
+import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream, events}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -48,9 +48,10 @@ private[appendonlydao] final class TransactionsReader(
     dbType: DbType,
     pageSize: Int,
     metrics: Metrics,
-    lfValueTranslation: LfValueTranslation,
+    val lfValueTranslation: LfValueTranslation,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
+  override type LfValueTranslation = events.LfValueTranslation
 
   private val dbMetrics = metrics.daml.index.db
 
@@ -553,7 +554,8 @@ private[appendonlydao] object TransactionsReader {
 
       case _ if (rangeSize / numberOfChunks.toLong) < minChunkSize.toLong =>
         val effectiveNumberOfChunks = rangeSize / minChunkSize.toLong
-        splitUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
+        if (effectiveNumberOfChunks == 1L) Vector(EventsRange(startExclusive, endInclusive))
+        else splitUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
 
       case _ =>
         splitUnsafe(startExclusive, endInclusive, numberOfChunks)

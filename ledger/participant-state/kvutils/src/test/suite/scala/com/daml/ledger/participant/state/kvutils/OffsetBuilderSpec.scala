@@ -65,4 +65,34 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers {
       lowest.takeRight(1)(0) shouldBe 3
     }
   }
+
+  "Offset.predecessorOption" should {
+    "fail if beforeBegin" in {
+      Offset.beforeBegin.predecessorOption shouldBe Left("Predecessor of beforeBegin not allowed")
+
+      Offset.fromByteArray(Array(0.toByte, 0.toByte)).predecessorOption shouldBe Left(
+        "Predecessor of beforeBegin not allowed"
+      )
+    }
+
+    "return previous" in {
+      Offset.fromByteArray(Array(255.toByte)).predecessorOption shouldBe Right(
+        Offset.fromByteArray(Array(254.toByte))
+      )
+
+      Offset.fromByteArray(Array(128.toByte)).predecessorOption shouldBe Right(
+        Offset.fromByteArray(Array(127.toByte))
+      )
+
+      Offset.fromByteArray(Array(128.toByte, 0.toByte)).predecessorOption shouldBe Right(
+        Offset.fromByteArray(Array(127.toByte, 255.toByte))
+      )
+
+      Offset
+        .fromByteArray(Array(1.toByte, 1.toByte, 0.toByte, 0.toByte))
+        .predecessorOption shouldBe Right(
+        Offset.fromByteArray(Array(1.toByte, 0.toByte, 255.toByte, 255.toByte))
+      )
+    }
+  }
 }

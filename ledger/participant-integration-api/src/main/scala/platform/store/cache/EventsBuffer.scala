@@ -29,7 +29,7 @@ import scala.math.Ordering.Implicits.infixOrderingOps
   * @tparam O The offset type.
   * @tparam E The entry buffer type.
   */
-private[cache] final class EventsBuffer[O: Ordering, E](
+private[platform] final class EventsBuffer[O: Ordering, E](
     maxBufferSize: Int,
     metrics: Metrics,
     bufferQualifier: String,

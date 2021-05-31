@@ -22,7 +22,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.{BaseLedger, LfValueTranslationCache, appendonlydao, dao}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -70,6 +70,7 @@ private[platform] object ReadOnlySqlLedger {
           metrics,
           maxContractStateCacheSize,
           maxContractKeyStateCacheSize,
+          true,
         )
       else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(
@@ -154,8 +155,9 @@ private[index] abstract class ReadOnlySqlLedger(
     ledgerDao: LedgerReadDao,
     contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
+    transactionsReader: LedgerDaoTransactionsReader,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher) {
+    extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher, transactionsReader) {
 
   // Periodically remove all expired deduplication cache entries.
   // The current approach is not ideal for multiple ReadOnlySqlLedgers sharing

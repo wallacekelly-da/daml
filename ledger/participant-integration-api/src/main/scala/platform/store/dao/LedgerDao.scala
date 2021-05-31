@@ -40,6 +40,10 @@ import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, Transaction
 import scala.concurrent.Future
 
 private[platform] trait LedgerDaoTransactionsReader {
+  type LfValueTranslation
+
+  def lfValueTranslation: LfValueTranslation
+
   def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
