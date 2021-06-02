@@ -17,7 +17,7 @@ bench | xargs echo "$mode: "
 bench | xargs echo "$mode: "
 }
 
-run Off
-run On
-run Off
-run On
+run A_Off
+run C_1p
+run E_2p
+run F_On
