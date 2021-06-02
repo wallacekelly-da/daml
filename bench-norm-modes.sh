@@ -15,9 +15,12 @@ sed -i "s/XXX/$mode/" daml-lf/interpreter/src/main/scala/com/digitalasset/daml/l
 bench | xargs echo "$mode: "
 bench | xargs echo "$mode: "
 bench | xargs echo "$mode: "
+bench | xargs echo "$mode: "
+bench | xargs echo "$mode: "
 }
 
 run A_Off
+run B_0_5p
 run C_1p
 run E_2p
 run F_On

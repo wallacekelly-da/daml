@@ -16,7 +16,7 @@ private[lf] object NormalizeRollbacks {
   sealed trait Mode
   object Mode {
     case object A_Off extends Mode
-    //case object B_0_5p extends Mode
+    case object B_0_5p extends Mode
     case object C_1p extends Mode
     //case object D_1_5p extends Mode
     case object E_2p extends Mode
@@ -43,8 +43,11 @@ private[lf] object NormalizeRollbacks {
   def normalizeTx_Mode(mode: Mode, txOriginal: TX): TX = {
     mode match {
       case Mode.A_Off => txOriginal
+      case Mode.B_0_5p =>
+        val _ : Unit = normalizeTx_Pass1ReadOnly(txOriginal)
+        txOriginal
       case Mode.C_1p =>
-        val _ : Vector[Norm] = normalizeTx_Pass1Only(txOriginal)
+        val _ : Vector[Norm] = normalizeTx_Pass1(txOriginal)
         txOriginal
       case Mode.E_2p =>
         val _ : TX = normalizeTx_Orig(txOriginal)
@@ -55,7 +58,56 @@ private[lf] object NormalizeRollbacks {
   }
 
 
-  private[this] def normalizeTx_Pass1Only(txOriginal: TX): Vector[Norm] = {
+  //----------------------------------------------------------------------
+  private[this] def normalizeTx_Pass1ReadOnly(txOriginal: TX): Unit = {
+
+    txOriginal match {
+      case GenTransaction(nodesOriginal, rootsOriginal) =>
+        def traverseNids[R](xs: List[Nid])(k: () => Trampoline[R]): Trampoline[R] = {
+          Bounce { () =>
+            xs match {
+              case Nil => k()
+              case x :: xs =>
+                traverseNode(nodesOriginal(x)) { () =>
+                  traverseNids(xs) { () =>
+                    Bounce { () =>
+                      k()
+                    }
+                  }
+                }
+            }
+          }
+        }
+
+        def traverseNode[R](node: Node)(k: () => Trampoline[R]): Trampoline[R] = {
+          Bounce { () =>
+            node match {
+
+              case NodeRollback(children) =>
+                traverseNids(children.toList) { () =>
+                  k()
+                }
+
+              case exe: NodeExercises[_, _] =>
+                traverseNids(exe.children.toList) { () =>
+                  k()
+                }
+
+              case _: LeafOnlyActionNode[_] =>
+                k()
+            }
+          }
+        }
+        //pass 1
+        traverseNids(rootsOriginal.toList) { () =>
+          Land(())
+        }.bounce
+    }
+  }
+
+
+  //----------------------------------------------------------------------
+  private[this] def normalizeTx_Pass1(txOriginal: TX): Vector[Norm] = {
 
     txOriginal match {
       case GenTransaction(nodesOriginal, rootsOriginal) =>
@@ -101,7 +153,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-
+  //----------------------------------------------------------------------
   def normalizeTx_Orig(txOriginal: TX): TX = {
 
     // Here we traverse the original transaction structure.
