@@ -24,27 +24,15 @@ import scala.util.control.NonFatal
 
 /** Creates and manages a subscription to a transaction log updates source
   * (see [[com.daml.platform.store.dao.LedgerDaoTransactionsReader.getTransactionLogUpdates]]
-<<<<<<< HEAD
   * and uses it for updating:
-=======
-  * and uses for updating:
->>>>>>> [In-memory fan-out] BuffersUpdater implementation
   *    * The transactions buffer used for in-memory Ledger API serving.
   *    * The mutable contract state cache.
   *
   * @param subscribeToTransactionLogUpdates Subscribe to the transaction log updates stream starting at a specific
   *                                         `(Offset, EventSequentialId)`.
-<<<<<<< HEAD
   * @param updateCaches Takes a `(Offset, TransactionLogUpdate)` pair and uses it to update the caches/buffers.
   * @param minBackoffStreamRestart Minimum back-off before restarting the transaction log updates stream.
   * @param sysExitWithCode Triggers a system exit (i.e. `sys.exit`) with a specific exit code.
-=======
-  * @param updateTransactionsBuffer Trigger externally the update of the transactions buffer.
-  * @param toContractStateEvents Converts [[TransactionLogUpdate]]s to [[ContractStateEvent]]s.
-  * @param updateMutableCache Trigger externally the update of the mutable contract state cache.
-  *                           (see [[com.daml.platform.store.cache.MutableCacheBackedContractStore]])
-  * @param minBackoffStreamRestart Minimum back-off before restarting the transaction log updates stream.
->>>>>>> [In-memory fan-out] BuffersUpdater implementation
   * @param mat The Akka materializer.
   * @param loggingContext The logging context.
   * @param executionContext The execution context.

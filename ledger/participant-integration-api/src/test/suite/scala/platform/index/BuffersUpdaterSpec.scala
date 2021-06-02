@@ -11,7 +11,6 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.Source
 import akka.stream.{Materializer, QueueOfferResult}
 import ch.qos.logback.classic.Level
-
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.TransactionVersion
@@ -24,7 +23,6 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequen
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.testing.LogCollector
-
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers

@@ -5,6 +5,7 @@ package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
@@ -37,7 +38,7 @@ import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
-import com.daml.platform.store.dao.{LedgerDao, LedgerWriteDao}
+import com.daml.platform.store.dao.{LedgerDao, LedgerDaoTransactionsReader, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
@@ -359,7 +360,7 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-) extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher)
+) extends BaseLedger(ledgerId, ledgerDao, ledgerDao.transactionsReader, contractStore, dispatcher)
     with Ledger {
 
   private val logger = ContextualizedLogger.get(this.getClass)
