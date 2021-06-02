@@ -2,7 +2,7 @@
 set -euo pipefail
 
 wi=2
-i=25
+i=100
 
 bench() {
 bazel run //daml-lf/scenario-interpreter:scenario-perf -- -f 1 -i $i -wi $wi  2>&1 | grep 'Average]'
