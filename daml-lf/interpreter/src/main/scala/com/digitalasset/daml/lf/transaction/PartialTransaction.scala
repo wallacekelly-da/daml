@@ -323,7 +323,8 @@ private[lf] case class PartialTransaction(
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
         val tx0 = GenTransaction(nodes, roots)
-        val tx = tx0 //NormalizeRollbacks.normalizeTx(tx0) //NICK, disable
+        val mode = NormalizeRollbacks.Mode.XXX
+        val tx = NormalizeRollbacks.normalizeTx_Mode(mode, tx0)
         CompleteTransaction(
           SubmittedTransaction(
             TxVersion.asVersionedTransaction(tx)

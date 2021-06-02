@@ -12,6 +12,14 @@ import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
 
+
+  sealed trait Mode
+  object Mode {
+    case object Off extends Mode
+    case object On extends Mode
+  }
+
+
   private[this] type Nid = NodeId
   private[this] type Cid = Value.ContractId
   private[this] type TX = GenTransaction[Nid, Cid]
@@ -27,7 +35,15 @@ private[lf] object NormalizeRollbacks {
   // `Canonical` in the sense that only properly normalized nodes can be represented.
   // Although this doesn't ensure correctness, one class of bugs is avoided.
 
-  def normalizeTx(txOriginal: TX): TX = {
+
+  def normalizeTx_Mode(mode: Mode, txOriginal: TX): TX = {
+    mode match {
+      case Mode.Off => txOriginal
+      case Mode.On => normalizeTx_Orig(txOriginal)
+    }
+  }
+
+  def normalizeTx_Orig(txOriginal: TX): TX = {
 
     // Here we traverse the original transaction structure.
     // During the transformation, an original `Node` is mapped into a List[Norm]
