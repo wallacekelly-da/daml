@@ -22,5 +22,6 @@ bench | xargs echo "$mode: "
 run A_Off
 run B_0_5p
 run C_1p
+run D_1_5p
 run E_2p
 run F_On

@@ -18,7 +18,7 @@ private[lf] object NormalizeRollbacks {
     case object A_Off extends Mode
     case object B_0_5p extends Mode
     case object C_1p extends Mode
-    //case object D_1_5p extends Mode
+    case object D_1_5p extends Mode
     case object E_2p extends Mode
     case object F_On extends Mode
   }
@@ -48,6 +48,9 @@ private[lf] object NormalizeRollbacks {
         txOriginal
       case Mode.C_1p =>
         val _ : Vector[Norm] = normalizeTx_Pass1(txOriginal)
+        txOriginal
+      case Mode.D_1_5p =>
+        val _ : Unit = normalizeTx_Pass1_then_Pass2ReadOnly(txOriginal)
         txOriginal
       case Mode.E_2p =>
         val _ : TX = normalizeTx_Orig(txOriginal)
@@ -152,6 +155,119 @@ private[lf] object NormalizeRollbacks {
         }.bounce
     }
   }
+
+  //----------------------------------------------------------------------
+  def normalizeTx_Pass1_then_Pass2ReadOnly(txOriginal: TX): Unit = {
+
+    txOriginal match {
+      case GenTransaction(nodesOriginal, rootsOriginal) =>
+        def traverseNids[R](xs: List[Nid])(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
+          Bounce { () =>
+            xs match {
+              case Nil => k(Vector.empty)
+              case x :: xs =>
+                traverseNode(nodesOriginal(x)) { norms1 =>
+                  traverseNids(xs) { norms2 =>
+                    Bounce { () =>
+                      k(norms1 ++ norms2)
+                    }
+                  }
+                }
+            }
+          }
+        }
+
+        def traverseNode[R](node: Node)(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
+          Bounce { () =>
+            node match {
+
+              case NodeRollback(children) =>
+                traverseNids(children.toList) { norms =>
+                  makeRoll(norms)(k)
+                }
+
+              case exe: NodeExercises[_, _] =>
+                traverseNids(exe.children.toList) { norms =>
+                  k(Vector(Norm.Exe(exe, norms.toList)))
+                }
+
+              case leaf: LeafOnlyActionNode[_] =>
+                k(Vector(Norm.Leaf(leaf)))
+            }
+          }
+        }
+        //pass 1
+        traverseNids(rootsOriginal.toList) { norms =>
+          //pass 2
+          travNorms(initialState, norms.toList) { _ =>
+            Land(())
+          }
+        }.bounce
+    }
+  }
+
+  private def travAct[R](s: State, x: Norm.Act)(k: (State) => Trampoline[R]): Trampoline[R] = {
+    Bounce { () =>
+      s.next { (s, _) =>
+        x match {
+          case Norm.Leaf(_) =>
+            k(s)
+          case Norm.Exe(_, subs) =>
+            travNorms(s, subs) { (s) =>
+              k(s)
+            }
+        }
+      }
+    }
+  }
+
+  private def travRoll[R](s: State, x: Norm.Roll)(
+      k: (State) => Trampoline[R]
+  ): Trampoline[R] = {
+    s.next { (s, _) =>
+      x match {
+        case Norm.Roll1(act) =>
+          travAct(s, act) { (s) =>
+            k(s)
+          }
+        case Norm.Roll2(h, m, t) =>
+          travAct(s, h) { (s) =>
+            travNorms(s, m.toList) { (s) =>
+              travAct(s, t) { (s) =>
+                k(s)
+              }
+            }
+          }
+      }
+    }
+  }
+
+  private def travNorm[R](s: State, x: Norm)(k: (State) => Trampoline[R]): Trampoline[R] = {
+    x match {
+      case act: Norm.Act => travAct(s, act)(k)
+      case roll: Norm.Roll => travRoll(s, roll)(k)
+    }
+  }
+
+  private def travNorms[R](s: State, xs: List[Norm])(
+      k: (State) => Trampoline[R]
+  ): Trampoline[R] = {
+    Bounce { () =>
+      xs match {
+        case Nil => k(s)
+        case x :: xs =>
+          travNorm(s, x) { (s) =>
+            travNorms(s, xs) { (s) =>
+              Bounce { () =>
+                k(s)
+              }
+            }
+          }
+      }
+    }
+  }
+
+
 
   //----------------------------------------------------------------------
   def normalizeTx_Orig(txOriginal: TX): TX = {
