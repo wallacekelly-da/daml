@@ -89,15 +89,15 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         dispatcherLagMeter: DispatcherLagMeter,
     )(implicit
         resourceContext: ResourceContext
-    ) =
-      if (enableInMemoryFanOutForLedgerApi)
-        ledgerWithMutableCacheAndInMemoryFanOut(
-          cacheUpdatesDispatcher,
-          generalDispatcher,
-          dispatcherLagMeter,
-        )
-      else
-        ledgerWithMutableCache(cacheUpdatesDispatcher, generalDispatcher, dispatcherLagMeter)
+    ) = {
+      discard(enableInMemoryFanOutForLedgerApi)
+      discard(ledgerWithMutableCache _)
+      ledgerWithMutableCacheAndInMemoryFanOut(
+        cacheUpdatesDispatcher,
+        generalDispatcher,
+        dispatcherLagMeter,
+      )
+    }
 
     private def ledgerWithMutableCache(
         cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],

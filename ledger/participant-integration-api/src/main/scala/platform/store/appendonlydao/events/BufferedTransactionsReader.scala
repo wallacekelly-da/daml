@@ -180,6 +180,10 @@ private[platform] object BufferedTransactionsReader {
 
           case BufferSlice.Prefix(slice) if slice.size <= 1 =>
             fetchTransactions(startExclusive, endInclusive, filter, verbose)
+              .map(tx => {
+                totalRetrievedCounter.inc()
+                tx
+              })
 
           // TODO: Implement and use Offset.predecessor
           case BufferSlice.Prefix((firstOffset: Offset, _) +: tl) =>

@@ -115,6 +115,33 @@ private[platform] final class EventsBuffer[O: Ordering, E](
       },
     )
 
+  def sliceOptimized(startExclusive: O, endInclusive: O): (Boolean, Vector[(O, E)]) =
+    Timed.value(
+      sliceTimer, {
+        val bufferSnapshot = _bufferStateRef
+        if (bufferSnapshot.rangeEnd.exists(_ < endInclusive)) {
+          throw RequestOffBufferBounds(bufferSnapshot.vector.last._1, endInclusive)
+        } else if (bufferSnapshot.vector.isEmpty) {
+          (false, Vector.empty)
+        } else {
+          val bufferEndExclusiveIdx = bufferSnapshot.vector.searchBy(endInclusive, _._1) match {
+            case Found(foundIndex) => foundIndex + 1
+            case InsertionPoint(insertionPoint) => insertionPoint
+          }
+
+          val bufferStartInclusiveIdx = bufferSnapshot.vector.searchBy(startExclusive, _._1) match {
+            case InsertionPoint(insertionPoint) => insertionPoint
+            case Found(foundIndex) => foundIndex + 1
+          }
+
+          val returnedSlice =
+            bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
+          if (bufferStartInclusiveIdx == 0) (false, returnedSlice)
+          else (true, returnedSlice)
+        }
+      },
+    )
+
   /** Removes entries starting from the buffer tail up until `endInclusive`.
     *
     * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
