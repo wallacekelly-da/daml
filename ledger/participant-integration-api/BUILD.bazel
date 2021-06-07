@@ -16,6 +16,14 @@ load(
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//rules_daml:daml.bzl", "daml_compile")
 
+config_setting(
+    name = "oracle_jdbc_trace",
+    values = {
+        "y": "@maven//:com_oracle_database_jdbc_debug_ojdbc8_g",
+        "n": "@maven//:com_oracle_database_jdbc_ojdbc8",
+    },
+)
+
 compile_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -306,6 +314,7 @@ da_scala_test_suite(
     ],
     tags = [] if oracle_testing else ["manual"],
     runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_debug_ojdbc8_g",
     ],
     deps = [
         ":participant-integration-api",
