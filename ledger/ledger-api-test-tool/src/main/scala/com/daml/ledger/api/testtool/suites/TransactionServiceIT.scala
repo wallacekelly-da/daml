@@ -172,6 +172,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Where do we check the same for trees stream?
   test(
     "TXTreeBlinding",
     "Trees should be served according to the blinding/projection rules",
@@ -396,18 +397,59 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
+    "TXTreeHideCommandIdToNonSubmittingStakeholders",
+    "A transaction tree should be visible to a non-submitting stakeholder but its command identifier should be empty",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
+    for {
+      (id, _) <- alpha.createAndGetTransactionId(submitter, AgreementFactory(listener, submitter))
+      tree <- eventually { beta.transactionTreeById(id, listener) }
+      treesFromStream <- eventually { beta.transactionTrees(listener) }
+    } yield {
+      assert(
+        tree.commandId.isEmpty,
+        s"The command identifier for the transaction tree was supposed to be empty but it's `${tree.commandId}` instead.",
+      )
+
+      assert(
+        treesFromStream.size == 1,
+        s"One transaction tree expected but got ${treesFromStream.size} instead.",
+      )
+
+      val treeFromStreamCommandId = treesFromStream.head.commandId
+      assert(
+        treeFromStreamCommandId.isEmpty,
+        s"The command identifier for the transaction tree was supposed to be empty but it's `$treeFromStreamCommandId` instead.",
+      )
+    }
+  })
+
+  test(
     "TXHideCommandIdToNonSubmittingStakeholders",
-    "A transaction should be visible to a non-submitting stakeholder but its command identifier should be empty",
+    "A flat transaction should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
       for {
         (id, _) <- alpha.createAndGetTransactionId(submitter, AgreementFactory(listener, submitter))
-        tree <- eventually { beta.transactionTreeById(id, listener) }
+        flatTx <- eventually { beta.flatTransactionById(id, listener) }
+        flatsFromStream <- eventually { beta.flatTransactions(listener) }
       } yield {
+
         assert(
-          tree.commandId.isEmpty,
-          s"The command identifier was supposed to be empty but it's `${tree.commandId}` instead.",
+          flatTx.commandId.isEmpty,
+          s"The command identifier for the flat transaction was supposed to be empty but it's `${flatTx.commandId}` instead.",
+        )
+
+        assert(
+          flatsFromStream.size == 1,
+          s"One flat transaction expected but got ${flatsFromStream.size} instead.",
+        )
+
+        val flatTxFromStreamCommandId = flatsFromStream.head.commandId
+        assert(
+          flatTxFromStreamCommandId.isEmpty,
+          s"The command identifier for the flat transaction was supposed to be empty but it's `$flatTxFromStreamCommandId` instead.",
         )
       }
   })
