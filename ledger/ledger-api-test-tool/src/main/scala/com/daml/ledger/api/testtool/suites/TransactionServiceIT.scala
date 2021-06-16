@@ -172,7 +172,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
-  // TODO Where do we check the same for trees stream?
+  // TODO Where do we check the same for flat transactions stream?
   test(
     "TXTreeBlinding",
     "Trees should be served according to the blinding/projection rules",
@@ -310,6 +310,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Flat stream counterpart?
   test(
     "TXProcessInTwoChunks",
     "Serve the complete sequence of transactions even if processing is stopped and resumed",
@@ -342,6 +343,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXParallel",
     "The same data should be served for more than 1 identical, parallel requests",
@@ -361,6 +363,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXNotDivulge",
     "Data should not be exposed to parties unrelated to a transaction",
@@ -377,6 +380,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXRejectBeginAfterEnd",
     "A request with the end before the begin should be rejected with INVALID_ARGUMENT",
@@ -454,6 +458,7 @@ class TransactionServiceIT extends LedgerTestSuite {
       }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXFilterByTemplate",
     "The transaction service should correctly filter by template identifier",
@@ -494,6 +499,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXContractIdFromExerciseWhenFilter",
     "Expose contract identifiers that are results of exercising choices when filtering by template",
@@ -634,6 +640,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXNotArchiveNonConsuming",
     "Expressing a non-consuming choice on a contract should not result in its archival",
@@ -652,6 +659,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXRequireAuthorization",
     "Require only authorization of chosen branching signatory",
@@ -666,6 +674,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXNotDiscloseCreateToNonSignatory",
     "Not disclose create to non-chosen branching signatory",
@@ -690,6 +699,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXDiscloseCreateToSignatory",
     "Disclose create to the chosen branching controller",
@@ -727,6 +737,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXNotDiscloseCreateToNonChosenBranchingController",
     "Not disclose create to non-chosen branching controller",
@@ -747,6 +758,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXDiscloseCreateToObservers",
     "Disclose create to observers",
@@ -769,6 +781,7 @@ class TransactionServiceIT extends LedgerTestSuite {
       }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXUnitAsArgumentToNothing",
     "Daml engine returns Unit as argument to Nothing",
@@ -784,6 +797,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXAgreementTextExplicit",
     "Expose the agreement text for templates with an explicit agreement text",
@@ -798,6 +812,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXAgreementTextDefault",
     "Expose the default text for templates without an agreement text",
@@ -812,6 +827,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test("TXStakeholders", "Expose the correct stakeholders", allocate(SingleParty, SingleParty))(
     implicit ec => {
       case Participants(Participant(alpha @ _, receiver), Participant(beta, giver)) =>
@@ -826,6 +842,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   )
 
+  // TODO Trees counterpart?
   test(
     "TXNoContractKey",
     "There should be no contract key if the template does not specify one",
@@ -1057,6 +1074,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO Trees counterpart?
   test(
     "TXFetchContractCreatedInTransaction",
     "It should be possible to fetch a contract created within a transaction",
@@ -1189,6 +1207,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
+    // TODO Misleading short identifier
     "TXTransactionTreeByIdWrongLedgerId",
     "The ledgerEnd endpoint should reject calls with the wrong ledger identifier",
     allocate(NoParties),
@@ -1247,6 +1266,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
+    // TODO Misleading identifier (same as above)
     "TXTransactionTreeByIdNotFound",
     "Return INVALID_ARGUMENT when looking up a transaction tree by identifier without specifying a party",
     allocate(NoParties),
@@ -1496,6 +1516,7 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
+    // TODO update description (same as above)
     "TXFlatTransactionByEventIdNotFound",
     "Return INVALID_ARGUMENT when looking up a flat transaction by event identifier without specifying a party",
     allocate(NoParties),
