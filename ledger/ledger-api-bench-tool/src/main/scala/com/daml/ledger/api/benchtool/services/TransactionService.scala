@@ -68,17 +68,14 @@ final class TransactionService(
       templateIds: Option[List[Identifier]],
       beginOffset: Option[LedgerOffset],
       endOffset: Option[LedgerOffset],
-  ): GetTransactionsRequest = {
-    val getTransactionsRequest = GetTransactionsRequest.defaultInstance
+  ): GetTransactionsRequest =
+    GetTransactionsRequest.defaultInstance
       .withLedgerId(ledgerId)
+      .withEnd(
+        endOffset.getOrElse(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+      )
       .withBegin(beginOffset.getOrElse(ledgerBeginOffset))
       .withFilter(partyFilter(party, templateIds))
-
-    endOffset match {
-      case Some(end) => getTransactionsRequest.withEnd(end)
-      case None => getTransactionsRequest
-    }
-  }
 
   private def partyFilter(
       party: String,

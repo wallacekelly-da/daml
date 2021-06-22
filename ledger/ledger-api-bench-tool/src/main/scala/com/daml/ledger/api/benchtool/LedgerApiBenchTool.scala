@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.benchtool
 
+import java.util.concurrent.{TimeUnit => JTimeUnit, _}
+
 import com.daml.ledger.api.benchtool.metrics.{
   MetricRegistryOwner,
   MetricsCollector,
@@ -22,13 +24,6 @@ import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
 
-import java.util.concurrent.{
-  ArrayBlockingQueue,
-  Executor,
-  SynchronousQueue,
-  ThreadPoolExecutor,
-  TimeUnit,
-}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -55,6 +50,8 @@ object LedgerApiBenchTool {
 
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
+    val perpetualStreamsEc = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
+
     val resources = for {
       executorService <- threadPoolExecutorOwner(config.concurrency)
       channel <- channelOwner(config.ledger, config.tls, executorService)
@@ -75,71 +72,85 @@ object LedgerApiBenchTool {
       Future
         .traverse(config.streams) {
           case streamConfig: Config.StreamConfig.TransactionsStreamConfig =>
-            StreamMetrics
-              .observer(
-                streamName = streamConfig.name,
-                logInterval = config.reportingPeriod,
-                metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
-                logger = logger,
-                exposedMetrics = Some(
-                  MetricsSet
-                    .transactionExposedMetrics(streamConfig.name, registry, config.reportingPeriod)
-                ),
-              )(system, ec)
-              .flatMap { observer =>
-                transactionService.transactions(streamConfig, observer)
-              }
+            val txMetrics = Some(
+              MetricsSet
+                .transactionExposedMetrics(streamConfig.name, registry, config.reportingPeriod)
+            )
+            perpetual {
+              StreamMetrics
+                .observer(
+                  streamName = streamConfig.name,
+                  logInterval = config.reportingPeriod,
+                  metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
+                  logger = logger,
+                  exposedMetrics = txMetrics,
+                )(system, ec)
+                .flatMap { observer =>
+                  transactionService.transactions(streamConfig, observer)
+                }
+            }(perpetualStreamsEc)
           case streamConfig: Config.StreamConfig.TransactionTreesStreamConfig =>
-            StreamMetrics
-              .observer(
-                streamName = streamConfig.name,
-                logInterval = config.reportingPeriod,
-                metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
-                logger = logger,
-                exposedMetrics = Some(
-                  MetricsSet.transactionTreesExposedMetrics(
-                    streamConfig.name,
-                    registry,
-                    config.reportingPeriod,
-                  )
-                ),
-              )(system, ec)
-              .flatMap { observer =>
-                transactionService.transactionTrees(streamConfig, observer)
-              }
+            val txTreesMetrics = Some(
+              MetricsSet.transactionTreesExposedMetrics(
+                streamConfig.name,
+                registry,
+                config.reportingPeriod,
+              )
+            )
+            perpetual {
+              StreamMetrics
+                .observer(
+                  streamName = streamConfig.name,
+                  logInterval = config.reportingPeriod,
+                  metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
+                  logger = logger,
+                  exposedMetrics = txTreesMetrics,
+                )(system, ec)
+                .flatMap { observer =>
+                  transactionService.transactionTrees(streamConfig, observer)
+                }
+            }(perpetualStreamsEc)
           case streamConfig: Config.StreamConfig.ActiveContractsStreamConfig =>
-            StreamMetrics
-              .observer(
-                streamName = streamConfig.name,
-                logInterval = config.reportingPeriod,
-                metrics = MetricsSet.activeContractsMetrics,
-                logger = logger,
-                exposedMetrics = Some(
-                  MetricsSet.activeContractsExposedMetrics(
-                    streamConfig.name,
-                    registry,
-                    config.reportingPeriod,
-                  )
-                ),
-              )(system, ec)
-              .flatMap { observer =>
-                activeContractsService.getActiveContracts(streamConfig, observer)
-              }
+            perpetual {
+              StreamMetrics
+                .observer(
+                  streamName = streamConfig.name,
+                  logInterval = config.reportingPeriod,
+                  metrics = MetricsSet.activeContractsMetrics,
+                  logger = logger,
+                  exposedMetrics = Some(
+                    MetricsSet.activeContractsExposedMetrics(
+                      streamConfig.name,
+                      registry,
+                      config.reportingPeriod,
+                    )
+                  ),
+                )(system, ec)
+                .flatMap { observer =>
+                  activeContractsService.getActiveContracts(streamConfig, observer)
+                }
+            }(perpetualStreamsEc)
           case streamConfig: Config.StreamConfig.CompletionsStreamConfig =>
-            StreamMetrics
-              .observer(
-                streamName = streamConfig.name,
-                logInterval = config.reportingPeriod,
-                metrics = MetricsSet.completionsMetrics,
-                logger = logger,
-                exposedMetrics = Some(
-                  MetricsSet
-                    .completionsExposedMetrics(streamConfig.name, registry, config.reportingPeriod)
-                ),
-              )(system, ec)
-              .flatMap { observer =>
-                commandCompletionService.completions(streamConfig, observer)
-              }
+            perpetual {
+              StreamMetrics
+                .observer(
+                  streamName = streamConfig.name,
+                  logInterval = config.reportingPeriod,
+                  metrics = MetricsSet.completionsMetrics,
+                  logger = logger,
+                  exposedMetrics = Some(
+                    MetricsSet
+                      .completionsExposedMetrics(
+                        streamConfig.name,
+                        registry,
+                        config.reportingPeriod,
+                      )
+                  ),
+                )(system, ec)
+                .flatMap { observer =>
+                  commandCompletionService.completions(streamConfig, observer)
+                }
+            }(perpetualStreamsEc)
         }
         .transform {
           case Success(results) =>
@@ -152,6 +163,22 @@ object LedgerApiBenchTool {
     }
   }
 
+  private def perpetual(
+      f: => Future[MetricsCollector.Message.MetricsResult]
+  )(ec: ExecutionContext): Future[MetricsCollector.Message.MetricsResult] = Future {
+    var r: MetricsCollector.Message.MetricsResult = null
+    for (idx <- 1 to 480) {
+      println(s"Sleeping 1 minute before starting stream $idx")
+      Thread.sleep(60000L)
+      val start = System.currentTimeMillis()
+      r = Await.result(f, Duration(8, JTimeUnit.HOURS))
+      println(
+        s"Stream $idx completed after ${(System.currentTimeMillis() - start) / 1000L} seconds"
+      )
+    }
+    r
+  }(ec)
+
   private def channelOwner(
       ledger: Config.Ledger,
       tls: TlsConfiguration,
@@ -160,6 +187,8 @@ object LedgerApiBenchTool {
     logger.info(
       s"Setting up a managed channel to a ledger at: ${ledger.hostname}:${ledger.port}..."
     )
+    logger.info("Sleeping 70 seconds before starting channel")
+    Thread.sleep(70000L)
     val MessageChannelSizeBytes: Int = 32 * 1024 * 1024 // 32 MiB
     val ShutdownTimeout: FiniteDuration = 5.seconds
 
@@ -190,7 +219,7 @@ object LedgerApiBenchTool {
         config.corePoolSize,
         config.maxPoolSize,
         config.keepAliveTime,
-        TimeUnit.SECONDS,
+        JTimeUnit.SECONDS,
         if (config.maxQueueLength == 0) new SynchronousQueue[Runnable]()
         else new ArrayBlockingQueue[Runnable](config.maxQueueLength),
       )
