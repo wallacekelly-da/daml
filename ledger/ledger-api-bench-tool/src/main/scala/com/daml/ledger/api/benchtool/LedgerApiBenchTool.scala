@@ -128,6 +128,8 @@ object LedgerApiBenchTool {
     logger.info(
       s"Setting up a managed channel to a ledger at: ${ledger.hostname}:${ledger.port}..."
     )
+    logger.info("Sleeping 60 seconds before starting channel")
+    Thread.sleep(60000L)
     val MessageChannelSizeBytes: Int = 32 * 1024 * 1024 // 32 MiB
     val ShutdownTimeout: FiniteDuration = 5.seconds
 

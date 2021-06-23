@@ -42,6 +42,10 @@ object Cli {
         config.copy(streams = config.streams :+ streamConfig)
       }
 
+    opt[String]("metrics-reporter")
+      .optional()
+      .action { case (_, c) => c }
+
     opt[FiniteDuration]("log-interval")
       .abbr("r")
       .text("Stream metrics log interval.")

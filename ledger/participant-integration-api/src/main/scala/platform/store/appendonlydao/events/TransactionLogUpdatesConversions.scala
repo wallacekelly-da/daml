@@ -43,7 +43,7 @@ private[events] object TransactionLogUpdatesConversions {
           val events = removeTransient(filtered)
 
           Future
-            .traverse(events)(toFlatEvent(_, filter.keySet, verbose, lfValueTranslation))
+            .sequence(events.map(toFlatEvent(_, filter.keySet, verbose, lfValueTranslation)))
             .map(_.collect { case Some(value) => value })
             .map { flatEvents =>
               // Allows emitting flat transactions with no events, a use-case needed
@@ -237,7 +237,7 @@ private[events] object TransactionLogUpdatesConversions {
       if (treeEvents.isEmpty)
         Future.successful(Option.empty)
       else
-        Future.traverse(treeEvents)(identity).map { treeEvents =>
+        Future.sequence(treeEvents).map { treeEvents =>
           val visible = treeEvents.map(_.eventId)
           val visibleSet = visible.toSet
           val eventsById = treeEvents.iterator

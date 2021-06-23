@@ -159,12 +159,12 @@ private[platform] object BufferedTransactionsReader {
         slice: Vector[(Offset, TransactionLogUpdate)]
     ): Future[Iterator[(Offset, API_RESPONSE)]] =
       Future
-        .traverse(
+        .sequence(
           slice.iterator
             .collect { case (offset, tx: TxUpdate) =>
               toApiTx(tx, filter, verbose).map(offset -> _)
             }
-        )(identity)
+        )
         .map(_.collect { case (offset, Some(tx)) =>
           resolvedFromBufferCounter.inc()
           offset -> apiResponseCtor(Seq(tx))
