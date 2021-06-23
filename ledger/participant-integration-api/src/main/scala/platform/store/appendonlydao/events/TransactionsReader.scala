@@ -305,14 +305,15 @@ private[appendonlydao] final class TransactionsReader(
           )
         }
       }
-      .flatMapConcat(v => Source.fromIterator(() => v.iterator))
-      // Decode transaction log updates in parallel
-      .mapAsync(eventProcessingParallelism) { raw =>
+      .mapAsync(eventProcessingParallelism) { rawEvents =>
         Timed.future(
           metrics.daml.index.decodeTransactionLogUpdate,
-          Future(TransactionLogUpdatesReader.toTransactionEvent(raw)),
+          Future {
+            rawEvents.map(TransactionLogUpdatesReader.toTransactionEvent)
+          },
         )
       }
+      .flatMapConcat(v => Source.fromIterator(() => v.iterator))
 
     InstrumentedSource
       .bufferedSource(
