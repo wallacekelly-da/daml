@@ -114,14 +114,15 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         generalDispatcher: Dispatcher[Offset],
         dispatcherLagMeter: DispatcherLagMeter,
         startExclusive: (Offset, Long),
-    )(implicit resourceContext: ResourceContext) =
+    )(implicit resourceContext: ResourceContext) = {
+      discard(startExclusive)
       for {
         contractStore <- MutableCacheBackedContractStore
           .ownerWithSubscription(
             subscribeToContractStateEvents = maybeOffsetSeqId =>
               cacheUpdatesDispatcher
                 .startingAt(
-                  maybeOffsetSeqId.getOrElse(startExclusive),
+                  maybeOffsetSeqId.getOrElse(Offset.beforeBegin -> 0L),
                   RangeSource(
                     ledgerDao.transactionsReader.getContractStateEvents(_, _)
                   ),
@@ -148,6 +149,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           )
           .acquire()
       } yield ledger
+    }
 
     private def ledgerWithMutableCacheAndInMemoryFanOut(
         cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],

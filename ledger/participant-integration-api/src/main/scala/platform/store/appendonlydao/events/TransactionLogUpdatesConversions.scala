@@ -43,7 +43,7 @@ private[events] object TransactionLogUpdatesConversions {
           val events = removeTransient(filtered)
 
           Future
-            .traverse(events)(toFlatEvent(_, filter.keySet, verbose, lfValueTranslation))
+            .traverse(events)(toFlatEvent(filter.keySet, verbose, lfValueTranslation))
             .map(_.collect { case Some(value) => value })
             .map { flatEvents =>
               // Allows emitting flat transactions with no events, a use-case needed
@@ -109,11 +109,10 @@ private[events] object TransactionLogUpdatesConversions {
       }
 
     private def toFlatEvent(
-        event: TransactionLogUpdate.Event,
         requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
-    )(implicit
+    )(event: TransactionLogUpdate.Event)(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): Future[Option[apiEvent.Event]] =
@@ -219,22 +218,9 @@ private[events] object TransactionLogUpdatesConversions {
       if (filteredForVisibility.isEmpty) Future.successful(None)
       else
         Future
-          .traverse(filteredForVisibility) {
-            case createdEvent: TransactionLogUpdate.CreatedEvent =>
-              createdToTransactionTreeEvent(
-                requestingParties,
-                verbose,
-                lfValueTranslation,
-                createdEvent,
-              )
-            case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
-              exercisedToTransactionTreeEvent(
-                requestingParties,
-                verbose,
-                lfValueTranslation,
-                exercisedEvent,
-              )
-          }
+          .traverse(filteredForVisibility)(
+            toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)
+          )
           .map { treeEvents =>
             val visible = treeEvents.map(_.eventId)
             val visibleSet = visible.toSet
@@ -266,6 +252,31 @@ private[events] object TransactionLogUpdatesConversions {
             )
           }
     }
+
+    private def toTransactionTreeEvent(
+        requestingParties: Set[Party],
+        verbose: Boolean,
+        lfValueTranslation: LfValueTranslation,
+    )(event: TransactionLogUpdate.Event)(implicit
+        loggingContext: LoggingContext,
+        executionContext: ExecutionContext,
+    ): Future[TreeEvent] =
+      event match {
+        case createdEvent: TransactionLogUpdate.CreatedEvent =>
+          createdToTransactionTreeEvent(
+            requestingParties,
+            verbose,
+            lfValueTranslation,
+            createdEvent,
+          )
+        case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
+          exercisedToTransactionTreeEvent(
+            requestingParties,
+            verbose,
+            lfValueTranslation,
+            exercisedEvent,
+          )
+      }
 
     private def exercisedToTransactionTreeEvent(
         requestingParties: Set[Party],
