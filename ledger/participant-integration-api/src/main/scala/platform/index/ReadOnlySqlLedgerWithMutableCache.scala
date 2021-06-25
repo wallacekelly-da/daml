@@ -155,6 +155,8 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         dispatcherLagMeter: DispatcherLagMeter,
         startExclusive: (Offset, Long),
     )(implicit resourceContext: ResourceContext) = {
+      discard(startExclusive)
+      discard(logger)
       val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
@@ -174,8 +176,8 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             BuffersUpdater(
               subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
                 val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
-                  maybeOffsetSeqId.getOrElse(startExclusive)
-                logger.info(
+                  maybeOffsetSeqId.getOrElse(Offset.beforeBegin -> 0L)
+                println(
                   s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
                 )
                 cacheUpdatesDispatcher
@@ -185,6 +187,10 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
                       ledgerDao.transactionsReader.getTransactionLogUpdates(_, _)
                     ),
                   )
+                  .wireTap { el =>
+                    val evtSeqId = el._1._2
+                    if (evtSeqId % 10000 == 0) println(s"Ingested up to $evtSeqId")
+                  }
               },
               updateTransactionsBuffer = transactionsBuffer.push,
               updateMutableCache = contractStore.push,
