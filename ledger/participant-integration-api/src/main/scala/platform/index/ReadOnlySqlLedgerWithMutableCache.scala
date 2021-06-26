@@ -29,7 +29,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 private[index] object ReadOnlySqlLedgerWithMutableCache {
   final class Owner(
@@ -41,6 +41,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
       maxContractKeyStateCacheSize: Long,
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
+      servicesExecutionContext: ExecutionContext,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedgerWithMutableCache] {
     private val logger = ContextualizedLogger.get(getClass)
@@ -133,6 +134,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             metrics = metrics,
             maxContractsCacheSize = maxContractStateCacheSize,
             maxKeyCacheSize = maxContractKeyStateCacheSize,
+            executionContext = servicesExecutionContext,
           )
         ledger <- ResourceOwner
           .forCloseable(() =>
@@ -151,6 +153,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
       } yield ledger
     }
 
+    // TODO TDT: Try to get rid of the resourceContexts all over the place
     private def ledgerWithMutableCacheAndInMemoryFanOut(
         cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
         generalDispatcher: Dispatcher[Offset],
@@ -172,7 +175,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           metrics = metrics,
           maxContractsCacheSize = maxContractStateCacheSize,
           maxKeyCacheSize = maxContractKeyStateCacheSize,
-        )
+        )(servicesExecutionContext, loggingContext)
         _ <- ResourceOwner
           .forCloseable(() =>
             BuffersUpdater(
@@ -196,6 +199,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
               },
               updateTransactionsBuffer = transactionsBuffer.push,
               updateMutableCache = contractStore.push,
+              executionContext = servicesExecutionContext,
             )
           )
           .acquire()
@@ -215,7 +219,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
                     (packageId, loggingContext) => ledgerDao.getLfArchive(packageId)(loggingContext),
                 ),
                 metrics = metrics,
-              ),
+              )(loggingContext, servicesExecutionContext),
               pruneBuffers = transactionsBuffer.prune,
               contractStore = contractStore,
               contractStateEventsDispatcher = cacheUpdatesDispatcher,

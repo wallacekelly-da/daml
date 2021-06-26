@@ -329,11 +329,11 @@ object MutableCacheBackedContractStore {
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
+      executionContext: ExecutionContext,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
-      executionContext: ExecutionContext,
       resourceContext: ResourceContext,
   ): Resource[MutableCacheBackedContractStore] = {
 
@@ -343,7 +343,7 @@ object MutableCacheBackedContractStore {
       metrics = metrics,
       maxContractsCacheSize = maxContractsCacheSize,
       maxKeyCacheSize = maxKeyCacheSize,
-    )
+    )(executionContext, loggingContext)
 
     val subscribingContractStoreOwner = (contractStore: MutableCacheBackedContractStore) =>
       ResourceOwner.forCloseable[AutoCloseable](() =>

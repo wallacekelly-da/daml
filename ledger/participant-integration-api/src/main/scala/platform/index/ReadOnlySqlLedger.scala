@@ -63,10 +63,14 @@ private[platform] object ReadOnlySqlLedger {
       for {
         ledgerDao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
-        ledger <- ledgerOwner(ledgerDao, ledgerId).acquire()
+        ledger <- ledgerOwner(ledgerDao, ledgerId, servicesExecutionContext).acquire()
       } yield ledger
 
-    private def ledgerOwner(ledgerDao: LedgerReadDao, ledgerId: LedgerId) =
+    private def ledgerOwner(
+        ledgerDao: LedgerReadDao,
+        ledgerId: LedgerId,
+        servicesExecutionContext: ExecutionContext,
+    ) =
       if (enableMutableContractStateCache)
         new ReadOnlySqlLedgerWithMutableCache.Owner(
           ledgerDao,
@@ -77,6 +81,7 @@ private[platform] object ReadOnlySqlLedger {
           maxContractKeyStateCacheSize,
           maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi,
+          servicesExecutionContext,
         )
       else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(

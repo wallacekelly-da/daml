@@ -361,11 +361,11 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-append-only-in-memory-fan-out",
-    ports = [6865],
+    ports = [6866],
     server = ":conformance-test-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
+        "--participant participant-id=conformance-test,port=6866,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
         "--index-append-only-schema-unsafe",
         "--mutable-contract-state-cache-unsafe",
         "--buffered-ledger-api-streams-unsafe",

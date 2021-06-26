@@ -400,10 +400,10 @@ object MutableCacheBackedContractStoreSpec {
         metrics = new Metrics(new MetricRegistry),
         maxContractsCacheSize = cachesSize,
         maxKeyCacheSize = cachesSize,
+        executionContext = scala.concurrent.ExecutionContext.global,
       )(
         materializer,
         loggingContext,
-        scala.concurrent.ExecutionContext.global,
         ResourceContext(scala.concurrent.ExecutionContext.global),
       )
 
