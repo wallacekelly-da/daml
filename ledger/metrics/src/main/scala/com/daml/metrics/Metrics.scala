@@ -366,6 +366,8 @@ final class Metrics(val registry: MetricRegistry) {
         registry.timer(Prefix :+ "transaction_log_update_decode")
       val transactionLogUpdatesBufferSize: Counter =
         registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
+      val transactionLogUpdatesRangeSize: Meter =
+        registry.meter(Prefix :+ "transaction_log_updates_buffer_size")
 
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {

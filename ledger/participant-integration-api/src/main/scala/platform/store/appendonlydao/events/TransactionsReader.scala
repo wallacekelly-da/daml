@@ -290,6 +290,9 @@ private[appendonlydao] final class TransactionsReader(
       )
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
+        metrics.daml.index.transactionLogUpdatesRangeSize.mark(
+          range.endInclusive - range.startExclusive
+        )
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
           queryNonPruned.executeSqlOrThrow(
             query = storageBackend.rawEvents(
@@ -304,20 +307,18 @@ private[appendonlydao] final class TransactionsReader(
       }
       .mapConcat(identity)
       .async
-      // Decode transaction log updates in parallel
-      .mapAsync(eventProcessingParallelism) { raw =>
-        Timed.future(
-          metrics.daml.index.decodeTransactionLogUpdate,
-          Future(TransactionLogUpdatesReader.toTransactionEvent(raw)),
-        )
-      }
 
     InstrumentedSource
       .bufferedSource(
         original = groupContiguous(eventsSource)(by = _.transactionId)
           .map { v =>
-            val tx = toTransaction(v)
-            (tx.offset, tx.events.last.eventSequentialId) -> tx
+            Timed.value(
+              metrics.daml.index.decodeTransactionLogUpdate, {
+                val decoded = v.map(TransactionLogUpdatesReader.toTransactionEvent)
+                val tx = toTransaction(decoded)
+                (tx.offset, tx.events.last.eventSequentialId) -> tx
+              },
+            )
           }
           .mapMaterializedValue(_ => NotUsed),
         counter = metrics.daml.index.transactionLogUpdatesBufferSize,
