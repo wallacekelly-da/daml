@@ -394,6 +394,13 @@ object SExpr {
     }
   }
 
+  final case class SEImportCids(cids: Set[V.ContractId]) extends SExprAtomic {
+    override def lookupValue(machine: Machine): SValue = {
+      cids.foreach(machine.addGlobalCid)
+      SUnit
+    }
+  }
+
   /** Exception handler */
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {

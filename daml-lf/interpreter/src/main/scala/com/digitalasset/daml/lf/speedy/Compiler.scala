@@ -777,15 +777,10 @@ private[lf] final class Compiler(
         compileEmbedExpr(e)
       case UpdateCreate(tmplId, arg) =>
         CreateDefRef(tmplId)(compile(arg))
-      case UpdateExercise(tmplId, chId, cidE, argE) =>
-        compileExercise(
-          tmplId = tmplId,
-          contractId = compile(cidE),
-          choiceId = chId,
-          argument = compile(argE),
-        )
-      case UpdateExerciseByKey(tmplId, chId, keyE, argE) =>
-        compileExerciseByKey(tmplId, compile(keyE), chId, compile(argE))
+      case UpdateExercise(tmplId, choice, cidE, argE) =>
+        ChoiceDefRef(tmplId, choice)(compile(cidE), compile(argE))
+      case UpdateExerciseByKey(tmplId, choice, keyE, argE) =>
+        ChoiceByKeyDefRef(tmplId, choice)(compile(keyE), compile(argE))
       case UpdateGetTime =>
         SEGetTime
       case UpdateLookupByKey(RetrieveByKey(templateId, key)) =>
@@ -1108,6 +1103,7 @@ private[lf] final class Compiler(
       case v: SEVal => v
       case be: SEBuiltin => be
       case pl: SEValue => pl
+      case ic: SEImportCids => ic
       case f: SEBuiltinRecursiveDefinition => f
       case SELocation(loc, body) =>
         SELocation(loc, closureConvert(remaps, body))
@@ -1215,6 +1211,7 @@ private[lf] final class Compiler(
         case _: SEBuiltin => free
         case _: SEValue => free
         case _: SEBuiltinRecursiveDefinition => free
+        case _: SEImportCids => free
         case SELocation(_, body) =>
           go(body, bound, free)
         case SEAppGeneral(fun, args) =>
@@ -1289,6 +1286,7 @@ private[lf] final class Compiler(
         case _: SEVal => ()
         case _: SEBuiltin => ()
         case _: SEBuiltinRecursiveDefinition => ()
+        case _: SEImportCids => ()
         case SEValue(v) => goV(v)
         case SEAppAtomicGeneral(fun, args) =>
           go(fun)
@@ -1442,54 +1440,6 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileExercise(
-      tmplId: Identifier,
-      contractId: SExpr,
-      choiceId: ChoiceName,
-      // actors are only present when compiling old LF update expressions;
-      // they are computed from the controllers in newer versions
-      argument: SExpr,
-  ): SExpr =
-    // Translates 'A does exercise by key  Choice with <params>'
-    // into:
-    // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
-    withEnv { _ =>
-      ChoiceDefRef(tmplId, choiceId)(contractId, argument)
-    }
-
-  private[this] def compileExerciseByKey(
-      tmplId: Identifier,
-      key: SExpr,
-      choiceId: ChoiceName,
-      argument: SExpr,
-  ): SExpr =
-    // Translates 'A does exerciseByKey <key> <Choice> <with> <params>'
-    // into:
-    // ChoiceByKeyDefRef(tmplId, choiceId) <actors> <key> <arg>
-    withEnv { _ =>
-      ChoiceByKeyDefRef(tmplId, choiceId)(key, argument)
-    }
-
-  private[this] def compileCreateAndExercise(
-      tmplId: Identifier,
-      createArg: SValue,
-      choiceId: ChoiceName,
-      choiceArg: SValue,
-  ): SExpr =
-    labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId)) { tokenPos =>
-      let(CreateDefRef(tmplId)(SEValue(createArg), svar(tokenPos))) { cidPos =>
-        app(
-          compileExercise(
-            tmplId = tmplId,
-            contractId = svar(cidPos),
-            choiceId = choiceId,
-            argument = SEValue(choiceArg),
-          ),
-          svar(tokenPos),
-        )
-      }
-    }
-
   private[this] def compileLookupByKey(
       tmplId: Identifier,
       tmplKey: TemplateKey,
@@ -1537,27 +1487,23 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileCommand(cmd: Command): SExpr = cmd match {
-    case Command.Create(templateId, argument) =>
-      CreateDefRef(templateId)(SEValue(argument))
-    case Command.Exercise(templateId, contractId, choiceId, argument) =>
-      compileExercise(
-        tmplId = templateId,
-        contractId = SEValue(contractId),
-        choiceId = choiceId,
-        argument = SEValue(argument),
-      )
-    case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
-      compileExerciseByKey(templateId, SEValue(contractKey), choiceId, SEValue(argument))
+    case Command.Create(tmplId, arg, coids) =>
+      let(SEImportCids(coids))(_ => CreateDefRef(tmplId)(SEValue(arg)))
+    case Command.Exercise(tmplId, coid, choice, arg, coids) =>
+      let(SEImportCids(coids))(_ => ChoiceDefRef(tmplId, choice)(SEValue(coid), SEValue(arg)))
+    case Command.ExerciseByKey(tmplId, key, choice, arg, coids) =>
+      let(SEImportCids(coids))(_ => ChoiceByKeyDefRef(tmplId, choice)(SEValue(key), SEValue(arg)))
     case Command.Fetch(templateId, coid) =>
       FetchDefRef(templateId)(SEValue(coid))
     case Command.FetchByKey(templateId, key) =>
       FetchByKeyDefRef(templateId)(SEValue(key))
-    case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
-      compileCreateAndExercise(
-        templateId,
-        createArg,
-        choice,
-        choiceArg,
+    case Command.CreateAndExercise(tmplId, createArg, choice, choiceArg, coids) =>
+      labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choice))(tokenPos =>
+        let(SEImportCids(coids))(_ =>
+          let(CreateDefRef(tmplId)(SEValue(createArg), svar(tokenPos)))(cidPos =>
+            ChoiceDefRef(tmplId, choice)(svar(cidPos), SEValue(choiceArg), svar(tokenPos))
+          )
+        )
       )
     case Command.LookupByKey(templateId, contractKey) =>
       LookupByKeyDefRef(templateId)(SEValue(contractKey))
