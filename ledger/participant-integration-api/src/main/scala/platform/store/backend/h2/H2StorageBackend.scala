@@ -5,31 +5,16 @@ package com.daml.platform.store.backend.h2
 
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.SQL
 import anorm.SqlParser.get
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
-import com.daml.platform.store.backend.common.{
-  AppendOnlySchema,
-  CommonStorageBackend,
-  CompletionStorageBackendTemplate,
-  ContractStorageBackendTemplate,
-  EventStorageBackendTemplate,
-  EventStrategy,
-  InitHookDataSourceProxy,
-  QueryStrategy,
-}
-import com.daml.platform.store.backend.{
-  DBLockStorageBackend,
-  DataSourceStorageBackend,
-  DbDto,
-  StorageBackend,
-  common,
-}
+import com.daml.platform.store.backend.common.{AppendOnlySchema, CommonStorageBackend, CompletionStorageBackendTemplate, ContractStorageBackendTemplate, EventStorageBackendTemplate, EventStrategy, InitHookDataSourceProxy, QueryStrategy}
+import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend, DbDto, StorageBackend, common}
+
 import javax.sql.DataSource
 
 private[backend] object H2StorageBackend
@@ -99,15 +84,12 @@ private[backend] object H2StorageBackend
 
   object H2QueryStrategy extends QueryStrategy {
 
-    override def arrayIntersectionNonEmptyClause(
-        columnName: String,
-        parties: Set[Ref.Party],
-    ): CompositeSql =
+    override def arrayIntersectionNonEmptyClause(columnName: String, tableName: String, parties: Set[Party]): CompositeSql =
       if (parties.isEmpty)
         cSQL"false"
       else
         parties.view
-          .map(p => cSQL"array_contains(#$columnName, '#${p.toString}')")
+          .map(p => cSQL"array_contains(#${s"$tableName.$columnName"}, '#${p.toString}')")
           .mkComposite("(", " or ", ")")
 
   }
@@ -115,41 +97,26 @@ private[backend] object H2StorageBackend
   override def queryStrategy: QueryStrategy = H2QueryStrategy
 
   object H2EventStrategy extends EventStrategy {
-    override def filteredEventWitnessesClause(
-        witnessesColumnName: String,
-        parties: Set[Ref.Party],
-    ): CompositeSql = {
+    override def filteredEventWitnessesClause(witnessesColumnName: String, columnPrefix: String, parties: Set[Party]): CompositeSql = {
       val partiesArray = parties.view.map(_.toString).toArray
       cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
     }
 
-    override def submittersArePartiesClause(
-        submittersColumnName: String,
-        parties: Set[Ref.Party],
-    ): CompositeSql =
-      H2QueryStrategy.arrayIntersectionNonEmptyClause(
-        columnName = submittersColumnName,
-        parties = parties,
-      )
+    override def submittersArePartiesClause(submittersColumnName: String, parties: Set[Party], tableName: String): CompositeSql =
+      H2QueryStrategy.arrayIntersectionNonEmptyClause(columnName = submittersColumnName, tableName, parties = parties)
 
-    override def witnessesWhereClause(
-        witnessesColumnName: String,
-        filterParams: FilterParams,
-    ): CompositeSql = {
+    override def witnessesWhereClause(witnessesColumnName: String, tableName: String, filterParams: FilterParams): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
           Nil
 
         case wildCardParties =>
-          cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties)})" :: Nil
+          cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, tableName, wildCardParties)})" :: Nil
       }
       val partiesTemplatesClauses =
         filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
           val clause =
-            H2QueryStrategy.arrayIntersectionNonEmptyClause(
-              witnessesColumnName,
-              parties,
-            )
+            H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, tableName, parties)
           val templateIdsArray = templateIds.view.map(_.toString).toArray
           cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"
         }.toList

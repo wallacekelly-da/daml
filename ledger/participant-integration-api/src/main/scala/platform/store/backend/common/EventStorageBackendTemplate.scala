@@ -6,11 +6,11 @@ package com.daml.platform.store.backend.common
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
 import anorm.{RowParser, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.platform.store.Conversions.{identifier, instant, offset}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{EventsTable, Identifier, Raw}
@@ -258,14 +258,14 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     SQL"""
         SELECT
           #$selectColumns, ${eventStrategy
-      .filteredEventWitnessesClause(witnessesColumn, parties)} as event_witnesses,
+                .filteredEventWitnessesClause(witnessesColumn, if(columnPrefix == "") "participant_events" else columnPrefix, parties)} as event_witnesses,
           case when ${eventStrategy
-      .submittersArePartiesClause("submitters", parties)} then command_id else '' end as command_id
+                .submittersArePartiesClause("submitters", parties, if (columnPrefix=="") "participant_events" else columnPrefix)} then command_id else '' end as command_id
         FROM
           participant_events #$columnPrefix #$joinClause
         WHERE
         $additionalAndClause
-          ${eventStrategy.witnessesWhereClause(witnessesColumn, filterParams)}
+          ${eventStrategy.witnessesWhereClause(witnessesColumn, if (columnPrefix=="") "participant_events" else columnPrefix, filterParams)}
         ORDER BY event_sequential_id
         ${queryStrategy.limitClause(limit)}"""
       .withFetchSize(fetchSizeHint)
@@ -406,10 +406,7 @@ trait EventStrategy {
     * @param parties which is all the parties we are interested in in the resul
     * @return the composable SQL
     */
-  def filteredEventWitnessesClause(
-      witnessesColumnName: String,
-      parties: Set[Ref.Party],
-  ): CompositeSql
+  def filteredEventWitnessesClause(witnessesColumnName: String, columnPrefix: String, parties: Set[Party]): CompositeSql
 
   /** This populates the following part of the query:
     *   SELECT ...,case when [THIS PART] then command_id else "" end as command_id
@@ -419,10 +416,7 @@ trait EventStrategy {
     * @param parties which is all the parties we are interested in in the resul
     * @return the composable SQL
     */
-  def submittersArePartiesClause(
-      submittersColumnName: String,
-      parties: Set[Ref.Party],
-  ): CompositeSql
+  def submittersArePartiesClause(submittersColumnName: String, parties: Set[Party], tableName: String): CompositeSql
 
   /** This populates the following part of the query:
     *   SELECT ... WHERE ... AND [THIS PART]
@@ -432,8 +426,5 @@ trait EventStrategy {
     * @param filterParams the filtering criteria
     * @return the composable SQL
     */
-  def witnessesWhereClause(
-      witnessesColumnName: String,
-      filterParams: FilterParams,
-  ): CompositeSql
+  def witnessesWhereClause(witnessesColumnName: String, tableName: String, filterParams: FilterParams): CompositeSql
 }

@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.backend.common
 
-import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 
 trait QueryStrategy {
@@ -35,8 +35,5 @@ trait QueryStrategy {
     * @param parties set of parties
     * @return the composable SQL
     */
-  def arrayIntersectionNonEmptyClause(
-      columnName: String,
-      parties: Set[Ref.Party],
-  ): CompositeSql
+  def arrayIntersectionNonEmptyClause(columnName: String, tableName: String, parties: Set[Party]): CompositeSql
 }

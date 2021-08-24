@@ -5,26 +5,16 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.SqlParser.{binaryStream, get, int, long, str}
 import anorm.{ResultSetParser, RowParser, SqlParser, ~}
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{
-  contractId,
-  flatEventWitnessesColumn,
-  identifier,
-  instant,
-  offset,
-}
+import com.daml.lf.data.Ref.Party
+import com.daml.platform.store.Conversions.{contractId, flatEventWitnessesColumn, identifier, instant, offset}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.{ContractStorageBackend, StorageBackend}
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
-  KeyAssigned,
-  KeyState,
-  KeyUnassigned,
-}
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{KeyAssigned, KeyState, KeyUnassigned}
 
 import scala.util.{Failure, Success, Try}
 
@@ -232,10 +222,9 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   )(connection: Connection): T = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     val treeEventWitnessesClause =
-      queryStrategy.arrayIntersectionNonEmptyClause(
-        columnName = "tree_event_witnesses",
-        parties = readers,
-      )
+      queryStrategy.arrayIntersectionNonEmptyClause(columnName = "tree_event_witnesses", "participant_events", parties = readers)
+    val treeEventWitnessesDivulgenceClause =
+      queryStrategy.arrayIntersectionNonEmptyClause(columnName = "tree_event_witnesses", "divulgence_events", parties = readers)
     val coalescedColumns = resultColumns
       .map(columnName =>
         s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
@@ -281,7 +270,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
                 WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
                   AND divulgence_events.event_kind = 0 -- divulgence
                   AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
-                  AND $treeEventWitnessesClause
+                  AND $treeEventWitnessesDivulgenceClause
                 ORDER BY divulgence_events.event_sequential_id
                   -- prudent engineering: make results more stable by preferring earlier divulgence events
                   -- Results might still change due to pruning.
@@ -362,17 +351,11 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
 
     val lastContractKeyFlatEventWitnessesClause =
       withAndIfNonEmptyReaders(
-        queryStrategy.arrayIntersectionNonEmptyClause(
-          columnName = "last_contract_key_create.flat_event_witnesses",
-          _,
-        )
+        (parties: Set[Party]) => queryStrategy.arrayIntersectionNonEmptyClause(columnName = "flat_event_witnesses", "last_contract_key_create", parties)
       )
     val participantEventsFlatEventWitnessesClause =
       withAndIfNonEmptyReaders(
-        queryStrategy.arrayIntersectionNonEmptyClause(
-          columnName = "participant_events.flat_event_witnesses",
-          _,
-        )
+        (parties: Set[Party]) => queryStrategy.arrayIntersectionNonEmptyClause(columnName = "flat_event_witnesses", "participant_events", parties)
       )
     val validAtClause = validAt match {
       case Some(validAt) =>

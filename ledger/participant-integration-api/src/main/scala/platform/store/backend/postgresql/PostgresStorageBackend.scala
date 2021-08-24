@@ -9,7 +9,6 @@ import java.time.Instant
 import anorm.SQL
 import anorm.SqlParser.get
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.events.Party
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
@@ -92,10 +91,7 @@ private[backend] object PostgresStorageBackend
 
   object PostgresQueryStrategy extends QueryStrategy {
 
-    override def arrayIntersectionNonEmptyClause(
-        columnName: String,
-        parties: Set[Ref.Party],
-    ): CompositeSql = {
+    override def arrayIntersectionNonEmptyClause(columnName: String, tableName: String, parties: Set[Party]): CompositeSql = {
       import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
       val partiesArray: Array[String] = parties.map(_.toString).toArray
       cSQL"#$columnName::text[] && $partiesArray::text[]"
@@ -106,10 +102,7 @@ private[backend] object PostgresStorageBackend
   override def queryStrategy: QueryStrategy = PostgresQueryStrategy
 
   object PostgresEventStrategy extends EventStrategy {
-    override def filteredEventWitnessesClause(
-        witnessesColumnName: String,
-        parties: Set[Party],
-    ): CompositeSql =
+    override def filteredEventWitnessesClause(witnessesColumnName: String, columnPrefix: String, parties: Set[Party]): CompositeSql =
       if (parties.size == 1)
         cSQL"array[${parties.head.toString}]::text[]"
       else {
@@ -117,31 +110,25 @@ private[backend] object PostgresStorageBackend
         cSQL"array(select unnest(#$witnessesColumnName) intersect select unnest($partiesArray::text[]))"
       }
 
-    override def submittersArePartiesClause(
-        submittersColumnName: String,
-        parties: Set[Party],
-    ): CompositeSql = {
+    override def submittersArePartiesClause(submittersColumnName: String, parties: Set[Party], tableName: String): CompositeSql = {
       val partiesArray = parties.view.map(_.toString).toArray
       cSQL"(#$submittersColumnName::text[] && $partiesArray::text[])"
     }
 
-    override def witnessesWhereClause(
-        witnessesColumnName: String,
-        filterParams: FilterParams,
-    ): CompositeSql = {
+    override def witnessesWhereClause(witnessesColumnName: String, tableName: String, filterParams: FilterParams): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
           Nil
 
         case wildCardParties =>
           val partiesArray = wildCardParties.view.map(_.toString).toArray
-          cSQL"(#$witnessesColumnName::text[] && $partiesArray::text[])" :: Nil
+          cSQL"(#${s"$tableName.$witnessesColumnName"}::text[] && $partiesArray::text[])" :: Nil
       }
       val partiesTemplatesClauses =
         filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
           val partiesArray = parties.view.map(_.toString).toArray
           val templateIdsArray = templateIds.view.map(_.toString).toArray
-          cSQL"( (#$witnessesColumnName::text[] && $partiesArray::text[]) AND (template_id = ANY($templateIdsArray::text[])) )"
+          cSQL"( (#${s"$tableName.$witnessesColumnName"}::text[] && $partiesArray::text[]) AND (template_id = ANY($templateIdsArray::text[])) )"
         }.toList
       (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")
     }
