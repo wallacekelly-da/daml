@@ -41,7 +41,7 @@ import com.daml.platform.store.appendonlydao.events.{
   QueryNonPrunedImpl,
   TransactionsReader,
 }
-import com.daml.platform.store.backend.{StorageBackend, UpdateToDbDto}
+import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.{
@@ -58,12 +58,9 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
-import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
-import scala.util.control.NonFatal
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -87,46 +84,59 @@ private class JdbcLedgerDao(
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerId)(storageBackend.ledgerId)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerId)(
+        storageBackend.ledgerIdentity(_).map(_.ledgerId)
+      )
 
   override def lookupParticipantId()(implicit
       loggingContext: LoggingContext
   ): Future[Option[ParticipantId]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getParticipantId)(storageBackend.participantId)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getParticipantId)(
+        storageBackend.ledgerIdentity(_).map(_.participantId)
+      )
 
   /** Defaults to Offset.begin if ledger_end is unset
     */
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(storageBackend.ledgerEndOffset)
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerEnd)(
+        storageBackend.ledgerEndOrBeforeBegin(_).lastOffset
+      )
+
+  case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
 
   override def lookupLedgerEndOffsetAndSequentialId()(implicit
       loggingContext: LoggingContext
   ): Future[(Offset, Long)] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId)(
-      storageBackend.ledgerEndOffsetAndSequentialId
-    )
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId) { connection =>
+        val end = storageBackend.ledgerEndOrBeforeBegin(connection)
+        end.lastOffset -> end.lastEventSeqId
+      }
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
   ): Future[Option[Offset]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
-      storageBackend.initialLedgerEnd
-    )
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
+        storageBackend.ledgerEnd(_).map(_.lastOffset)
+      )
 
-  override def initializeLedger(
-      ledgerId: LedgerId
+  override def initialize(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
-      implicit connection =>
-        storageBackend.updateLedgerId(ledgerId.unwrap)(connection)
-    }
-
-  override def initializeParticipantId(
-      participantId: ParticipantId
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId) { implicit connection =>
-      storageBackend.updateParticipantId(participantId.unwrap)(connection)
-    }
+    dbDispatcher
+      .executeSql(metrics.daml.index.db.initializeLedgerParameters)(
+        storageBackend.initializeParameters(
+          ParameterStorageBackend.IdentityParams(
+            ledgerId = ledgerId,
+            participantId = participantId,
+          )
+        )
+      )
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
@@ -211,40 +221,37 @@ private class JdbcLedgerDao(
       }
     }
 
+  private val NonLocalParticipantId =
+    Ref.ParticipantId.assertFromString("RESTRICTED_NON_LOCAL_PARTICIPANT_ID")
+
   override def storePartyEntry(
       offsetStep: OffsetStep,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing party entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      val savepoint = conn.setSavepoint()
       val offset = validateOffsetStep(offsetStep, conn)
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
-          Try({
-            sequentialIndexer.store(
-              conn,
-              offset,
-              Some(
-                state.Update.PartyAddedToParticipant(
-                  party = partyDetails.party,
-                  displayName = partyDetails.displayName.orNull,
-                  participantId = participantId,
-                  recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                  submissionId = submissionIdOpt,
-                )
-              ),
-            )
-            PersistenceResponse.Ok
-          }).recover {
-            case NonFatal(e) if e.getMessage.contains(storageBackend.duplicateKeyError) =>
-              logger.warn(
-                s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt"
+          sequentialIndexer.store(
+            conn,
+            offset,
+            Some(
+              state.Update.PartyAddedToParticipant(
+                party = partyDetails.party,
+                displayName = partyDetails.displayName.orNull,
+                // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
+                // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
+                // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
+                //
+                // This will be properly resolved once we move away from the `sandbox-classic` codebase.
+                participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
+                recordTime = Time.Timestamp.assertFromInstant(recordTime),
+                submissionId = submissionIdOpt,
               )
-              conn.rollback(savepoint)
-              sequentialIndexer.store(conn, offset, None)
-              PersistenceResponse.Duplicate
-          }.get
+            ),
+          )
+          PersistenceResponse.Ok
 
         case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
           sequentialIndexer.store(
@@ -710,7 +717,7 @@ private class JdbcLedgerDao(
   private[this] def validateOffsetStep(offsetStep: OffsetStep, conn: Connection): Offset = {
     offsetStep match {
       case IncrementalOffsetStep(p, o) =>
-        val actualEnd = storageBackend.ledgerEndOffset(conn)
+        val actualEnd = storageBackend.ledgerEndOrBeforeBegin(conn).lastOffset
         if (actualEnd.compareTo(p) != 0) throw LedgerEndUpdateError(p) else o
       case CurrentOffset(o) => o
     }

@@ -14,7 +14,11 @@ import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 
-private[engine] final class ValueTranslator(interface: language.Interface) {
+private[engine] final class ValueTranslator(
+    interface: language.Interface,
+    // See Preprocessor.requiredCidSuffix for more details about the following flag.
+    requiredCidSuffix: Boolean,
+) {
 
   import Preprocessor._
 
@@ -38,15 +42,26 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
     go(fields, Map.empty)
   }
 
+  private[preprocessing] val unsafeTranslateCid: ContractId => SValue.SContractId =
+    if (requiredCidSuffix) {
+      case cid1: ContractId.V1 =>
+        if (cid1.suffix.isEmpty)
+          throw Error.Preprocessing.NonSuffixedCid(cid1)
+        else
+          SValue.SContractId(cid1)
+      case cid0: ContractId.V0 =>
+        SValue.SContractId(cid0)
+    }
+    else
+      SValue.SContractId
+
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value[ContractId],
-  ): (SValue, Set[Value.ContractId]) = {
-
-    val cids = Set.newBuilder[Value.ContractId]
+  ): SValue = {
 
     def go(ty0: Type, value0: Value[ContractId], nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
@@ -91,8 +106,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                         typeError()
                     }
                   case (BTContractId, ValueContractId(c)) =>
-                    cids += c
-                    SValue.SContractId(c)
+                    unsafeTranslateCid(c)
                   case (BTOptional, ValueOptional(mbValue)) =>
                     mbValue match {
                       case Some(v) =>
@@ -224,7 +238,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
         }
       }
 
-    go(ty, value) -> cids.result()
+    go(ty, value)
   }
 
   // This does not try to pull missing packages, return an error instead.
@@ -232,6 +246,6 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
       ty: Type,
       value: Value[ContractId],
   ): Either[Error.Preprocessing.Error, SValue] =
-    safelyRun(unsafeTranslateValue(ty, value)._1)
+    safelyRun(unsafeTranslateValue(ty, value))
 
 }

@@ -105,15 +105,12 @@ object Error {
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
     }
 
-    final case class RootNode(nodeId: NodeId, override val message: String) extends Error
-
-    final case class ContractIdFreshness(
-        localContractIds: Set[Value.ContractId],
-        globalContractIds: Set[Value.ContractId],
-    ) extends Error {
-      assert(localContractIds exists globalContractIds)
-      def message: String = "Conflicting discriminators between a global and local contract ID."
+    final case class NonSuffixedCid(cid: Value.ContractId.V1) extends Error {
+      override def message: String =
+        s"Provided Contract ID $cid is not suffixed"
     }
+
+    final case class RootNode(nodeId: NodeId, override val message: String) extends Error
 
   }
 

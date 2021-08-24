@@ -13,7 +13,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.parallel.ParallelIndexerFactory.Batch
-import com.daml.platform.store.backend.{DbDto, StorageBackend}
+import com.daml.platform.store.backend.{DbDto, ParameterStorageBackend}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -21,12 +21,15 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
 
   private implicit val lc: LoggingContext = LoggingContext.ForTesting
 
-  private val someParty = DbDto.Party(
-    party = "party",
+  private val someParty = DbDto.PartyEntry(
+    ledger_offset = "",
+    recorded_at = null,
+    submission_id = null,
+    party = Some("party"),
     display_name = None,
-    explicit = true,
-    ledger_offset = None,
-    is_local = true,
+    typ = "accept",
+    rejection_reason = None,
+    is_local = Some(true),
   )
 
   private val someTime = Instant.now
@@ -303,9 +306,9 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
         averageStartTime = 0,
         offsets = Vector.empty,
       )
-    ) shouldBe StorageBackend.Params(
-      ledgerEnd = offset("05"),
-      eventSeqId = 2000,
+    ) shouldBe ParameterStorageBackend.LedgerEnd(
+      lastOffset = offset("05"),
+      lastEventSeqId = 2000,
     )
   }
 }

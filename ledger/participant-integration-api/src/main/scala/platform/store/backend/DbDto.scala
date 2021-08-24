@@ -118,14 +118,6 @@ object DbDto {
       is_local: Option[Boolean],
   ) extends DbDto
 
-  final case class Party(
-      party: String,
-      display_name: Option[String],
-      explicit: Boolean,
-      ledger_offset: Option[String],
-      is_local: Boolean,
-  ) extends DbDto
-
   final case class CommandCompletion(
       completion_offset: String,
       record_time: Instant,
@@ -133,8 +125,9 @@ object DbDto {
       submitters: Set[String],
       command_id: String,
       transaction_id: Option[String],
-      status_code: Option[Int],
-      status_message: Option[String],
+      rejection_status_code: Option[Int],
+      rejection_status_message: Option[String],
+      rejection_status_details: Option[Array[Byte]],
   ) extends DbDto
 
   final case class CommandDeduplication(deduplication_key: String) extends DbDto

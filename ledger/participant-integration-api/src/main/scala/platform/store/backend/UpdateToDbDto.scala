@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
+import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.dao.DeduplicationKeyMaker
@@ -34,8 +35,10 @@ object UpdateToDbDto {
             submitters = u.completionInfo.actAs.toSet,
             command_id = u.completionInfo.commandId,
             transaction_id = None,
-            status_code = Some(u.reasonTemplate.code),
-            status_message = Some(u.reasonTemplate.message),
+            rejection_status_code = Some(u.reasonTemplate.code),
+            rejection_status_message = Some(u.reasonTemplate.message),
+            rejection_status_details =
+              Some(StatusDetails.of(u.reasonTemplate.status.details).toByteArray),
           ),
           DbDto.CommandDeduplication(
             DeduplicationKeyMaker.make(
@@ -80,14 +83,7 @@ object UpdateToDbDto {
             typ = JdbcLedgerDao.acceptType,
             rejection_reason = None,
             is_local = Some(u.participantId == participantId),
-          ),
-          DbDto.Party(
-            party = u.party,
-            display_name = Some(u.displayName),
-            explicit = true,
-            ledger_offset = Some(offset.toHexString),
-            is_local = u.participantId == participantId,
-          ),
+          )
         )
 
       case u: PartyAllocationRejected =>
@@ -269,8 +265,9 @@ object UpdateToDbDto {
             submitters = completionInfo.actAs.toSet,
             command_id = completionInfo.commandId,
             transaction_id = Some(u.transactionId),
-            status_code = None,
-            status_message = None,
+            rejection_status_code = None,
+            rejection_status_message = None,
+            rejection_status_details = None,
           )
         }
 

@@ -67,6 +67,8 @@ da_scala_library(
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        # TODO Divulgence pruning: Remove once KeyValueParticipantStateWriter doesn't need to return UNIMPLEMENTED for prune
+        "@maven//:io_grpc_grpc_api",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -250,8 +252,6 @@ client_server_build(
         "localhost:%PORT%",
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
-    runner = "@//bazel_tools/client_server/runner_with_port_file",
-    runner_args = [],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",

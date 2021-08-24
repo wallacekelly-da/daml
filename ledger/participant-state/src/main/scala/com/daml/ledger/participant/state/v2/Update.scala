@@ -94,7 +94,12 @@ object Update {
 
   /** Signal that a party is hosted at a participant.
     *
-    * @param party         The newly allocated party identifier.
+    * Repeated `PartyAddedToParticipant` updates are interpreted in the order of their offsets as follows:
+    * - last-write-wins semantics for `displayName`
+    * - set-union semantics for `participantId`; i.e., parties can only be added to, but not removed from a participant
+    * The `recordTime` and `submissionId` are always metadata for their specific `PartyAddedToParticipant` update.
+    *
+    * @param party         The party identifier.
     * @param displayName   The user readable description of the party. May not be unique.
     * @param participantId The participant that this party was added to.
     * @param recordTime    The ledger-provided timestamp at which the party was allocated.
@@ -343,7 +348,7 @@ object Update {
     }
 
     /** The status code for the command rejection. */
-    final class FinalReason(override val status: RpcStatus) extends RejectionReasonTemplate {
+    final case class FinalReason(override val status: RpcStatus) extends RejectionReasonTemplate {
       override def message: String = status.message
 
       override def code: Int = status.code

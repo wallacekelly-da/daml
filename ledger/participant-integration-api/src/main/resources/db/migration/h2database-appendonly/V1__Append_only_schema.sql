@@ -8,10 +8,9 @@ CREATE ALIAS array_intersection FOR "com.daml.platform.store.backend.h2.H2Functi
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE parameters (
   ledger_id VARCHAR NOT NULL,
-  participant_id VARCHAR,
+  participant_id VARCHAR NOT NULL,
   ledger_end VARCHAR,
   ledger_end_sequential_id BIGINT,
-  external_ledger_end VARCHAR,
   participant_pruned_up_to_inclusive VARCHAR
 );
 
@@ -70,19 +69,6 @@ CREATE TABLE package_entries (
 CREATE INDEX idx_package_entries ON package_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
--- Parties table
----------------------------------------------------------------------------------------------------
-CREATE TABLE parties (
-    party VARCHAR PRIMARY KEY NOT NULL,
-    display_name VARCHAR,
-    explicit BOOLEAN NOT NULL,
-    ledger_offset VARCHAR,
-    is_local BOOLEAN NOT NULL
-);
-
-CREATE INDEX idx_parties_ledger_offset ON parties (ledger_offset);
-
----------------------------------------------------------------------------------------------------
 -- Party entries table
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE party_entries (
@@ -103,6 +89,7 @@ CREATE TABLE party_entries (
 );
 
 CREATE INDEX idx_party_entries ON party_entries (submission_id);
+CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Submissions table
@@ -121,9 +108,15 @@ CREATE TABLE participant_command_completions (
     application_id VARCHAR NOT NULL,
     submitters ARRAY NOT NULL,
     command_id VARCHAR NOT NULL,
+    -- The transaction ID is `NULL` for rejected transactions.
     transaction_id VARCHAR,
-    status_code INTEGER,
-    status_message VARCHAR
+    -- The three columns below are `NULL` if the completion is for an accepted transaction.
+    -- The `rejection_status_details` column contains a Protocol-Buffers-serialized message of type
+    -- `daml.platform.index.StatusDetails`, containing the code, message, and further details
+    -- (decided by the ledger driver), and may be `NULL` even if the other two columns are set.
+    rejection_status_code INTEGER,
+    rejection_status_message VARCHAR,
+    rejection_status_details BYTEA
 );
 
 CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions (completion_offset, application_id);

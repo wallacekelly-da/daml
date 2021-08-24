@@ -71,9 +71,9 @@ private[backend] object AppendOnlySchema {
 
     def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
     def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM]
-    def idempotentInsert(tableName: String, keyFieldIndex: Int)(
-        fields: (String, Field[DbDto.Package, _, _])*
-    ): Table[DbDto.Package]
+    def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
+        fields: (String, Field[FROM, _, _])*
+    ): Table[FROM]
   }
 
   def apply(fieldStrategy: FieldStrategy): Schema[DbDto] = {
@@ -208,15 +208,6 @@ private[backend] object AppendOnlySchema {
         "is_local" -> fieldStrategy.booleanOptional(_.is_local),
       )
 
-    val parties: Table[DbDto.Party] =
-      fieldStrategy.insert("parties")(
-        "party" -> fieldStrategy.string(_.party),
-        "display_name" -> fieldStrategy.stringOptional(_.display_name),
-        "explicit" -> fieldStrategy.boolean(_.explicit),
-        "ledger_offset" -> fieldStrategy.stringOptional(_.ledger_offset),
-        "is_local" -> fieldStrategy.boolean(_.is_local),
-      )
-
     val commandCompletions: Table[DbDto.CommandCompletion] =
       fieldStrategy.insert("participant_command_completions")(
         "completion_offset" -> fieldStrategy.string(_.completion_offset),
@@ -225,8 +216,9 @@ private[backend] object AppendOnlySchema {
         "submitters" -> fieldStrategy.stringArray(_.submitters),
         "command_id" -> fieldStrategy.string(_.command_id),
         "transaction_id" -> fieldStrategy.stringOptional(_.transaction_id),
-        "status_code" -> fieldStrategy.intOptional(_.status_code),
-        "status_message" -> fieldStrategy.stringOptional(_.status_message),
+        "rejection_status_code" -> fieldStrategy.intOptional(_.rejection_status_code),
+        "rejection_status_message" -> fieldStrategy.stringOptional(_.rejection_status_message),
+        "rejection_status_details" -> fieldStrategy.byteaOptional(_.rejection_status_details),
       )
 
     val commandSubmissionDeletes: Table[DbDto.CommandDeduplication] =
@@ -242,7 +234,6 @@ private[backend] object AppendOnlySchema {
       configurationEntries.executeUpdate,
       packageEntries.executeUpdate,
       packages.executeUpdate,
-      parties.executeUpdate,
       partyEntries.executeUpdate,
       commandCompletions.executeUpdate,
       commandSubmissionDeletes.executeUpdate,
@@ -262,7 +253,6 @@ private[backend] object AppendOnlySchema {
           configurationEntries.prepareData(collect[ConfigurationEntry]),
           packageEntries.prepareData(collect[PackageEntry]),
           packages.prepareData(collect[Package]),
-          parties.prepareData(collect[Party]),
           partyEntries.prepareData(collect[PartyEntry]),
           commandCompletions.prepareData(collect[CommandCompletion]),
           commandSubmissionDeletes.prepareData(collect[CommandDeduplication]),
