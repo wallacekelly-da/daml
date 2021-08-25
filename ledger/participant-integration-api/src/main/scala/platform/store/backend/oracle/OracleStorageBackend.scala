@@ -5,10 +5,7 @@ package com.daml.platform.store.backend.oracle
 
 import anorm.SqlParser.get
 import anorm.SQL
-import com.daml.platform.store.backend.common.{AppendOnlySchema, CommonStorageBackend, CompletionStorageBackendTemplate, ContractStorageBackendTemplate, EventStorageBackendTemplate, EventStrategy, InitHookDataSourceProxy, QueryStrategy}
-import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend, DbDto, StorageBackend, common}
 
-import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
   CommonStorageBackend,
@@ -106,24 +103,36 @@ private[backend] object OracleStorageBackend
 
   object OracleQueryStrategy extends QueryStrategy {
 
-    override def arrayIntersectionNonEmptyClause(columnName: String, tableName: String, parties: Set[Party]): CompositeSql = {
-      println(tableName, columnName)
+    override def arrayIntersectionNonEmptyClause(
+        columnName: String,
+        tableName: String,
+        parties: Set[Party],
+    ): CompositeSql = {
       val (viewName, idColumn, viewColumn) = (tableName, columnName) match {
-        case ("participant_command_completions", "submitters") => ("participant_command_completions_submitters", "completion_offset", "submitter")
-        case ("participant_events", "submitters") => ("participant_events_submitters", "event_sequential_id", "submitter")
-        case ("active_cs", "submitters") => ("participant_events_submitters", "event_sequential_id", "submitter")
-        case ("participant_events", "tree_event_witnesses") => ("participant_events_tree_event_witnesses", "event_sequential_id", "tree_event_witness")
-        case ("active_cs", "tree_event_witnesses") => ("participant_events_tree_event_witnesses", "event_sequential_id", "tree_event_witness")
-        case ("participant_events", "flat_event_witnesses") => ("participant_events_flat_event_witnesses", "event_sequential_id", "flat_event_witness")
-        case ("active_cs", "flat_event_witnesses") => ("participant_events_flat_event_witnesses", "event_sequential_id", "flat_event_witness")
-        case ("last_contract_key_create", "flat_event_witnesses") => ("participant_events_flat_event_witnesses", "event_sequential_id", "flat_event_witness")
-        case ("divulgence_events", "flat_event_witnesses") => ("participant_events_flat_event_witnesses", "event_sequential_id", "flat_event_witness")
-        case ("divulgence_events", "tree_event_witnesses") => ("participant_events_tree_event_witnesses", "event_sequential_id", "tree_event_witness")
+        case ("participant_command_completions", "submitters") =>
+          ("participant_command_completions_submitters", "completion_offset", "submitter")
+        case ("participant_events", "submitters") =>
+          ("participant_events_submitters", "event_sequential_id", "submitter")
+        case ("active_cs", "submitters") =>
+          ("participant_events_submitters", "event_sequential_id", "submitter")
+        case ("participant_events", "tree_event_witnesses") =>
+          ("participant_events_tree_event_witnesses", "event_sequential_id", "tree_event_witness")
+        case ("active_cs", "tree_event_witnesses") =>
+          ("participant_events_tree_event_witnesses", "event_sequential_id", "tree_event_witness")
+        case ("participant_events", "flat_event_witnesses") =>
+          ("participant_events_flat_event_witnesses", "event_sequential_id", "flat_event_witness")
+        case ("active_cs", "flat_event_witnesses") =>
+          ("participant_events_flat_event_witnesses", "event_sequential_id", "flat_event_witness")
+        case ("last_contract_key_create", "flat_event_witnesses") =>
+          ("participant_events_flat_event_witnesses", "event_sequential_id", "flat_event_witness")
+        case ("divulgence_events", "flat_event_witnesses") =>
+          ("participant_events_flat_event_witnesses", "event_sequential_id", "flat_event_witness")
+        case ("divulgence_events", "tree_event_witnesses") =>
+          ("participant_events_tree_event_witnesses", "event_sequential_id", "tree_event_witness")
       }
-      cSQL"EXISTS (SELECT 1 FROM JSON_TABLE(#${s"$columnName"}, '$$[*]' columns (value PATH '$$')) WHERE value IN (${parties
-        .map(_.toString)}))"
 
-      cSQL"""#${s"$tableName.$idColumn"} in (select v.#$idColumn from #$viewName v where v.#$idColumn = #${s"$tableName.$idColumn"} AND v.#$viewColumn in (${parties.map(_.toString)}))"""
+      cSQL"""#${s"$tableName.$idColumn"} in (select v.#$idColumn from #$viewName v where v.#$idColumn = #${s"$tableName.$idColumn"} AND v.#$viewColumn in (${parties
+        .map(_.toString)}))"""
 
     }
 
@@ -137,26 +146,40 @@ private[backend] object OracleStorageBackend
 
   object OracleEventStrategy extends EventStrategy {
 
-    override def filteredEventWitnessesClause(witnessesColumnName: String, columnPrefix: String, parties: Set[Party]): CompositeSql = {
+    override def filteredEventWitnessesClause(
+        witnessesColumnName: String,
+        columnPrefix: String,
+        parties: Set[Party],
+    ): CompositeSql = {
       val (viewName, viewColumn) = witnessesColumnName match {
-        case "flat_event_witnesses" => ("participant_events_flat_event_witnesses", "flat_event_witness")
-        case "tree_event_witnesses" => ("participant_events_tree_event_witnesses", "tree_event_witness")
+        case "flat_event_witnesses" =>
+          ("participant_events_flat_event_witnesses", "flat_event_witness")
+        case "tree_event_witnesses" =>
+          ("participant_events_tree_event_witnesses", "tree_event_witness")
       }
       if (parties.size == 1)
         cSQL"(json_array(${parties.head.toString}))"
       else {
 
         cSQL"""
-               (select json_arrayagg(#$viewColumn) from (select #$viewColumn from #$viewName where #$viewName.event_sequential_id = #$columnPrefix.event_sequential_id and #$viewColumn IN (${parties.map(_.toString)})))
+               (select json_arrayagg(#$viewColumn) from (select #$viewColumn from #$viewName where #$viewName.event_sequential_id = #$columnPrefix.event_sequential_id and #$viewColumn IN (${parties
+          .map(_.toString)})))
             """
       }
     }
 
-
-    override def submittersArePartiesClause(submittersColumnName: String, parties: Set[Party], tableName: String): CompositeSql =
+    override def submittersArePartiesClause(
+        submittersColumnName: String,
+        parties: Set[Party],
+        tableName: String,
+    ): CompositeSql =
       cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(submittersColumnName, tableName, parties)})"
 
-    override def witnessesWhereClause(witnessesColumnName: String, tableName: String, filterParams: FilterParams): CompositeSql = {
+    override def witnessesWhereClause(
+        witnessesColumnName: String,
+        tableName: String,
+        filterParams: FilterParams,
+    ): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
           Nil
@@ -167,7 +190,11 @@ private[backend] object OracleStorageBackend
       val partiesTemplatesClauses =
         filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
           val clause =
-            OracleQueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, tableName, parties)
+            OracleQueryStrategy.arrayIntersectionNonEmptyClause(
+              witnessesColumnName,
+              tableName,
+              parties,
+            )
           cSQL"( ($clause) AND (template_id IN (${templateIds.map(_.toString)})) )"
         }.toList
       (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")

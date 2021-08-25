@@ -12,6 +12,8 @@ import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
+import com.daml.platform.store.backend.common.PartyStorageBackendTemplate
+
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
   CommonStorageBackend,
@@ -20,7 +22,6 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   EventStrategy,
   InitHookDataSourceProxy,
-  PartyStorageBackendTemplate,
   QueryStrategy,
 }
 import com.daml.platform.store.backend.{
@@ -30,8 +31,6 @@ import com.daml.platform.store.backend.{
   StorageBackend,
   common,
 }
-import com.daml.platform.store.backend.common.{AppendOnlySchema, CommonStorageBackend, CompletionStorageBackendTemplate, ContractStorageBackendTemplate, EventStorageBackendTemplate, EventStrategy, InitHookDataSourceProxy, QueryStrategy}
-import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend, DbDto, StorageBackend, common}
 
 import javax.sql.DataSource
 
@@ -118,7 +117,11 @@ private[backend] object H2StorageBackend
 
   object H2QueryStrategy extends QueryStrategy {
 
-    override def arrayIntersectionNonEmptyClause(columnName: String, tableName: String, parties: Set[Party]): CompositeSql =
+    override def arrayIntersectionNonEmptyClause(
+        columnName: String,
+        tableName: String,
+        parties: Set[Party],
+    ): CompositeSql =
       if (parties.isEmpty)
         cSQL"false"
       else
@@ -131,15 +134,31 @@ private[backend] object H2StorageBackend
   override def queryStrategy: QueryStrategy = H2QueryStrategy
 
   object H2EventStrategy extends EventStrategy {
-    override def filteredEventWitnessesClause(witnessesColumnName: String, columnPrefix: String, parties: Set[Party]): CompositeSql = {
+    override def filteredEventWitnessesClause(
+        witnessesColumnName: String,
+        columnPrefix: String,
+        parties: Set[Party],
+    ): CompositeSql = {
       val partiesArray = parties.view.map(_.toString).toArray
       cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
     }
 
-    override def submittersArePartiesClause(submittersColumnName: String, parties: Set[Party], tableName: String): CompositeSql =
-      H2QueryStrategy.arrayIntersectionNonEmptyClause(columnName = submittersColumnName, tableName, parties = parties)
+    override def submittersArePartiesClause(
+        submittersColumnName: String,
+        parties: Set[Party],
+        tableName: String,
+    ): CompositeSql =
+      H2QueryStrategy.arrayIntersectionNonEmptyClause(
+        columnName = submittersColumnName,
+        tableName,
+        parties = parties,
+      )
 
-    override def witnessesWhereClause(witnessesColumnName: String, tableName: String, filterParams: FilterParams): CompositeSql = {
+    override def witnessesWhereClause(
+        witnessesColumnName: String,
+        tableName: String,
+        filterParams: FilterParams,
+    ): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
           Nil

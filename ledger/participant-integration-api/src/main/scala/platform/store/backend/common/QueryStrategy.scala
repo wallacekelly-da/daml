@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.common
-
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 
 trait QueryStrategy {
