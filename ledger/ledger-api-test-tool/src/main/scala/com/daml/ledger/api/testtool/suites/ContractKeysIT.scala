@@ -14,7 +14,7 @@ import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test.CallablePayout
-import io.grpc.Status
+import io.grpc.{Status, StatusRuntimeException}
 import scalaz.Tag
 
 final class ContractKeysIT extends LedgerTestSuite {
@@ -77,6 +77,55 @@ final class ContractKeysIT extends LedgerTestSuite {
         Some("Inconsistent"),
         checkDefiniteAnswerMetadata = true,
       )
+    }
+  })
+
+  test(
+    "CKFetchOrLookup_NewErrorCode",
+    "Divulged contracts cannot be fetched or looked up by key by non-stakeholders",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
+    import Test.{Delegated, Delegation, ShowDelegated}
+    val key = alpha.nextKeyId()
+    for {
+      // create contracts to work with
+      delegated <- alpha.create(owner, Delegated(owner, key))
+      delegation <- alpha.create(owner, Delegation(owner, delegate))
+      showDelegated <- alpha.create(owner, ShowDelegated(owner, delegate))
+
+      // divulge the contract
+      _ <- alpha.exercise(owner, showDelegated.exerciseShowIt(_, delegated))
+
+      // fetch delegated
+      _ <- eventually {
+        beta.exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
+      }
+
+      // fetch by key should fail during interpretation
+      // Reason: Only stakeholders see the result of fetchByKey, beta is neither stakeholder nor divulgee
+      fetchFailure <- beta
+        .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key))
+        .mustFail("fetching by key with a party that cannot see the contract")
+
+      // lookup by key delegation is should fail during validation
+      // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
+      // but validation determined that this result is wrong as the contract is there.
+      _ <- beta
+        .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
+        .mustFail("looking up by key with a party that cannot see the contract")
+    } yield {
+      fetchFailure match {
+        case right: StatusRuntimeException =>
+          assert(
+            right.getStatus.getCode.name() == "INVALID_ARGUMENT",
+            s"Code should be INVALID_ARGUMENT but was ${right.getStatus.getCode.name()}",
+          )
+          // Simple assertion of the new error code
+          assert(right.getStatus.getDescription.startsWith("CONTRACT_KEY_NOT_FOUND(8,0): "))
+        // TODO error codes: Assert the info provided in trailers as well
+
+        case _ => fail("Not a StatusRuntimeException")
+      }
     }
   })
 

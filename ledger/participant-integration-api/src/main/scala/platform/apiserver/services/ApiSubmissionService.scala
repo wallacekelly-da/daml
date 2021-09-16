@@ -12,8 +12,6 @@ import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => InterpretationError}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -21,6 +19,8 @@ import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
+import com.daml.platform.apiserver.error.{CorrelationId, RejectionGenerators}
+import com.daml.platform.apiserver.error.RejectionGenerators.ErrorCauseExport
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
@@ -29,7 +29,6 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.ErrorCause
 import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
-import io.grpc.StatusRuntimeException
 
 import java.time.{Duration, Instant}
 import java.util.UUID
@@ -156,7 +155,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
           logger.debug(DuplicateCommandException.getMessage)
-          Future.failed(DuplicateCommandException)
+          Future.failed(
+            RejectionGenerators.duplicateCommand(logger, loggingContext, CorrelationId.none)
+          )
       }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
@@ -184,7 +185,15 @@ private[apiserver] final class ApiSubmissionService private[services] (
     result.fold(
       error => {
         metrics.daml.commands.failedCommandInterpretations.mark()
-        Future.failed(toStatusException(error))
+        Future.failed(
+          RejectionGenerators
+            .commandExecutorError(ErrorCauseExport.fromErrorCause(error))(
+              logger,
+              loggingContext,
+              CorrelationId.none,
+            )
+            .get
+        )
       },
       Future.successful,
     )
@@ -280,25 +289,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
       )
       .toScala
   }
-
-  private def toStatusException(errorCause: ErrorCause): StatusRuntimeException =
-    errorCause match {
-      case cause @ ErrorCause.DamlLf(error) =>
-        error match {
-          case LfError.Interpretation(
-                LfError.Interpretation.DamlException(
-                  InterpretationError.ContractNotFound(_) |
-                  InterpretationError.DuplicateContractKey(_)
-                ),
-                _,
-              ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
-            ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
-          case _ =>
-            ErrorFactories.invalidArgument(definiteAnswer = Some(false))(cause.explain)
-        }
-      case cause: ErrorCause.LedgerTime =>
-        ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
-    }
 
   override def close(): Unit = ()
 
