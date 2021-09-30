@@ -21,6 +21,7 @@ final class LedgerConfigurationClient(
     service: LedgerConfigurationServiceStub,
 )(implicit esf: ExecutionSequencerFactory) {
 
+  // unused
   def getLedgerConfiguration(token: Option[String] = None): Source[LedgerConfiguration, NotUsed] =
     ClientAdapter
       .serverStreaming(

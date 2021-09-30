@@ -4,10 +4,13 @@
 package com.daml.ledger.api.auth
 
 import java.time.Instant
-
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.ErrorCodesVersionSwitcher
+import com.daml.platform.apiserver.error.{CorrelationId, LedgerApiErrors}
 import com.daml.platform.server.api.validation.ErrorFactories.{permissionDenied, unauthenticated}
+import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import org.slf4j.LoggerFactory
 
@@ -18,9 +21,14 @@ import scala.util.{Failure, Success, Try}
 /** A simple helper that allows services to use authorization claims
   * that have been stored by [[AuthorizationInterceptor]].
   */
-final class Authorizer(now: () => Instant, ledgerId: String, participantId: String) {
+final class Authorizer(
+    now: () => Instant,
+    ledgerId: String,
+    participantId: String,
+    errorsVersionsSwitcher: ErrorCodesVersionSwitcher,
+) {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID.
@@ -36,7 +44,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
 
   def requirePublicClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit
-  ): (Req, StreamObserver[Res]) => Unit =
+  )(implicit loggingContext: LoggingContext): (Req, StreamObserver[Res]) => Unit =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
@@ -46,7 +54,9 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       }
     }
 
-  def requirePublicClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
+  def requirePublicClaims[Req, Res](
+      call: Req => Future[Res]
+  )(implicit loggingContext: LoggingContext): Req => Future[Res] =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
@@ -56,7 +66,9 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       }
     }
 
-  def requireAdminClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
+  def requireAdminClaims[Req, Res](
+      call: Req => Future[Res]
+  )(implicit loggingContext: LoggingContext): Req => Future[Res] =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
@@ -99,7 +111,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
   def requireReadClaimsForAllParties[Req, Res](
       parties: Iterable[String],
       call: Req => Future[Res],
-  ): Req => Future[Res] =
+  )(implicit loggingContext: LoggingContext): Req => Future[Res] =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
@@ -116,7 +128,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       party: Option[String],
       applicationId: Option[String],
       call: Req => Future[Res],
-  ): Req => Future[Res] =
+  )(implicit loggingContext: LoggingContext): Req => Future[Res] =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
@@ -132,7 +144,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       readAs: Set[String],
       applicationId: Option[String],
       call: Req => Future[Res],
-  ): Req => Future[Res] =
+  )(implicit loggingContext: LoggingContext): Req => Future[Res] =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
@@ -164,6 +176,8 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       case _: ServerCallStreamObserver[_] =>
         observer.asInstanceOf[ServerCallStreamObserver[A]]
       case _ =>
+        // TODO PBATKO ??
+        // TODO self-service error codes: Wrap in new error interface
         throw new IllegalArgumentException(
           s"The wrapped stream MUST be a ${classOf[ServerCallStreamObserver[_]].getName}"
         )
@@ -172,28 +186,57 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
   private def ongoingAuthorization[Res](
       scso: ServerCallStreamObserver[Res],
       claims: ClaimSet.Claims,
-  ) =
+  )(implicit loggingContext: LoggingContext) =
     new OngoingAuthorizationObserver[Res](
       scso,
       claims,
       _.notExpired(now()),
       authorizationError => {
         logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
-        permissionDenied()
+        errorsVersionsSwitcher.choose(
+          v1 = permissionDenied(),
+          v2 = selfServicePermissionDenied(),
+        )
       },
     )
 
-  private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
+  private def selfServicePermissionDenied[Res]()(implicit
+      loggingContext: LoggingContext
+  ): StatusRuntimeException = {
+    LedgerApiErrors.AuthorizationChecks.PermissionDenied
+      .Reject()(
+        loggingContext = implicitly[LoggingContext],
+        logger = logger,
+        correlationId = CorrelationId.none,
+      )
+      .asGrpcError
+  }
+
+  private def authenticatedClaimsFromContext()(implicit
+      loggingContext: LoggingContext
+  ): Try[ClaimSet.Claims] =
     AuthorizationInterceptor
       .extractClaimSetFromContext()
       .fold[Try[ClaimSet.Claims]](Failure(unauthenticated())) {
-        case ClaimSet.Unauthenticated => Failure(unauthenticated())
+        case ClaimSet.Unauthenticated =>
+          Failure {
+            errorsVersionsSwitcher.choose(
+              v1 = unauthenticated(),
+              v2 = LedgerApiErrors.AuthorizationChecks.Unauthenticated
+                .Reject()(
+                  loggingContext = implicitly[LoggingContext],
+                  logger = logger,
+                  correlationId = CorrelationId.none,
+                )
+                .asGrpcError,
+            )
+          }
         case claims: ClaimSet.Claims => Success(claims)
       }
 
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
-  ): (Req, StreamObserver[Res]) => Unit =
+  )(implicit loggingContext: LoggingContext): (Req, StreamObserver[Res]) => Unit =
     (request, observer) => {
       val scso = assertServerCall(observer)
       authenticatedClaimsFromContext()
@@ -216,14 +259,19 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
                 )
               case Left(authorizationError) =>
                 logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
-                observer.onError(permissionDenied())
+                observer.onError(
+                  errorsVersionsSwitcher.choose(
+                    v1 = permissionDenied(),
+                    v2 = selfServicePermissionDenied(),
+                  )
+                )
             },
         )
     }
 
   private def authorize[Req, Res](call: Req => Future[Res])(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
-  ): Req => Future[Res] =
+  )(implicit loggingContext: LoggingContext): Req => Future[Res] =
     request =>
       authenticatedClaimsFromContext()
         .fold(
@@ -238,7 +286,13 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
               case Right(_) => call(request)
               case Left(authorizationError) =>
                 logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
-                Future.failed(permissionDenied())
+                // TODO self-service error codes: Refactor using the new API
+                Future.failed(
+                  errorsVersionsSwitcher.choose(
+                    v1 = permissionDenied(),
+                    v2 = selfServicePermissionDenied(),
+                  )
+                )
             },
         )
 
