@@ -71,15 +71,16 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
   private[this] val engine = {
     val languageVersions =
       config.engineMode match {
-        case EngineMode.Dev => LanguageVersion.DevVersions
-        case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
         case EngineMode.Stable => LanguageVersion.StableVersions
+        case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
+        case EngineMode.Dev | EngineMode.DevWithoutValidation => LanguageVersion.DevVersions
       }
     val engineConfig = EngineConfig(
       allowedLanguageVersions = languageVersions,
       profileDir = config.profileDir,
       stackTraceMode = config.stackTraces,
       forbidV0ContractId = true,
+      packageValidation = config.engineMode != EngineMode.DevWithoutValidation,
     )
     new Engine(engineConfig)
   }

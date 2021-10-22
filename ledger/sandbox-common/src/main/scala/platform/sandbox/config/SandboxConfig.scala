@@ -161,6 +161,7 @@ object SandboxConfig {
     final case object Stable extends EngineMode
     final case object EarlyAccess extends EngineMode
     final case object Dev extends EngineMode
+    final case object DevWithoutValidation extends EngineMode
   }
 
 }
