@@ -68,7 +68,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       scenario = scenario,
       ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
       seeding = Some(Seeding.Weak),
-      engineMode = SandboxConfig.EngineMode.Dev,
+      engineMode = SandboxConfig.EngineMode.DevWithoutValidation,
       authService = authService,
     )
 

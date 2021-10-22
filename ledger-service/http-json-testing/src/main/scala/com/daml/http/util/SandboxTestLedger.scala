@@ -39,7 +39,7 @@ trait SandboxTestLedger extends SandboxNextFixture {
     ledgerIdMode = LedgerIdMode.Static(ledgerId),
     authService = authService,
     scenario = scenario,
-    engineMode = SandboxConfig.EngineMode.Dev,
+    engineMode = SandboxConfig.EngineMode.DevWithoutValidation,
     seeding = Some(Seeding.Weak),
   )
 

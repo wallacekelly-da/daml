@@ -163,7 +163,7 @@ final class SandboxServer(
             LanguageVersion.LegacyVersions
           case EngineMode.EarlyAccess if config.seeding.nonEmpty =>
             LanguageVersion.EarlyAccessVersions
-          case EngineMode.Dev if config.seeding.nonEmpty =>
+          case EngineMode.Dev | EngineMode.DevWithoutValidation if config.seeding.nonEmpty =>
             LanguageVersion.DevVersions
           case mode =>
             throw new InvalidConfigException(
@@ -175,6 +175,7 @@ final class SandboxServer(
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
         forbidV0ContractId = false,
+        packageValidation = config.engineMode != EngineMode.DevWithoutValidation,
       )
     }
     getEngine(engineConfig)
