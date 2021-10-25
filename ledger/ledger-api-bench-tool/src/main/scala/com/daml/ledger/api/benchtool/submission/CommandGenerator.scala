@@ -6,13 +6,11 @@ package com.daml.ledger.api.benchtool.submission
 import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.Foo._
-
 import java.nio.charset.StandardCharsets
 
 final class CommandGenerator(
     randomnessProvider: RandomnessProvider,
     descriptor: ContractSetDescriptor,
-    party: Party,
 ) {
   private val distribution = new Distribution(descriptor.instanceDistribution.map(_.weight))
   private lazy val descriptionMapping: Map[Int, ContractSetDescriptor.ContractDescription] =
@@ -24,7 +22,7 @@ final class CommandGenerator(
     val description = descriptionMapping(distribution.index(randomnessProvider.randomDouble()))
     createContractCommand(
       template = description.template,
-      observers = List(party),
+      observers = description.witnesses.map(Party(_)),
       payload = randomPayload(description.payloadSizeBytes),
     )
   }

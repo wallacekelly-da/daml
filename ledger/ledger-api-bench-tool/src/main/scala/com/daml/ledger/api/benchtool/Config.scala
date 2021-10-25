@@ -48,8 +48,8 @@ object Config {
 
     case class ActiveContractsStreamConfig(
         name: String,
+        filters: Map[String, Option[List[Identifier]]],
         party: String,
-        templateIds: Option[List[Identifier]],
     ) extends StreamConfig
 
     case class CompletionsStreamConfig(

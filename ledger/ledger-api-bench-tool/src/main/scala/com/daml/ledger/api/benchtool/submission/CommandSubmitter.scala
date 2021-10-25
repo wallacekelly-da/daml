@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import java.io.File
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -36,6 +35,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
     (for {
       _ <- Future.successful(logger.info("Generating contracts..."))
       descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
+      _ <- allocateParties(descriptor.parties)
       party <- allocateParty()
       _ <- uploadTestDars()
       _ <- createContracts(descriptor = descriptor, party = party)
@@ -59,6 +59,9 @@ case class CommandSubmitter(services: LedgerApiServices) {
     services.partyManagementService.allocateParty(
       hint = s"party-0-$identifierSuffix"
     )
+
+  private def allocateParties(parties: List[String])(implicit ec: ExecutionContext): Future[Unit] =
+    Future.sequence(parties.map(services.partyManagementService.allocateParty)).map(_ => ())
 
   private def uploadDar(dar: TestDars.DarFile, submissionId: String)(implicit
       ec: ExecutionContext
@@ -100,18 +103,14 @@ case class CommandSubmitter(services: LedgerApiServices) {
         )
       }
 
-    val generator = new CommandGenerator(RandomnessProvider.Default, descriptor, party)
+    val generator = new CommandGenerator(RandomnessProvider.Default, descriptor)
 
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
     materializerOwner()
       .use { implicit materializer =>
         Source
           .fromIterator(() => (1 to descriptor.numberOfInstances).iterator)
-          .throttle(
-            elements = 100,
-            per = 1.second,
-          )
-          .mapAsync(8) { index =>
+          .mapAsync(100) { index =>
             generator.next() match {
               case Right(command) =>
                 createContract(

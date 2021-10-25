@@ -193,14 +193,11 @@ object Cli {
         def activeContractsConfig: Either[String, StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
           party <- stringField("party")
-          templateIds <- optionalStringField("template-ids").flatMap {
-            case Some(ids) => listOfTemplateIds(ids).map(Some(_))
-            case None => Right(None)
-          }
+          filters <- stringField("filters").flatMap(listOfFilters)
         } yield Config.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           party = party,
-          templateIds = templateIds,
+          filters = filters.map{case (p, ts) => (p, Some(ts).filter(_.nonEmpty))}
         )
 
         def completionsConfig: Either[String, StreamConfig.CompletionsStreamConfig] = for {
@@ -238,6 +235,37 @@ object Cli {
               id <- next
             } yield id :: ids
         }
+
+    private def listOfFilters(listOfIds: String): Either[String, Map[String, List[Identifier]]] =
+      listOfIds
+        .split('&')
+        .toList
+        .map(filter)
+        .foldLeft[Either[String, Map[String, List[Identifier]]]](Right(Map.empty)) {
+          case (acc, next) =>
+            for {
+              filters <- acc
+              filter <- next
+            } yield filters + filter
+        }
+
+    private def filter(filterString: String): Either[String, (String, List[Identifier])] =
+      filterString
+        .split('|')
+        .toList match {
+        case party :: templates =>
+          templates
+            .map(templateIdFromString)
+            .foldLeft[Either[String, List[Identifier]]](Right(List.empty[Identifier])) {
+              case (acc, next) =>
+                for {
+                  ids <- acc
+                  id <- next
+                } yield id :: ids
+            }
+            .map(party -> _)
+        case _ => Left("Filter cannot be empty")
+      }
 
     private def templateIdFromString(fullyQualifiedTemplateId: String): Either[String, Identifier] =
       fullyQualifiedTemplateId
