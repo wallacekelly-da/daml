@@ -10,7 +10,7 @@ import com.google.protobuf.{Any => AnyProto}
 import com.google.rpc.status.{Status => StatusProto}
 import com.google.rpc.{ErrorInfo, Status => StatusJavaProto}
 import io.grpc.Status.Code
-import io.grpc.{Status, StatusException, protobuf}
+import io.grpc.{StatusException, protobuf}
 
 import scala.jdk.CollectionConverters._
 
@@ -44,7 +44,8 @@ object CompletionResponse {
   /** The submission could not be added to the execution queue.
     * @param status - gRPC status chosen based on the reason why adding to the queue failed
     */
-  private[daml] final case class QueueSubmitFailure(status: Status) extends TrackedCompletionFailure
+  private[daml] final case class QueueSubmitFailure(status: com.google.rpc.Status)
+      extends TrackedCompletionFailure
 
   final case class CompletionSuccess(
       completion: Completion
@@ -91,8 +92,7 @@ object CompletionResponse {
         val statusBuilder = extractStatus(failure)
         buildException(metadata, statusBuilder)
       case QueueSubmitFailure(status) =>
-        val statusBuilder = GrpcStatus.toJavaBuilder(status)
-        buildException(Map.empty, statusBuilder)
+        buildException(Map.empty, status.toBuilder)
     }
 
   private def extractMetadata(response: CompletionFailure): Map[String, String] = response match {

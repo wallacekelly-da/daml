@@ -8,7 +8,12 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
-import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.LedgerApiErrors.CommandsTrackerErrors.{
+  FailedToEnqueue,
+  IngressBufferFull,
+}
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
@@ -17,7 +22,6 @@ import com.daml.metrics.InstrumentedSource
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
-import io.grpc.{Status => GrpcStatus}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -39,6 +43,12 @@ private[services] final class QueueBackedTracker(
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+    implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(
+        logger,
+        loggingContext,
+        Some(submission.commands.submissionId),
+      )
     logger.trace("Tracking command")
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
     queue
@@ -50,37 +60,34 @@ private[services] final class QueueBackedTracker(
           )
         case QueueOfferResult.Failure(t) =>
           failedQueueSubmission(
-            GrpcStatus.ABORTED
-              .withDescription(s"Failed to enqueue: ${t.getClass.getSimpleName}: ${t.getMessage}")
-              .withCause(t)
+            LedgerApiErrors.CommandsTrackerErrors.FailedToEnqueue.Reject(t).asGrpcStatusFromContext
           )
         case QueueOfferResult.Dropped =>
           failedQueueSubmission(
-            GrpcStatus.RESOURCE_EXHAUSTED
-              .withDescription("Ingress buffer is full")
+            LedgerApiErrors.CommandsTrackerErrors.Dropped.Reject().asGrpcStatusFromContext
           )
         case QueueOfferResult.QueueClosed =>
-          failedQueueSubmission(GrpcStatus.ABORTED.withDescription("Queue closed"))
+          failedQueueSubmission(
+            LedgerApiErrors.CommandsTrackerErrors.QueueClosed.Reject().asGrpcStatusFromContext
+          )
       }
       .recoverWith(transformQueueSubmissionExceptions)
   }
 
-  private def failedQueueSubmission(status: GrpcStatus) =
+  private def failedQueueSubmission(status: com.google.rpc.Status) =
     Future.successful(Left(QueueSubmitFailure(status)))
 
-  private def transformQueueSubmissionExceptions
-      : PartialFunction[Throwable, Future[Either[TrackedCompletionFailure, CompletionSuccess]]] = {
+  private def transformQueueSubmissionExceptions(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): PartialFunction[Throwable, Future[Either[TrackedCompletionFailure, CompletionSuccess]]] = {
     case i: IllegalStateException
         if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
       failedQueueSubmission(
-        GrpcStatus.RESOURCE_EXHAUSTED
-          .withDescription("Ingress buffer is full")
+        IngressBufferFull.Reject().asGrpcStatusFromContext
       )
     case t =>
       failedQueueSubmission(
-        GrpcStatus.ABORTED
-          .withDescription(s"Failure: ${t.getClass.getSimpleName}: ${t.getMessage}")
-          .withCause(t)
+        FailedToEnqueue.Reject(t).asGrpcStatusFromContext
       )
   }
 

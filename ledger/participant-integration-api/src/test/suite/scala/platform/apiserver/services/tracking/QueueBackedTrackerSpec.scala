@@ -8,7 +8,6 @@ import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{Materializer, OverflowStrategy}
 import akka.{Done, NotUsed}
-import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingException}
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
@@ -18,6 +17,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker.QueueInput
 import com.daml.platform.apiserver.services.tracking.QueueBackedTrackerSpec._
 import com.google.rpc.status.{Status => StatusProto}
+import io.grpc.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{BeforeAndAfterEach, Inside}
@@ -69,7 +69,8 @@ class QueueBackedTrackerSpec
         tracker.track(input(1))
         tracker.track(input(2)).map { completion =>
           completion should matchPattern {
-            case Left(CompletionResponse.QueueSubmitFailure(GrpcStatus.RESOURCE_EXHAUSTED())) =>
+            case Left(CompletionResponse.QueueSubmitFailure(status))
+                if status.getCode == Status.Code.UNAVAILABLE.value() =>
           }
         }
       }
@@ -81,7 +82,8 @@ class QueueBackedTrackerSpec
         queue.complete()
         tracker.track(input(2)).map { completion =>
           completion should matchPattern {
-            case Left(CompletionResponse.QueueSubmitFailure(GrpcStatus.ABORTED())) =>
+            case Left(CompletionResponse.QueueSubmitFailure(status))
+                if status.getCode == Status.Code.UNAVAILABLE.value() =>
           }
         }
       }
@@ -93,7 +95,8 @@ class QueueBackedTrackerSpec
         queue.fail(TestingException("The queue fails with this error."))
         tracker.track(input(2)).map { completion =>
           completion should matchPattern {
-            case Left(CompletionResponse.QueueSubmitFailure(GrpcStatus.ABORTED())) =>
+            case Left(CompletionResponse.QueueSubmitFailure(status))
+                if status.getCode == Status.Code.UNAVAILABLE.value() =>
           }
         }
       }

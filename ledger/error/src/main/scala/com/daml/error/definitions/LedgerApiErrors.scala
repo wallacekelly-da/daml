@@ -19,6 +19,69 @@ import com.daml.lf.{VersionRange, language}
 
 object LedgerApiErrors extends LedgerApiErrorGroup {
 
+  object CommandsTrackerErrors {
+    @Explanation("This rejection is given when the requested service has already been closed.")
+    @Resolution("Contact the participant operator.")
+    object FailedToEnqueue
+        extends ErrorCode(
+          id = "FAILED_TO_ENQUEUE",
+          // TODO error codes: Re-check this error category
+          ErrorCategory.TransientServerFailure,
+        ) {
+      case class Reject(t: Throwable)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = "Service has been shut down.",
+            throwableO = Some(t),
+          )
+    }
+
+    @Explanation("This rejection is given when the requested service has already been closed.")
+    @Resolution("Contact the participant operator.")
+    object Dropped
+        extends ErrorCode(
+          id = "FAILED_TO_ENQUEUE",
+          // TODO error codes: Re-check this error category
+          ErrorCategory.TransientServerFailure,
+        ) {
+      case class Reject()(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = "Service has been shut down."
+          )
+    }
+
+    @Explanation("This rejection is given when the requested service has already been closed.")
+    @Resolution("Contact the participant operator.")
+    object QueueClosed
+        extends ErrorCode(
+          id = "QUEUE_CLOSED",
+          // TODO error codes: Re-check this error category
+          ErrorCategory.TransientServerFailure,
+        ) {
+      case class Reject()(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = "Service has been shut down."
+          )
+    }
+
+    @Explanation("This rejection is given when the requested service has already been closed.")
+    @Resolution("Contact the participant operator.")
+    object IngressBufferFull
+        extends ErrorCode(
+          id = "QUEUE_CLOSED",
+          // TODO error codes: Re-check this error category
+          ErrorCategory.TransientServerFailure,
+        ) {
+      case class Reject()(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = "Service has been shut down."
+          )
+    }
+  }
+
   @Explanation("This rejection is given when the requested service has already been closed.")
   @Resolution("Contact the participant operator.")
   object ServiceNotRunning
