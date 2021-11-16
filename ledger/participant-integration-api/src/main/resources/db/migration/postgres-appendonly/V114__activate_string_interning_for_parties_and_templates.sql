@@ -268,16 +268,16 @@ CREATE INDEX participant_command_completion_offset_application_idx ON participan
 SELECT 'verify migration...'; -- TODO remove after migration speed verified
 
 -- verify migration
-SELECT verify_migration(
-    'participant_command_completions', -- table_name TEXT
-    'completion_offset', -- join_column TEXT
-    NULL, -- template_id_column TEXT
-    'submitters',  -- party_array_column_a TEXT
-    NULL, -- party_array_column_b TEXT
-    NULL, -- party_array_column_c TEXT
-    NULL, -- party_array_column_d TEXT
-    NULL -- party_array_column_e TEXT
-);
+--SELECT verify_migration(
+--    'participant_command_completions', -- table_name TEXT
+--    'completion_offset', -- join_column TEXT
+--    NULL, -- template_id_column TEXT
+--    'submitters',  -- party_array_column_a TEXT
+--    NULL, -- party_array_column_b TEXT
+--    NULL, -- party_array_column_c TEXT
+--    NULL, -- party_array_column_d TEXT
+--    NULL -- party_array_column_e TEXT
+--);
 
 SELECT 'replace original table...'; -- TODO remove after migration speed verified
 
@@ -365,16 +365,16 @@ CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events
 SELECT 'verify migration...'; -- TODO remove after migration speed verified
 
 -- verify migration
-SELECT verify_migration(
-    'participant_events_divulgence', -- table_name TEXT
-    'event_sequential_id', -- join_column TEXT
-    'template_id', -- template_id_column TEXT
-    'submitters',  -- party_array_column_a TEXT
-    'tree_event_witnesses', -- party_array_column_b TEXT
-    NULL, -- party_array_column_c TEXT
-    NULL, -- party_array_column_d TEXT
-    NULL -- party_array_column_e TEXT
-);
+--SELECT verify_migration(
+--    'participant_events_divulgence', -- table_name TEXT
+--    'event_sequential_id', -- join_column TEXT
+--    'template_id', -- template_id_column TEXT
+--    'submitters',  -- party_array_column_a TEXT
+--    'tree_event_witnesses', -- party_array_column_b TEXT
+--    NULL, -- party_array_column_c TEXT
+--    NULL, -- party_array_column_d TEXT
+--    NULL -- party_array_column_e TEXT
+--);
 
 SELECT 'replace original table...'; -- TODO remove after migration speed verified
 
@@ -515,16 +515,16 @@ CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events
 SELECT 'verify migration...'; -- TODO remove after migration speed verified
 
 -- verify migration
-SELECT verify_migration(
-    'participant_events_create', -- table_name TEXT
-    'event_sequential_id', -- join_column TEXT
-    'template_id', -- template_id_column TEXT
-    'submitters',  -- party_array_column_a TEXT
-    'tree_event_witnesses', -- party_array_column_b TEXT
-    'flat_event_witnesses', -- party_array_column_c TEXT
-    'create_signatories', -- party_array_column_d TEXT
-    'create_observers' -- party_array_column_e TEXT
-);
+--SELECT verify_migration(
+--    'participant_events_create', -- table_name TEXT
+--    'event_sequential_id', -- join_column TEXT
+--    'template_id', -- template_id_column TEXT
+--    'submitters',  -- party_array_column_a TEXT
+--    'tree_event_witnesses', -- party_array_column_b TEXT
+--    'flat_event_witnesses', -- party_array_column_c TEXT
+--    'create_signatories', -- party_array_column_d TEXT
+--    'create_observers' -- party_array_column_e TEXT
+--);
 
 SELECT 'replace original table...'; -- TODO remove after migration speed verified
 
@@ -657,16 +657,16 @@ CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participan
 SELECT 'verify migration...'; -- TODO remove after migration speed verified
 
 -- verify migration
-SELECT verify_migration(
-    'participant_events_consuming_exercise', -- table_name TEXT
-    'event_sequential_id', -- join_column TEXT
-    'template_id', -- template_id_column TEXT
-    'submitters',  -- party_array_column_a TEXT
-    'tree_event_witnesses', -- party_array_column_b TEXT
-    'flat_event_witnesses', -- party_array_column_c TEXT
-    'exercise_actors', -- party_array_column_d TEXT
-    NULL -- party_array_column_e TEXT
-);
+--SELECT verify_migration(
+--    'participant_events_consuming_exercise', -- table_name TEXT
+--    'event_sequential_id', -- join_column TEXT
+--    'template_id', -- template_id_column TEXT
+--    'submitters',  -- party_array_column_a TEXT
+--    'tree_event_witnesses', -- party_array_column_b TEXT
+--    'flat_event_witnesses', -- party_array_column_c TEXT
+--    'exercise_actors', -- party_array_column_d TEXT
+--    NULL -- party_array_column_e TEXT
+--);
 
 SELECT 'replace original table...'; -- TODO remove after migration speed verified
 
@@ -797,16 +797,16 @@ CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON par
 SELECT 'verify migration...'; -- TODO remove after migration speed verified
 
 -- verify migration
-SELECT verify_migration(
-    'participant_events_non_consuming_exercise', -- table_name TEXT
-    'event_sequential_id', -- join_column TEXT
-    'template_id', -- template_id_column TEXT
-    'submitters',  -- party_array_column_a TEXT
-    'tree_event_witnesses', -- party_array_column_b TEXT
-    'flat_event_witnesses', -- party_array_column_c TEXT
-    'exercise_actors', -- party_array_column_d TEXT
-    NULL -- party_array_column_e TEXT
-);
+--SELECT verify_migration(
+--    'participant_events_non_consuming_exercise', -- table_name TEXT
+--    'event_sequential_id', -- join_column TEXT
+--    'template_id', -- template_id_column TEXT
+--    'submitters',  -- party_array_column_a TEXT
+--    'tree_event_witnesses', -- party_array_column_b TEXT
+--    'flat_event_witnesses', -- party_array_column_c TEXT
+--    'exercise_actors', -- party_array_column_d TEXT
+--    NULL -- party_array_column_e TEXT
+--);
 
 SELECT 'replace original table...'; -- TODO remove after migration speed verified
 
