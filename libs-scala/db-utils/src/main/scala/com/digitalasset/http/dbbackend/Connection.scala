@@ -66,6 +66,7 @@ object ConnectionPool {
     c.setConnectionTimeout(jc.connectionTimeout)
     c.setMaximumPoolSize(poolSize)
     c.setIdleTimeout(jc.idleTimeout)
+    c.setAutoCommit(false)
     new HikariDataSource(c)
   }
 }

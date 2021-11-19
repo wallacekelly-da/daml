@@ -232,6 +232,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
                 payload = JsObject(): JsValue,
                 signatories = Seq("Alice"),
                 observers = Seq.empty,
+                stakeholders = Seq("Alice"),
                 agreementText = "",
               )
             )

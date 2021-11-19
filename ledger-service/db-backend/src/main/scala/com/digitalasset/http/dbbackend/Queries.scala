@@ -38,7 +38,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
-  val schemaVersion = 3
+  val schemaVersion = 4
 
   private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics, tpIdCacheMaxEntries)
 
@@ -384,6 +384,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
           payload = payload,
           signatories = sigsObs(signatories),
           observers = sigsObs(observers),
+          stakeholders = sigsObs(signatories) ++ sigsObs(observers),
           agreementText = agreement(rawAgreement),
         )
       }
@@ -453,6 +454,7 @@ object Queries {
       payload: PL,
       signatories: Prt,
       observers: Prt,
+      stakeholders: Prt,
       agreementText: String,
   ) {
     def mapTemplateId[B](f: TpId => B): DBContract[B, CK, PL, Prt] =
@@ -467,6 +469,7 @@ object Queries {
         payload = g(payload),
         signatories = h(signatories),
         observers = h(observers),
+        stakeholders = h(stakeholders),
       )
   }
 
@@ -687,13 +690,21 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       CREATE INDEX $contractsTableIndexName ON $contractTableName (tpid)
     """)
 
+  protected[this] val contractsTableGinStakeholdersName =
+    Fragment.const0(s"${tablePrefix}contract_stakeholders_idx")
+  private[this] val indexStakeHolders = CreateIndex(
+    sql"""CREATE INDEX $contractsTableGinStakeholdersName ON $contractTableName USING GIN (tpid, stakeholders)"""
+  )
+
   private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckey_hash_idx")
   private[this] val contractKeyHashIndex = CreateIndex(
     sql"""CREATE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
+  private[this] val btree_gin = CreateIndex(sql"""CREATE EXTENSION btree_gin""")
+
   protected[this] override def extraDatabaseDdls =
-    Seq(indexContractsTable, contractKeyHashIndex)
+    Seq(btree_gin, indexContractsTable, contractKeyHashIndex, indexStakeHolders)
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     for {
@@ -711,6 +722,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
   protected[this] override def contractsTableSignatoriesObservers = sql"""
     ,signatories TEXT ARRAY NOT NULL
     ,observers TEXT ARRAY NOT NULL
+    ,stakeholders TEXT ARRAY NOT NULL
   """
 
   protected[this] type DBContractKey = JsValue
@@ -724,7 +736,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
     Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
       s"""
         INSERT INTO $contractTableNameRaw
-        VALUES (?, ?, ?::jsonb, ?, ?::jsonb, ?, ?, ?)
+        VALUES (?, ?, ?::jsonb, ?, ?::jsonb, ?, ?, ?, ?)
         ON CONFLICT (contract_id) DO NOTHING
       """
     ).updateMany(dbcs)
@@ -746,7 +758,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       query = (tpid, unionPred) =>
         sql"""SELECT contract_id, $tpid tpid, key, key_hash, payload, signatories, observers, agreement_text
               FROM $contractTableName AS c
-              WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+              WHERE (stakeholders && $partyVector::text[])
                     AND ($unionPred)""",
       key = identity[JsValue],
       sigsObs = identity[Vector[String]],

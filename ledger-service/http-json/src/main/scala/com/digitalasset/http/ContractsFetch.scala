@@ -265,6 +265,7 @@ private class ContractsFetch(
       payload = lfValueToDbJsValue(lfArg),
       signatories = ac.signatories,
       observers = ac.observers,
+      stakeholders = ac.signatories ++ ac.observers,
       agreementText = ac.agreementText,
     )
   }
@@ -401,6 +402,8 @@ private[http] object ContractsFetch {
               ),
               signatories = domain.Party.unsubst(dbc.signatories),
               observers = domain.Party.unsubst(dbc.observers),
+              stakeholders =
+                domain.Party.unsubst(dbc.signatories) ++ domain.Party.unsubst(dbc.observers),
             )
           )
         ))
