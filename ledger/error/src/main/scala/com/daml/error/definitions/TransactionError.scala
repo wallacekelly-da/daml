@@ -3,35 +3,23 @@
 
 package com.daml.error.definitions
 import com.daml.error.ErrorCode.{formatContextAsString, truncateResourceForTransport}
-import com.daml.error.{BaseError, ErrorCode, ContextualizedErrorLogger}
-import com.daml.ledger.participant.state.v2.Update.CommandRejected.{
-  FinalReason,
-  RejectionReasonTemplate,
-}
+import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorCode}
+import com.daml.grpc.GrpcStatus
 import com.google.rpc.status.{Status => RpcStatus}
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.StatusRuntimeException
 
 trait TransactionError extends BaseError {
-  def createRejection(
-      correlationId: Option[String]
-  )(implicit loggingContext: ContextualizedErrorLogger): RejectionReasonTemplate = {
-    FinalReason(rpcStatus(correlationId))
-  }
 
   // Determines the value of the `definite_answer` key in the error details
   def definiteAnswer: Boolean = false
 
   final override def definiteAnswerO: Option[Boolean] = Some(definiteAnswer)
 
-  def rpcStatus(
-      correlationId: Option[String]
-  )(implicit loggingContext: ContextualizedErrorLogger): RpcStatus =
-    _rpcStatus(None, correlationId)
+  def rpcStatus_simple(implicit loggingContext: ContextualizedErrorLogger): RpcStatus = {
+    GrpcStatus.toProto(asGrpcStatusFromContext)
+  }
 
-  def _rpcStatus(
-      overrideCode: Option[Status.Code],
-      correlationId: Option[String],
-  )(implicit loggingContext: ContextualizedErrorLogger): RpcStatus = {
+  def rpcStatus()(implicit loggingContext: ContextualizedErrorLogger): RpcStatus = {
 
     // yes, this is a horrible duplication of ErrorCode.asGrpcError. why? because
     // scalapb does not really support grpc rich errors. there is literally no method
@@ -63,7 +51,7 @@ trait TransactionError extends BaseError {
       com.google.protobuf.any.Any.pack(com.google.rpc.error_details.RetryInfo(Some(dr)))
     }
 
-    val requestInfoO = correlationId.map { ci =>
+    val requestInfoO = loggingContext.correlationId.map { ci =>
       com.google.protobuf.any.Any.pack(com.google.rpc.error_details.RequestInfo(requestId = ci))
     }
 
@@ -83,7 +71,7 @@ trait TransactionError extends BaseError {
     ) ++ retryInfoO.toList ++ requestInfoO.toList ++ resourceInfos
 
     com.google.rpc.status.Status(
-      overrideCode.getOrElse(codeGrpc).value(),
+      codeGrpc.value(),
       message,
       details,
     )
