@@ -23,6 +23,9 @@ class BridgeMetrics(metrics: Metrics) {
     val conflictCheckWithCommitted: Timer =
       registry.timer(Prefix :+ "conflict_check_with_committed")
     val sequence: Timer = registry.timer(Prefix :+ "sequence")
+
+    val validateCausalMonotonicity: Timer = registry.timer(Prefix :+ "validate_causal_monotonicity")
+    val validateKeyUsages: Timer = registry.timer(Prefix :+ "validate_key_usages")
   }
 
   object SequencerState {

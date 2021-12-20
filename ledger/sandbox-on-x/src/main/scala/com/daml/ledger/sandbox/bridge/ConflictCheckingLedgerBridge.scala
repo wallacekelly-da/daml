@@ -11,7 +11,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
-import com.daml.ledger.sandbox.bridge.ConflictCheckingLedgerBridge._
+import com.daml.ledger.sandbox.bridge.ConflictCheckingLedgerBridge.{Validated, _}
 import com.daml.ledger.sandbox.bridge.LedgerBridge.{fromOffset, successMapper, toOffset}
 import com.daml.ledger.sandbox.bridge.SequencerState.LastUpdatedAt
 import com.daml.ledger.sandbox.domain.Rejection._
@@ -118,19 +118,29 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             checkTimeModel(originalSubmission) match {
               case Left(value) => Future(Left(value))
               case Right(_) =>
-                validateCausalMonotonicity(
-                  transaction = originalSubmission,
-                  inputContracts = inputContracts,
-                  transactionLedgerEffectiveTime =
-                    originalSubmission.transactionMeta.ledgerEffectiveTime,
-                  divulged = blindingInfo.divulgence.keySet,
-                ).flatMap {
-                  case Right(_) => validatePartyAllocation(originalSubmission)
-                  case rejection => Future.successful(rejection)
-                }.flatMap {
-                  case Right(_) => validateKeyUsages(originalSubmission, keyInputs)
-                  case rejection => Future.successful(rejection)
-                }
+                Timed
+                  .future(
+                    bridgeMetrics.Stages.validateCausalMonotonicity,
+                    validateCausalMonotonicity(
+                      transaction = originalSubmission,
+                      inputContracts = inputContracts,
+                      transactionLedgerEffectiveTime =
+                        originalSubmission.transactionMeta.ledgerEffectiveTime,
+                      divulged = blindingInfo.divulgence.keySet,
+                    ),
+                  )
+                  .flatMap {
+                    case Right(_) => validatePartyAllocation(originalSubmission)
+                    case rejection => Future.successful(rejection)
+                  }
+                  .flatMap {
+                    case Right(_) =>
+                      Timed.future(
+                        bridgeMetrics.Stages.validateKeyUsages,
+                        validateKeyUsages(originalSubmission, keyInputs),
+                      )
+                    case rejection => Future.successful(rejection)
+                  }
             },
           )
           .map(_.map(_ => validated))
