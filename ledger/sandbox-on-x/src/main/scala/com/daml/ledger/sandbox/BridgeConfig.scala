@@ -16,17 +16,17 @@ case class BridgeConfig(
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override def extraConfigParser(parser: OptionParser[Config[BridgeConfig]]): Unit = {
     parser
-      .opt[Int]("bridge-max-dedup-seconds")
+      .opt[Int]("sandbox-on-x-bridge-max-dedup-seconds")
       .text("Maximum deduplication time in seconds. Defaults to 30.")
       .action((p, c) => c.copy(extra = c.extra.copy(maxDedupSeconds = p)))
 
     parser
-      .opt[Int]("bridge-submission-buffer-size")
+      .opt[Int]("sandbox-on-x-bridge-submission-buffer-size")
       .text("Submission buffer size. Defaults to 500.")
       .action((p, c) => c.copy(extra = c.extra.copy(submissionBufferSize = p)))
 
     parser
-      .opt[Unit]("enable-conflict-checking")
+      .opt[Unit]("sandbox-on-x-enable-conflict-checking")
       .text("Enables the ledger-side submission conflict checking.")
       .action((_, c) => c.copy(extra = c.extra.copy(conflictCheckingEnabled = true)))
 
