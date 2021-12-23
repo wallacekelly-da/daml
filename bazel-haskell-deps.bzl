@@ -16,13 +16,16 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
+load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib")
 
+# TODO[AH] Remove once ghc-lib-gen is fully Bazelified.
 GHC_LIB_REV = "a0b9249a488a13d561a6731a74f72505"
 GHC_LIB_SHA256 = "cfc8f68aa8f457370ad0164468398eba362a2bd73ebbb84f05dee96f93df7e02"
 GHC_LIB_VERSION = "8.8.1"
 GHC_LIB_PARSER_REV = "a0b9249a488a13d561a6731a74f72505"
 GHC_LIB_PARSER_SHA256 = "69a3b783f53b3bff7cc92bb51a4e520f7bb1097d2182745a408a41f5711734b0"
 GHC_LIB_PARSER_VERSION = "8.8.1"
+
 GHCIDE_REV = "e04b5386b3741b839eb5c3d2a2586fd2aa97229c"
 GHCIDE_SHA256 = "1d27926e0ad3c2a9536f23b454875a385ecc766ae68ce48a0ec88d0867884b46"
 JS_JQUERY_VERSION = "3.3.1"
@@ -126,6 +129,9 @@ haskell_library(
         urls = ["https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV],
     )
 
+    ghc_lib()
+
+    # TODO[AH] Remove once ghc-lib-gen is fully Bazelified.
     http_archive(
         name = "ghc_lib",
         build_file_content = """
@@ -147,6 +153,7 @@ haskell_cabal_library(
         urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-%s.tar.gz" % GHC_LIB_REV],
     )
 
+    # TODO[AH] Remove once ghc-lib-gen is fully Bazelified.
     http_archive(
         name = "ghc_lib_parser",
         build_file_content = """
