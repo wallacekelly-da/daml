@@ -11,18 +11,14 @@ case class BridgeConfig(maxDedupSeconds: Int, submissionBufferSize: Int)
 object BridgeConfig extends ConfigProvider[BridgeConfig] {
   override def extraConfigParser(parser: OptionParser[Config[BridgeConfig]]): Unit = {
     parser
-      .opt[Int]("sandbox-on-x-bridge-max-dedup-seconds")
+      .opt[Int]("bridge-max-dedup-seconds")
       .text("Maximum deduplication time in seconds. Defaults to 30.")
       .action((p, c) => c.copy(extra = c.extra.copy(maxDedupSeconds = p)))
 
     parser
-      .opt[Int]("sandbox-on-x-bridge-submission-buffer-size")
-      .text("Submission buffer size. Defaults to 200.")
+      .opt[Int]("bridge-submission-buffer-size")
+      .text("Submission buffer size. Defaults to 500.")
       .action((p, c) => c.copy(extra = c.extra.copy(submissionBufferSize = p)))
-
-    parser
-      .opt[Unit]("sandbox-on-x-bridge")
-      .text("Placeholder for the configuration turning on the sandbox-on-x bridge.")
 
     ()
   }
