@@ -150,7 +150,10 @@ object SandboxOnXRunner {
 
           (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
-          servicesExecutionContext <- buildServicesExecutionContext(metrics)
+          servicesExecutionContext <- buildServicesExecutionContext(
+            metrics,
+            config.extra.bridgeThreadPoolSize,
+          )
 
           readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
@@ -178,7 +181,6 @@ object SandboxOnXRunner {
             stateUpdatesFeedSink,
             indexService,
             metrics,
-            servicesExecutionContext,
           )
 
           _ <- buildStandaloneApiServer(
@@ -289,12 +291,15 @@ object SandboxOnXRunner {
     )
 
   private def buildServicesExecutionContext(
-      metrics: Metrics
+      metrics: Metrics,
+      bridgeThreadPoolSize: Int,
   ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
         new InstrumentedExecutorService(
-          Executors.newWorkStealingPool(),
+          Executors.newWorkStealingPool(
+            Runtime.getRuntime.availableProcessors() - bridgeThreadPoolSize
+          ),
           metrics.registry,
           metrics.daml.lapi.threadpool.apiServices.toString,
         )
@@ -323,22 +328,28 @@ object SandboxOnXRunner {
       feedSink: Sink[(Offset, Update), NotUsed],
       indexService: IndexService,
       metrics: Metrics,
-      servicesExecutionContext: ExecutionContext,
   )(implicit
       materializer: Materializer,
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       loggingContext: LoggingContext,
   ): ResourceOwner[WriteService] = {
-    implicit val ec: ExecutionContext = servicesExecutionContext
+    val bridgeMetrics = new BridgeMetrics(metrics)
+    implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(
+      new InstrumentedExecutorService(
+        Executors.newWorkStealingPool(config.extra.bridgeThreadPoolSize),
+        metrics.registry,
+        bridgeMetrics.threadPool.toString,
+      )
+    )
     for {
-      ledgerBridge <- LedgerBridge.owner(config, participantConfig, indexService, metrics)
+      ledgerBridge <- LedgerBridge.owner(config, participantConfig, indexService, bridgeMetrics)
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(
           feedSink = feedSink,
           submissionBufferSize = config.extra.submissionBufferSize,
           ledgerBridge = ledgerBridge,
-          bridgeMetrics = new BridgeMetrics(metrics),
+          bridgeMetrics = bridgeMetrics,
         )
       )
       _ <- ResourceOwner.forFuture(() =>

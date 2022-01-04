@@ -43,6 +43,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     conflictCheckingEnabled = false,
     maxDedupSeconds = 30,
     submissionBufferSize = 500,
-    bridgeThreadPoolSize = 8,
+    bridgeThreadPoolSize = 4,
   )
 }

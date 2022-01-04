@@ -5,7 +5,6 @@ package com.daml.ledger.sandbox.bridge
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -28,8 +27,7 @@ import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
-import java.util.concurrent.Executors
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 import scala.util.{Failure, Success, Try}
 
@@ -39,7 +37,6 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     initialLedgerEnd: Offset,
     bridgeMetrics: BridgeMetrics,
     errorFactories: ErrorFactories,
-    prepareSubmissionsParallelism: Int,
 )(implicit
     loggingContext: LoggingContext,
     servicesExecutionContext: ExecutionContext,
@@ -47,18 +44,9 @@ private[sandbox] class ConflictCheckingLedgerBridge(
   private val AsyncStagesParallelism = 64
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
-  private val blockingThreadPool =
-    ExecutionContext.fromExecutorService(
-      new InstrumentedExecutorService(
-        Executors.newCachedThreadPool(),
-        bridgeMetrics.registry,
-        bridgeMetrics.threadPool.toString,
-      )
-    )
-
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      .mapAsyncUnordered(prepareSubmissionsParallelism)(prepareSubmission)
+      .mapAsyncUnordered(AsyncStagesParallelism)(prepareSubmission)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
       .mapAsync(AsyncStagesParallelism)(conflictCheckWithCommitted)
       .statefulMapConcat(sequence)
@@ -103,7 +91,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
           .currentLedgerEnd()
           .map(ledgerEnd =>
             Right(ApiOffset.assertFromString(ledgerEnd.value) -> preparedSubmission)
-          )(blockingThreadPool),
+          ),
       )
   }
 
@@ -306,8 +294,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       keyInputs: KeyInputs,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): AsyncValidation[Unit] = {
-    implicit val blockingEc: ExecutionContextExecutorService = blockingThreadPool
+  ): AsyncValidation[Unit] =
     keyInputs.foldLeft(Future.successful[Validated[Unit]](Right(()))) {
       case (f, (key, inputState)) =>
         f.flatMap {
@@ -332,7 +319,6 @@ private[sandbox] class ConflictCheckingLedgerBridge(
           case left => Future.successful(left)
         }
     }
-  }
 }
 
 object ConflictCheckingLedgerBridge {

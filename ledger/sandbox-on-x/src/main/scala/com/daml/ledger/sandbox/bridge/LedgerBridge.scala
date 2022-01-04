@@ -16,7 +16,6 @@ import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.common.primitives.Longs
 
@@ -32,13 +31,11 @@ object LedgerBridge {
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       indexService: IndexService,
-      metrics: Metrics,
+      bridgeMetrics: BridgeMetrics,
   )(implicit
       loggingContext: LoggingContext,
-      servicesExecutionContext: ExecutionContext,
-  ): ResourceOwner[LedgerBridge] = {
-    val bridgeMetrics = new BridgeMetrics(metrics)
-
+      bridgeExecutionContext: ExecutionContext,
+  ): ResourceOwner[LedgerBridge] =
     if (config.extra.conflictCheckingEnabled)
       for {
         initialLedgerEnd <- ResourceOwner.forFuture(() => indexService.currentLedgerEnd())
@@ -51,14 +48,12 @@ object LedgerBridge {
           errorFactories = ErrorFactories(
             new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
           ),
-          prepareSubmissionsParallelism = config.extra.bridgeThreadPoolSize,
         )
       } yield conflictCheckingLedgerBridge
     else
       ResourceOwner.forValue(() =>
         new PassThroughLedgerBridge(participantId = participantConfig.participantId)
       )
-  }
 
   private[bridge] def fromOffset(offset: Offset): Long = {
     val offsetBytes = offset.toByteArray
