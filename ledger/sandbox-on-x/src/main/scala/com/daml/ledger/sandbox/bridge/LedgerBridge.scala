@@ -1,12 +1,10 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package ledger.sandbox.bridge
+package com.daml.ledger.sandbox.bridge
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -23,7 +21,6 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.common.primitives.Longs
 
 import java.util.UUID
-import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 trait LedgerBridge {
@@ -37,18 +34,10 @@ object LedgerBridge {
       indexService: IndexService,
       metrics: Metrics,
   )(implicit
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
+      servicesExecutionContext: ExecutionContext,
   ): ResourceOwner[LedgerBridge] = {
     val bridgeMetrics = new BridgeMetrics(metrics)
-
-    implicit val ec: ExecutionContext =
-      ExecutionContext.fromExecutorService(
-        new InstrumentedExecutorService(
-          Executors.newWorkStealingPool(config.extra.bridgeThreadPoolSize),
-          metrics.registry,
-          bridgeMetrics.threadpool.toString,
-        )
-      )
 
     if (config.extra.conflictCheckingEnabled)
       for {

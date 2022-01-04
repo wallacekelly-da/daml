@@ -5,6 +5,7 @@ package com.daml.ledger.sandbox.bridge
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -27,7 +28,8 @@ import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.util.concurrent.Executors
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.chaining._
 import scala.util.{Failure, Success, Try}
 
@@ -40,9 +42,18 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     asyncStagesParallelism: Int,
 )(implicit
     loggingContext: LoggingContext,
-    executionContext: ExecutionContext,
+    servicesExecutionContext: ExecutionContext,
 ) extends LedgerBridge {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+
+  private val blockingThreadPool =
+    ExecutionContext.fromExecutorService(
+      new InstrumentedExecutorService(
+        Executors.newCachedThreadPool(),
+        bridgeMetrics.registry,
+        bridgeMetrics.threadPool.toString,
+      )
+    )
 
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
@@ -289,7 +300,8 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       keyInputs: KeyInputs,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): AsyncValidation[Unit] =
+  ): AsyncValidation[Unit] = {
+    implicit val blockingEc: ExecutionContextExecutorService = blockingThreadPool
     keyInputs.foldLeft(Future.successful[Validated[Unit]](Right(()))) {
       case (f, (key, inputState)) =>
         f.flatMap {
@@ -314,6 +326,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
           case left => Future.successful(left)
         }
     }
+  }
 }
 
 object ConflictCheckingLedgerBridge {
