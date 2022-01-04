@@ -103,7 +103,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
           .currentLedgerEnd()
           .map(ledgerEnd =>
             Right(ApiOffset.assertFromString(ledgerEnd.value) -> preparedSubmission)
-          ),
+          )(blockingThreadPool),
       )
   }
 
