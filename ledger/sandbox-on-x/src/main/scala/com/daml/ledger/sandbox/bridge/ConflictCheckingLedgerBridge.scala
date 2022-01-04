@@ -39,11 +39,12 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     initialLedgerEnd: Offset,
     bridgeMetrics: BridgeMetrics,
     errorFactories: ErrorFactories,
-    asyncStagesParallelism: Int,
+    prepareSubmissionsParallelism: Int,
 )(implicit
     loggingContext: LoggingContext,
     servicesExecutionContext: ExecutionContext,
 ) extends LedgerBridge {
+  private val AsyncStagesParallelism = 64
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   private val blockingThreadPool =
@@ -57,9 +58,9 @@ private[sandbox] class ConflictCheckingLedgerBridge(
 
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      .mapAsyncUnordered(asyncStagesParallelism)(prepareSubmission)
+      .mapAsyncUnordered(prepareSubmissionsParallelism)(prepareSubmission)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
-      .mapAsync(asyncStagesParallelism)(conflictCheckWithCommitted)
+      .mapAsync(AsyncStagesParallelism)(conflictCheckWithCommitted)
       .statefulMapConcat(sequence)
 
   // This stage precomputes the transaction effects for transaction submissions.
@@ -96,9 +97,14 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     case Left(rejection) =>
       Future.successful(Left(rejection))
     case Right(preparedSubmission) =>
-      indexService
-        .currentLedgerEnd()
-        .map(ledgerEnd => Right(ApiOffset.assertFromString(ledgerEnd.value) -> preparedSubmission))
+      Timed.future(
+        bridgeMetrics.Stages.tagWithLedgerEnd,
+        indexService
+          .currentLedgerEnd()
+          .map(ledgerEnd =>
+            Right(ApiOffset.assertFromString(ledgerEnd.value) -> preparedSubmission)
+          ),
+      )
   }
 
   // This stage performs conflict checking for incoming submissions against the ledger state
