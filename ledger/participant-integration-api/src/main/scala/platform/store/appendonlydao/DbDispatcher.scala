@@ -17,7 +17,7 @@ import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
 import javax.sql.DataSource
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.control.NonFatal
 
 private[platform] final class DbDispatcher private (
@@ -54,7 +54,9 @@ private[platform] final class DbDispatcher private (
         overallWaitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
         val startExec = System.nanoTime()
         try {
-          connectionProvider.runSQL(databaseMetrics)(sql)
+          blocking {
+            connectionProvider.runSQL(databaseMetrics)(sql)
+          }
         } catch {
           case throwable: Throwable => handleError(throwable)
         } finally {
