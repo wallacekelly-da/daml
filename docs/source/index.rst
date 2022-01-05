@@ -132,4 +132,5 @@ Daml Documentation
 .. toctree::
    :caption: Nested
 
-   nested/index
+   Nested 1 <nested/a>
+   Nested 2 <nested/c>
