@@ -128,3 +128,8 @@ Daml Documentation
    support/releases
    support/compatibility
    support/support
+
+.. toctree::
+   :caption: Nested
+
+   nested/index
