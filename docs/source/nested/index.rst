@@ -1,5 +1,5 @@
 Nested index page
-
+=================
 
 ..
    The toctree captions here seem to get lost at least in the sidebar
