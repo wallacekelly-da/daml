@@ -160,6 +160,7 @@ conformance_test(
         "--verbose",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
+<<<<<<< HEAD
         # Exclude offset command deduplication tests as
         # Sandbox-on-X has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods.
@@ -185,6 +186,8 @@ conformance_test(
         "--static-time",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
+=======
+>>>>>>> [SoX conflict checking] Configuration upload conflict checking
         # Exclude offset command deduplication tests as
         # Sandbox-on-X has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods.
@@ -193,6 +196,8 @@ conformance_test(
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
+
+# TODO SoX: Create conformance test with --static-time.
 
 conformance_test(
     name = "benchmark-performance-envelope",
