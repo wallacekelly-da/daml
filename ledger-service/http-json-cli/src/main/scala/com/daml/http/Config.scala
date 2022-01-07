@@ -18,14 +18,7 @@ import scala.concurrent.duration._
 
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
-import com.daml.http.WebsocketConfig.{
-  DefaultHeartbeatPeriod,
-  DefaultMaxBurst,
-  DefaultMaxDuration,
-  DefaultThrottleElem,
-  DefaultThrottleMode,
-  DefaultThrottlePer,
-}
+import com.daml.http.{WebsocketConfig => WSC}
 import com.daml.metrics.MetricsReporter
 import com.daml.http.dbbackend.JdbcConfig
 
@@ -60,12 +53,12 @@ private[http] object Config {
 
 // It is public for Daml Hub
 final case class WebsocketConfig(
-    maxDuration: FiniteDuration = DefaultMaxDuration,
-    throttleElem: Int = DefaultThrottleElem,
-    throttlePer: FiniteDuration = DefaultThrottlePer,
-    maxBurst: Int = DefaultMaxBurst,
-    mode: ThrottleMode = DefaultThrottleMode,
-    heartbeatPeriod: FiniteDuration = DefaultHeartbeatPeriod,
+    maxDuration: FiniteDuration = WSC.DefaultMaxDuration,
+    throttleElem: Int = WSC.DefaultThrottleElem,
+    throttlePer: FiniteDuration = WSC.DefaultThrottlePer,
+    maxBurst: Int = WSC.DefaultMaxBurst,
+    mode: ThrottleMode = WSC.DefaultThrottleMode,
+    heartbeatPeriod: FiniteDuration = WSC.DefaultHeartbeatPeriod,
 )
 
 private[http] object WebsocketConfig
