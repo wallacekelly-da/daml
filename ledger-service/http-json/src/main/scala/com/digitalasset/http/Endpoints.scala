@@ -514,7 +514,7 @@ class Endpoints(
 
   def listUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserRights]] =
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
     proxyWithCommandET { (jwt, listUserRightsRequest: domain.ListUserRightsRequest) =>
       for {
         userId <- parseUserId(listUserRightsRequest.userId)
@@ -523,24 +523,27 @@ class Endpoints(
         )
       } yield domain
         .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[
-        domain.UserRights
+        List[domain.UserRight]
       ]
     }(req)
 
   def listAuthenticatedUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserRights]] =
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
     for {
       jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
       userId <- getUserIdFromToken(jwt)
       rights <- EitherT.rightT(
         userManagementClient.listUserRights(userId, Some(jwt.value))
       )
-    } yield domain.OkResponse(domain.UserRights.fromLedgerUserRights(rights))
+    } yield domain
+      .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[List[
+      domain.UserRight
+    ]]
 
   def grantUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserRights]] =
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
     proxyWithCommandET { (jwt, grantUserRightsRequest: domain.GrantUserRightsRequest) =>
       for {
         userId <- parseUserId(grantUserRightsRequest.userId)
@@ -552,12 +555,12 @@ class Endpoints(
         )
       } yield domain.OkResponse(
         domain.UserRights.fromLedgerUserRights(grantedUserRights)
-      ): domain.SyncResponse[domain.UserRights]
+      ): domain.SyncResponse[List[domain.UserRight]]
     }(req)
 
   def revokeUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserRights]] =
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
     proxyWithCommandET { (jwt, revokeUserRightsRequest: domain.RevokeUserRightsRequest) =>
       for {
         userId <- parseUserId(revokeUserRightsRequest.userId)
@@ -569,7 +572,7 @@ class Endpoints(
         )
       } yield domain.OkResponse(
         domain.UserRights.fromLedgerUserRights(revokedUserRights)
-      ): domain.SyncResponse[domain.UserRights]
+      ): domain.SyncResponse[List[domain.UserRight]]
     }(req)
 
   def getUser(req: HttpRequest)(implicit
