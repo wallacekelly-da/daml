@@ -233,21 +233,20 @@ def dadew_sh_posix_configure(name = "dadew_sh_posix"):
     _dadew_sh_posix_config(name = name)
     native.register_toolchains("@%s//:dadew_posix_toolchain" % name)
 
-def _create_shim(repository_ctx, shim_exe, *, shim, path):
-    (_, ext) = paths.split_extension(str(path))
-    if ext:
+def _create_shim(repository_ctx, shim_exe, *, shim, path, extension):
+    if extension in [".exe", ".cmd", ".bat"]:
         repository_ctx.file(shim + ".shim", executable = False, content = "path = " + str(path))
         result = shim + ".exe"
 
         # Will create a copy on Windows
         repository_ctx.symlink(shim_exe, result)
     else:
-        # We assume that files without extension are scripts (bash, perl, ...),
-        # e.g. automake. Scoop's shim doesn't work on these. So, we assume
-        # that, since they are shell scripts in the first place, they will only
-        # be called in a shell context and simply create a copy.
+        # We assume that files without standard extension are scripts (bash,
+        # perl, ...), e.g. automake. Scoop's shim doesn't work on these. So, we
+        # assume that, since they are shell scripts in the first place, they
+        # will only be called in a shell context and simply create a copy.
         repository_ctx.symlink(path, shim)
-        result = shim
+        result = shim + extension
     return result
 
 def _dadew_binary_bundle_impl(repository_ctx):
@@ -278,7 +277,7 @@ def _dadew_binary_bundle_impl(repository_ctx):
                 path = None
         if path:
             found.append(
-                _create_shim(repository_ctx, shim_exe, shim = shim, path = path),
+                _create_shim(repository_ctx, shim_exe, shim = shim, path = path, ext = ext),
             )
         else:
             missing.append(path_str)
