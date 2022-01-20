@@ -277,7 +277,7 @@ def _dadew_binary_bundle_impl(repository_ctx):
                 path = None
         if path:
             found.append(
-                _create_shim(repository_ctx, shim_exe, shim = shim, path = path, ext = ext),
+                _create_shim(repository_ctx, shim_exe, shim = shim, path = path, extension = ext),
             )
         else:
             missing.append(path_str)
