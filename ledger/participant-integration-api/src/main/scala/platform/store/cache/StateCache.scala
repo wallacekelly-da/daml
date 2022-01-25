@@ -47,23 +47,29 @@ private[platform] case class StateCache[K, V](cache: Cache[K, V], registerUpdate
     * @param validAt ordering discriminator for pending updates for the same key
     * @param value the value to insert
     */
-  def put(key: K, validAt: Long, value: V): Unit = Timed.value(
-    registerUpdateTimer, {
-      pendingUpdates.synchronized {
-        val competingLatestForKey =
-          pendingUpdates
-            .get(key)
-            .map { pendingUpdate =>
-              val oldLatestValidAt = pendingUpdate.latestValidAt
-              pendingUpdate.latestValidAt = Math.max(validAt, pendingUpdate.latestValidAt)
-              oldLatestValidAt
-            }
-            .getOrElse(Long.MinValue)
+  def put(key: K, validAt: Long, value: V)(implicit loggingContext: LoggingContext): Unit =
+    Timed.value(
+      registerUpdateTimer, {
+        pendingUpdates.synchronized {
+          val competingLatestForKey =
+            pendingUpdates
+              .get(key)
+              .map { pendingUpdate =>
+                val oldLatestValidAt = pendingUpdate.latestValidAt
+                pendingUpdate.latestValidAt = Math.max(validAt, pendingUpdate.latestValidAt)
+                oldLatestValidAt
+              }
+              .getOrElse(Long.MinValue)
 
-        if (competingLatestForKey < validAt) cache.put(key, value) else ()
-      }
-    },
-  )
+          if (competingLatestForKey < validAt) cache.put(key, value)
+          else
+            logger.error(
+              s"Not updating cache synchronously for key $key and ${value.toString.take(100)}." +
+                s"Competing latest for key is $competingLatestForKey and valid at is $validAt"
+            )
+        }
+      },
+    )
 
   /** Update the cache asynchronously.
     *

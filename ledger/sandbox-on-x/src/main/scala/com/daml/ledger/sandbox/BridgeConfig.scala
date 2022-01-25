@@ -98,6 +98,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     timeProviderType = TimeProviderType.WallClock,
     authService = AuthServiceWildcard,
     profileDir = None,
-    stackTraces = false,
+    stackTraces = true,
   )
 }
