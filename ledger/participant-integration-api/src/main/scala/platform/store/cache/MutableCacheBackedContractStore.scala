@@ -139,6 +139,16 @@ private[platform] class MutableCacheBackedContractStore(
             // This is OK from a performance perspective, as we do not expect uses-cases that require
             // caching of contract absence or the results of looking up divulged contracts.
             Future.failed(ContractReadThroughNotFound(contractId))
+          case Success(r @ ContractStateValue.Active(contract, _, _)) =>
+            logger.warn(
+              s"Read-through active contract on cache miss for contractId: $contractId, templateId: ${contract.unversioned.template.toString}"
+            )
+            Future.successful(r)
+          case Success(r: ContractStateValue.Archived) =>
+            logger.warn(
+              s"Read-through archived contract on cache miss for contractId: $contractId"
+            )
+            Future.successful(r)
           case result => Future.fromTry(result)
         },
       )
@@ -254,11 +264,16 @@ private[platform] class MutableCacheBackedContractStore(
       globalKey.foreach(
         keyCache.put(_, eventSequentialId, Assigned(contractId, flatEventWitnesses))
       )
+      val template = contract.unversioned.template.toString
       contractsCache.put(
         contractId,
         eventSequentialId,
         Active(contract, flatEventWitnesses, createLedgerEffectiveTime),
       )
+      if (template.contains("LookupContextForTradeCaptureValidation"))
+        logger.warn(
+          s"Updated contract state cache (create) for template $template contractId $contractId"
+        )
     case ContractStateEvent.Archived(
           contractId,
           globalKey,
