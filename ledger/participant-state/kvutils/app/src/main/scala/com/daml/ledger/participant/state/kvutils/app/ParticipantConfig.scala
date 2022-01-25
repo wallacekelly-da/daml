@@ -40,8 +40,8 @@ object ParticipantConfig {
   // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
   val DefaultApiServerDatabaseConnectionPoolSize = 16
 
-  val DefaultMaxContractStateCacheSize: Long = 300000L
-  val DefaultMaxContractKeyStateCacheSize: Long = 300000L
+  val DefaultMaxContractStateCacheSize: Long = 1000000L
+  val DefaultMaxContractKeyStateCacheSize: Long = 1000000L
 
   val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 10000L
 }
