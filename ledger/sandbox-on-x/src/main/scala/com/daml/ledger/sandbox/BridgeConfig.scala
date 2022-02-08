@@ -13,6 +13,7 @@ case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
     submissionBufferSize: Int,
     implicitPartyAllocation: Boolean,
+    bridgeThreadPoolSize: Int,
 )
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
@@ -35,6 +36,12 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
         s"When referring to a party that doesn't yet exist on the ledger, the participant will implicitly allocate that party."
           + s" You can optionally disable this behavior to bring participant into line with other ledgers."
       )
+
+    parser
+      .opt[Int](name = "bridge-thread-pool-size")
+      .optional()
+      .action((x, c) => c.copy(extra = c.extra.copy(bridgeThreadPoolSize = x)))
+      .text(s"The size of the bridge thread-pool used for conflict checking.")
     parser.checkConfig(c =>
       Either.cond(
         c.maxDeduplicationDuration.forall(_.compareTo(Duration.ofHours(1L)) <= 0),
@@ -57,7 +64,13 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     conflictCheckingEnabled = false,
     submissionBufferSize = 500,
     implicitPartyAllocation = false,
+    bridgeThreadPoolSize = defaultBridgeThreadPoolSize(),
   )
 
   val DefaultMaximumDeduplicationTime: Duration = Duration.ofMinutes(30L)
+
+  private def defaultBridgeThreadPoolSize() = {
+    val target = Runtime.getRuntime.availableProcessors() / 4
+    if (target < 2) 2 else target
+  }
 }

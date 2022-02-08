@@ -193,7 +193,6 @@ object SandboxOnXRunner {
             stateUpdatesFeedSink,
             indexService,
             metrics,
-            servicesExecutionContext,
             servicesThreadPoolSize,
             timeServiceBackend,
           )
@@ -329,7 +328,6 @@ object SandboxOnXRunner {
       feedSink: Sink[(Offset, Update), NotUsed],
       indexService: IndexService,
       metrics: Metrics,
-      servicesExecutionContext: ExecutionContext,
       servicesThreadPoolSize: Int,
       timeServiceBackend: Option[TimeServiceBackend],
   )(implicit
@@ -338,7 +336,6 @@ object SandboxOnXRunner {
       participantConfig: ParticipantConfig,
       loggingContext: LoggingContext,
   ): ResourceOwner[WriteService] = {
-    implicit val ec: ExecutionContext = servicesExecutionContext
     val bridgeMetrics = new BridgeMetrics(metrics)
     for {
       ledgerBridge <- LedgerBridge.owner(

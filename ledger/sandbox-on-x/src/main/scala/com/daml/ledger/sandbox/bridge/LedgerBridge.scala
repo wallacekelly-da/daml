@@ -5,6 +5,7 @@ package com.daml.ledger.sandbox.bridge
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.offset.Offset
@@ -23,7 +24,8 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.common.primitives.Longs
 
 import java.util.UUID
-import scala.concurrent.ExecutionContext
+import java.util.concurrent.Executors
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 trait LedgerBridge {
   def flow: Flow[Submission, (Offset, Update), NotUsed]
@@ -38,11 +40,17 @@ object LedgerBridge {
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
   )(implicit
-      loggingContext: LoggingContext,
-      // TODO SoX: Consider using a dedicated thread-pool for the ledger bridge
-      servicesExecutionContext: ExecutionContext,
+      loggingContext: LoggingContext
   ): ResourceOwner[LedgerBridge] =
-    if (config.extra.conflictCheckingEnabled)
+    if (config.extra.conflictCheckingEnabled) {
+      implicit val bridgeExecutionContext: ExecutionContextExecutor =
+        ExecutionContext.fromExecutorService(
+          new InstrumentedExecutorService(
+            Executors.newWorkStealingPool(config.extra.bridgeThreadPoolSize),
+            bridgeMetrics.registry,
+            bridgeMetrics.threadpool,
+          )
+        )
       buildConfigCheckingLedgerBridge(
         config,
         participantConfig,
@@ -51,7 +59,7 @@ object LedgerBridge {
         servicesThreadPoolSize,
         timeProvider,
       )
-    else
+    } else
       ResourceOwner.forValue(() =>
         new PassThroughLedgerBridge(participantConfig.participantId, timeProvider)
       )
@@ -65,8 +73,7 @@ object LedgerBridge {
       timeProvider: TimeProvider,
   )(implicit
       loggingContext: LoggingContext,
-      // TODO SoX: Consider using a dedicated thread-pool for the ledger bridge
-      servicesExecutionContext: ExecutionContext,
+      bridgeExecutionContext: ExecutionContext,
   ) =
     for {
       initialLedgerEnd <- ResourceOwner.forFuture(() => indexService.currentLedgerEnd())

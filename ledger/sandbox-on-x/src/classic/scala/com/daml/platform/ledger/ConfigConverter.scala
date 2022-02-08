@@ -48,6 +48,7 @@ object ConfigConverter {
       conflictCheckingEnabled = true,
       implicitPartyAllocation = sandboxConfig.implicitPartyAllocation,
       submissionBufferSize = sandboxConfig.maxParallelSubmissions,
+      bridgeThreadPoolSize = BridgeConfigProvider.defaultExtraConfig.bridgeThreadPoolSize,
     )
 
     val allowedLanguageVersions = sandboxConfig.engineMode match {
