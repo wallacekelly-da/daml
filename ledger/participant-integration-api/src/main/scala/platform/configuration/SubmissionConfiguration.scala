@@ -18,6 +18,6 @@ object SubmissionConfiguration {
 
   lazy val default: SubmissionConfiguration =
     SubmissionConfiguration(
-      enableDeduplication = true
+      enableDeduplication = false
     )
 }
