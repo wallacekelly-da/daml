@@ -9,6 +9,8 @@ import com.daml.ledger.sandbox.bridge.validate.DeduplicationState.DeduplicationQ
 import com.daml.lf.data.Time
 
 import java.time.Duration
+import scala.collection.mutable
+import scala.util.chaining._
 
 case class DeduplicationState private (
     private[validate] val deduplicationQueue: DeduplicationQueue,
@@ -20,7 +22,7 @@ case class DeduplicationState private (
       changeId: ChangeId,
       commandDeduplicationDuration: Duration,
       recordTime: Time.Timestamp,
-  ): (DeduplicationState, Boolean) = {
+  ): Boolean = {
     assert(
       deduplicationQueue.lastRecordTimeOption.forall(_ <= recordTime),
       s"Inserted record time ($recordTime) for changeId ($changeId) cannot be before the last inserted record time (${deduplicationQueue.lastRecordTimeOption}).",
@@ -33,16 +35,15 @@ case class DeduplicationState private (
     bridgeMetrics.SequencerState.deduplicationQueueLength.update(deduplicationQueue.size)
 
     val expiredTimestamp = expiredThreshold(maxDeduplicationDuration, recordTime)
-    val queueAfterEvictions = deduplicationQueue.withoutOlderThan(expiredTimestamp)
+    deduplicationQueue.removeOlderThan(expiredTimestamp)
 
-    val isDuplicateChangeId = queueAfterEvictions
+    deduplicationQueue
       .get(changeId)
       .exists(_ >= expiredThreshold(commandDeduplicationDuration, recordTime))
-
-    if (isDuplicateChangeId)
-      copy(deduplicationQueue = queueAfterEvictions) -> true
-    else
-      copy(deduplicationQueue = queueAfterEvictions.updated(changeId, recordTime)) -> false
+      .tap { isDuplicate =>
+        // Insert the new deduplication entry if not a duplicate
+        if (!isDuplicate) deduplicationQueue.update(changeId, recordTime)
+      }
   }
 
   private def expiredThreshold(
@@ -72,47 +73,39 @@ object DeduplicationState {
     * @param mappings Mapping of changeId to recordTime
     */
   private[validate] case class DeduplicationStateQueueMap(
-      vector: Vector[(ChangeId, Time.Timestamp)],
-      mappings: Map[ChangeId, Time.Timestamp],
+      vector: mutable.Queue[(ChangeId, Time.Timestamp)],
+      mappings: mutable.Map[ChangeId, Time.Timestamp],
   ) {
 
     /** Returns a state without the entries that are before the expirationTimestamp.
       *
       * Complexity: eL - effectively linear in the number of expired entries
       */
-    def withoutOlderThan(expirationTimestamp: Time.Timestamp): DeduplicationStateQueueMap = {
+    def removeOlderThan(expirationTimestamp: Time.Timestamp): Unit = {
       // Assuming that the entries have monotonically increasing recordTimes,
       // drop all entries with the recordTime before the expirationTimestamp.
-      val prunedVector = vector.dropWhile { case (_, recordTime) =>
+      val prunedVector = vector.dequeueWhile { case (_, recordTime) =>
         recordTime < expirationTimestamp
       }
 
-      val prunedSize = vector.size - prunedVector.size
       // A recordTime for a changeId could have been updated by a newer command inserted in the mapping.
       // Hence, remove only entries whose recordTimes match the expired entry's recordTime.
-      val expiredFromMappings =
-        vector.view.take(prunedSize).flatMap { case (changeId, recordTime) =>
-          mappings.get(changeId).filter(_ == recordTime).map(_ => changeId)
-        }
-
-      DeduplicationStateQueueMap(
-        vector = prunedVector,
-        mappings = mappings -- expiredFromMappings,
-      )
+      mappings --= prunedVector.view.flatMap { case (changeId, recordTime) =>
+        mappings.get(changeId).filter(_ == recordTime).map(_ => changeId)
+      }
     }
 
     /** Updates the state with a new deduplication entry.
       *
       * Complexity: eC - effectively constant
       */
-    def updated(
+    def update(
         changeId: ChangeId,
         recordTime: Time.Timestamp,
-    ): DeduplicationStateQueueMap =
-      DeduplicationStateQueueMap(
-        vector = vector :+ (changeId, recordTime),
-        mappings = mappings.updated(changeId, recordTime),
-      )
+    ): Unit = {
+      vector.enqueue(changeId -> recordTime)
+      mappings += (changeId -> recordTime)
+    }
 
     /** Fetches, if exists, the record time for a changeId
       * Complexity: eC - effectively constant
@@ -129,6 +122,6 @@ object DeduplicationState {
 
   object DeduplicationStateQueueMap {
     def empty: DeduplicationStateQueueMap =
-      DeduplicationStateQueueMap(Vector.empty, Map.empty)
+      DeduplicationStateQueueMap(mutable.Queue.empty, mutable.Map.empty)
   }
 }

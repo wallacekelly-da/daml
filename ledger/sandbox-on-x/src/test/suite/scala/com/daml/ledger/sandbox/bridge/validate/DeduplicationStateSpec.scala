@@ -39,32 +39,32 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
         commandDeduplicationDuration = Duration.ofMinutes(2L),
         recordTime = t0,
       )
-      .tap { case (newDeduplicationState, isDuplicate) =>
-        newDeduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
+      .tap { isDuplicate =>
+        deduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
           changeId(1) -> t0
         )
         isDuplicate shouldBe false
       }
-      ._1
+    deduplicationState
       .deduplicate(
         changeId = changeId(1),
         commandDeduplicationDuration = Duration.ofMinutes(2L),
         recordTime = t1,
       )
-      .tap { case (newDeduplicationState, isDuplicate) =>
-        newDeduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
+      .tap { isDuplicate =>
+        deduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
           changeId(1) -> t0
         )
         isDuplicate shouldBe true
       }
-      ._1
+    deduplicationState
       .deduplicate(
         changeId = changeId(1),
         commandDeduplicationDuration = Duration.ofMinutes(2L),
         recordTime = t3,
       )
-      .tap { case (newDeduplicationState, isDuplicate) =>
-        newDeduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
+      .tap { isDuplicate =>
+        deduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
           changeId(1) -> t3
         )
         isDuplicate shouldBe false
@@ -83,33 +83,35 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
         commandDeduplicationDuration = Duration.ofMinutes(1L),
         recordTime = t0,
       )
-      .tap { case (newDeduplicationState, isDuplicate) =>
-        newDeduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
+      .tap { isDuplicate =>
+        deduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
           changeId(1) -> t0
         )
         isDuplicate shouldBe false
       }
-      ._1
+
+    deduplicationState
       .deduplicate(
         changeId = changeId(2),
         commandDeduplicationDuration = Duration.ofMinutes(1L),
         recordTime = t1,
       )
-      .tap { case (newDeduplicationState, isDuplicate) =>
-        newDeduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
+      .tap { isDuplicate =>
+        deduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
           changeId(1) -> t0,
           changeId(2) -> t1,
         )
         isDuplicate shouldBe false
       }
-      ._1
+
+    deduplicationState
       .deduplicate(
         changeId = changeId(3),
         commandDeduplicationDuration = Duration.ofMinutes(1L),
         recordTime = t2,
       )
-      .tap { case (newDeduplicationState, isDuplicate) =>
-        newDeduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
+      .tap { isDuplicate =>
+        deduplicationState.deduplicationQueue.assertToVectorMap shouldBe VectorMap(
           changeId(2) -> t1,
           changeId(3) -> t2,
         )
@@ -136,16 +138,15 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
 
   it should "throw an exception on a record time before the last ingested record time" in {
     val maxDeduplicationDuration = Duration.ofMinutes(2L)
-    Try(
-      DeduplicationState
-        .empty(
-          deduplicationDuration = maxDeduplicationDuration,
-          bridgeMetrics = bridgeMetrics,
-        )
-        .deduplicate(changeId(1337), maxDeduplicationDuration, t1)
-        ._1
-        .deduplicate(changeId(1337), maxDeduplicationDuration, t0)
-    ) match {
+    val deduplicationState = DeduplicationState
+      .empty(
+        deduplicationDuration = maxDeduplicationDuration,
+        bridgeMetrics = bridgeMetrics,
+      )
+    deduplicationState.deduplicate(changeId(1337), maxDeduplicationDuration, t1)
+    Try {
+      deduplicationState.deduplicate(changeId(1337), maxDeduplicationDuration, t0)
+    } match {
       case Failure(ex) =>
         ex.getMessage shouldBe s"assertion failed: Inserted record time ($t0) for changeId (${changeId(1337)}) cannot be before the last inserted record time (${Some(t1)})."
       case Success(_) => fail("It should throw an exception on invalid deduplication durations")
@@ -155,46 +156,39 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
   behavior of classOf[DeduplicationStateQueueMap].getSimpleName
 
   it should "update and expire entries properly" in {
-    DeduplicationStateQueueMap.empty
-      .updated(changeId(1), t0)
-      .updated(changeId(2), t1)
-      // Insert duplicate changeId at t2
-      .updated(changeId(1), t2)
-      // Assert deduplication entries for both data structures
-      .tap { queueMap =>
-        queueMap.mappings should contain theSameElementsAs Map(
-          changeId(2) -> t1,
-          changeId(1) -> t2,
-        )
-        queueMap.vector should contain theSameElementsAs Vector(
-          changeId(1) -> t0,
-          changeId(2) -> t1,
-          changeId(1) -> t2,
-        )
-      }
-      .withoutOlderThan(t1)
-      // The first deduplication entry is removed from the vector
-      // but its change-id is not removed from the mapping since it was updated more recently
-      .tap { queueMap =>
-        val expectedElements = Map(
-          changeId(2) -> t1,
-          changeId(1) -> t2,
-        )
-        queueMap.mappings should contain theSameElementsAs expectedElements
-        queueMap.vector should contain theSameElementsAs expectedElements
-      }
-      .withoutOlderThan(t2)
-      // The change-id at t1 is evicted from both data structures
-      .tap { queueMap =>
-        queueMap.mappings should contain theSameElementsAs Map(changeId(1) -> t2)
-        queueMap.vector should contain theSameElementsAs Map(changeId(1) -> t2)
-      }
-      .withoutOlderThan(t3)
-      // All entries evicted
-      .tap { queueMap =>
-        queueMap.mappings shouldBe empty
-        queueMap.vector shouldBe empty
-      }
+    val queueMap = DeduplicationStateQueueMap.empty
+    queueMap.update(changeId(1), t0)
+    queueMap.update(changeId(2), t1)
+    // Insert duplicate changeId at t2
+    queueMap.update(changeId(1), t2)
+    queueMap.mappings should contain theSameElementsAs Map(
+      changeId(2) -> t1,
+      changeId(1) -> t2,
+    )
+    queueMap.vector should contain theSameElementsAs Vector(
+      changeId(1) -> t0,
+      changeId(2) -> t1,
+      changeId(1) -> t2,
+    )
+    queueMap.removeOlderThan(t1)
+
+    // The first deduplication entry is removed from the vector
+    // but its change-id is not removed from the mapping since it was updated more recently
+    val expectedElements = Map(
+      changeId(2) -> t1,
+      changeId(1) -> t2,
+    )
+    queueMap.mappings should contain theSameElementsAs expectedElements
+    queueMap.vector should contain theSameElementsAs expectedElements
+    queueMap.removeOlderThan(t2)
+
+    // The change-id at t1 is evicted from both data structures
+    queueMap.mappings should contain theSameElementsAs Map(changeId(1) -> t2)
+    queueMap.vector should contain theSameElementsAs Map(changeId(1) -> t2)
+    queueMap.removeOlderThan(t3)
+    // All entries evicted
+    queueMap.mappings shouldBe empty
+    queueMap.vector shouldBe empty
   }
 
   private def changeId(idx: Int): ChangeId = ChangeId(
