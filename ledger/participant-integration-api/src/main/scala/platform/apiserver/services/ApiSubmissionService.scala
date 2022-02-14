@@ -3,9 +3,6 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.{Duration, Instant}
-import java.util.UUID
-
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggingApiException
 import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
@@ -42,13 +39,18 @@ import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 import io.grpc.{Status, StatusRuntimeException}
 
+import java.time.{Duration, Instant}
+import java.util.UUID
+import java.util.concurrent.Executors
 import scala.annotation.nowarn
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 private[apiserver] object ApiSubmissionService {
+  private implicit val ec: ExecutionContextExecutor =
+    ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
   def create(
       ledgerId: LedgerId,
@@ -65,8 +67,7 @@ private[apiserver] object ApiSubmissionService {
       metrics: Metrics,
       errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
+      loggingContext: LoggingContext
   ): GrpcCommandSubmissionService with GrpcApiService =
     new GrpcCommandSubmissionService(
       service = new ApiSubmissionService(
@@ -113,7 +114,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
     val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+)(implicit ec: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with AutoCloseable {
 

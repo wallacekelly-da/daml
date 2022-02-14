@@ -107,6 +107,8 @@ da_scala_binary(
             srcs = suites_sources(lf_version),
             scala_deps = [
                 "@maven//:com_chuusai_shapeless",
+                "@maven//:com_typesafe_akka_akka_actor",
+                "@maven//:com_typesafe_akka_akka_stream",
             ],
             scaladoc = False,
             visibility = [

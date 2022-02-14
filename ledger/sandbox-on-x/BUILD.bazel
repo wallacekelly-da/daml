@@ -147,16 +147,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--exclude=ClosedWorldIT",
-        "--exclude=ContractKeysIT",
-        "--exclude=SemanticTests",
-        "--exclude=RaceConditionIT",
-        "--exclude=ExceptionRaceConditionIT",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
-        "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
-        "--exclude=CommandDeduplication",
-        "--exclude=CommandServiceIT:CSduplicate",
+        "--include=SubmitAndWaitBenchIT",
     ],
 )
 

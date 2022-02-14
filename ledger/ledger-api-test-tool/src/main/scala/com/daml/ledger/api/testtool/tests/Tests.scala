@@ -67,6 +67,7 @@ object Tests {
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
+      new SubmitAndWaitBenchIT,
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
           else Vector.empty)
 
