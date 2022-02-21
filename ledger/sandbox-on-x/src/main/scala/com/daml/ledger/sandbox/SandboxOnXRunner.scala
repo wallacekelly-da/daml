@@ -10,19 +10,9 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.auth.{
-  AuthServiceJWT,
-  AuthServiceNone,
-  AuthServiceStatic,
-  AuthServiceWildcard,
-}
+import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceNone, AuthServiceStatic, AuthServiceWildcard}
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-}
+import com.daml.ledger.api.v1.experimental_features.{CommandDeduplicationFeatures, CommandDeduplicationPeriodSupport, CommandDeduplicationType, ExperimentalContractIds}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.runner.common._
@@ -40,8 +30,10 @@ import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
-
 import java.util.concurrent.{Executors, TimeUnit}
+
+import com.daml.caching.SizedCache
+
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 
@@ -137,7 +129,11 @@ object SandboxOnXRunner {
       implicit loggingContext =>
         for {
           metrics <- metrics.map(ResourceOwner.successful).getOrElse(buildMetrics)
-          translationCache = LfValueTranslationCache.Cache.none
+          translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
+            eventConfiguration = SizedCache.Configuration(10000),
+            contractConfiguration = SizedCache.Configuration(10000),
+            metrics = metrics,
+          )
 
           (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
