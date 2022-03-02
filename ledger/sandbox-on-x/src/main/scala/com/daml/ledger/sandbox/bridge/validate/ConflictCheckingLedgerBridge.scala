@@ -34,25 +34,27 @@ private[validate] class ConflictCheckingLedgerBridge(
 ) extends LedgerBridge {
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      .buffered(128)(bridgeMetrics.Stages.PrepareSubmission.bufferBefore)
+      .buffered(128)(bridgeMetrics.Stages.PrepareSubmission)
       .mapAsyncUnordered(servicesThreadPoolSize)(prepareSubmission)
-      .buffered(128)(bridgeMetrics.Stages.TagWithLedgerEnd.bufferBefore)
-      .mapAsync(parallelism = 1)(tagWithLedgerEnd)
-      .buffered(128)(bridgeMetrics.Stages.ConflictCheckWithCommitted.bufferBefore)
+      .buffered(128)(bridgeMetrics.Stages.TagWithLedgerEnd)
+      .map(tagWithLedgerEnd)
+      .buffered(128)(bridgeMetrics.Stages.ConflictCheckWithCommitted)
       .mapAsync(servicesThreadPoolSize)(conflictCheckWithCommitted)
-      .buffered(128)(bridgeMetrics.Stages.Sequence.bufferBefore)
+      .buffered(128)(bridgeMetrics.Stages.Sequence)
       .statefulMapConcat(sequence)
 
   private implicit class FlowWithBuffers[T, R](flow: Flow[T, R, NotUsed]) {
-    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Flow[T, R, NotUsed] =
+    def buffered(
+        bufferLength: Int
+    )(stageMetrics: bridgeMetrics.Stages.StageMetrics): Flow[T, R, NotUsed] =
       flow
         .map { in =>
-          counter.inc()
+          stageMetrics.bufferBefore.inc()
           in
         }
         .buffer(bufferLength, OverflowStrategy.backpressure)
         .map { in =>
-          counter.dec()
+          stageMetrics.bufferBefore.dec()
           in
         }
   }
@@ -67,7 +69,7 @@ private[bridge] object ConflictCheckingLedgerBridge {
   // Conflict checking stages
   private[validate] type PrepareSubmission = Submission => AsyncValidation[PreparedSubmission]
   private[validate] type TagWithLedgerEnd =
-    Validation[PreparedSubmission] => AsyncValidation[(Offset, PreparedSubmission)]
+    Validation[PreparedSubmission] => Validation[(Offset, PreparedSubmission)]
   private[validate] type ConflictCheckWithCommitted =
     Validation[(Offset, PreparedSubmission)] => AsyncValidation[(Offset, PreparedSubmission)]
   private[validate] type Sequence =

@@ -3,14 +3,18 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
+import com.daml.ledger.api.domain.LedgerOffset
+import com.daml.ledger.api.domain.LedgerOffset._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import ConflictCheckingLedgerBridge._
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
+import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
 import com.daml.metrics.Timed
 import com.daml.platform.ApiOffset
+import com.daml.platform.ApiOffset.toApiString
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.ExecutionContext
 
 /** Tags the prepared submission with the current ledger end as available on the Ledger API. */
 private[validate] class TagWithLedgerEndImpl(
@@ -18,18 +22,32 @@ private[validate] class TagWithLedgerEndImpl(
     bridgeMetrics: BridgeMetrics,
 )(implicit executionContext: ExecutionContext)
     extends TagWithLedgerEnd {
+  private val ledgerEnd =
+    new AtomicReference[LedgerOffset.Absolute](LedgerOffset.Absolute(toApiString(ApiOffset.begin)))
+
   override def apply(
       preparedSubmission: Validation[PreparedSubmission]
-  ): AsyncValidation[(Offset, PreparedSubmission)] = preparedSubmission match {
-    case Left(rejection) => Future.successful(Left(rejection))
+  ): Validation[(Offset, PreparedSubmission)] = preparedSubmission match {
+    case Left(rejection) => Left(rejection)
     case Right(preparedSubmission) =>
-      Timed.future(
+      val ledgerEnd = getLedgerEnd(preparedSubmission)
+      Right(ApiOffset.assertFromString(ledgerEnd.value) -> preparedSubmission)
+  }
+
+  private def getLedgerEnd(preparedSubmission: PreparedSubmission) = {
+    Timed
+      .future(
         bridgeMetrics.Stages.TagWithLedgerEnd.timer,
         indexService
-          .currentLedgerEnd()(preparedSubmission.submission.loggingContext)
-          .map(ledgerEnd =>
-            Right(ApiOffset.assertFromString(ledgerEnd.value) -> preparedSubmission)
-          ),
+          .currentLedgerEnd()(preparedSubmission.submission.loggingContext),
       )
+      .foreach { newLedgerEnd =>
+        val _ = ledgerEnd.updateAndGet { actual =>
+          if (Ordering[LedgerOffset.Absolute].compare(newLedgerEnd, actual) > 0) newLedgerEnd
+          else actual
+        }
+      }
+
+    ledgerEnd.get()
   }
 }
