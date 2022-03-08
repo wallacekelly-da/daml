@@ -37,9 +37,10 @@ private[appendonlydao] sealed class ContractsReader(
   ): Future[KeyState] =
     Timed.future(
       metrics.daml.index.db.lookupKey,
-      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
+      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics) {
+        Thread.sleep(3)
         storageBackend.keyState(key, validAt)
-      ),
+      },
     )
 
   override def lookupContractState(contractId: ContractId, before: Long)(implicit
