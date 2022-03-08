@@ -23,7 +23,6 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ActiveContract,
   ArchivedContract,
   ContractState,
-  KeyState,
 }
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -67,7 +66,7 @@ private[platform] class MutableCacheBackedContractStore(
     keyCache
       .get(key)
       .map(Future.successful)
-      .getOrElse(readThroughKeyCache(key))
+      .getOrElse(Future.successful(ContractKeyStateValue.Unassigned))
       .map(keyStateToResponse(_, readers))
 
   override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
@@ -229,25 +228,25 @@ private[platform] class MutableCacheBackedContractStore(
     case None => ContractStateValue.NotFound
   }
 
-  private val toKeyCacheValue: KeyState => ContractKeyStateValue = {
-    case LedgerDaoContractsReader.KeyAssigned(contractId, stakeholders) =>
-      Assigned(contractId, stakeholders)
-    case LedgerDaoContractsReader.KeyUnassigned =>
-      Unassigned
-  }
+//  private val toKeyCacheValue: KeyState => ContractKeyStateValue = {
+//    case LedgerDaoContractsReader.KeyAssigned(contractId, stakeholders) =>
+//      Assigned(contractId, stakeholders)
+//    case LedgerDaoContractsReader.KeyUnassigned =>
+//      Unassigned
+//  }
 
-  private def readThroughKeyCache(
-      key: GlobalKey
-  )(implicit loggingContext: LoggingContext) = {
-    val currentCacheSequentialId = cacheIndex()._2
-    val eventualResult = contractsReader.lookupKeyState(key, currentCacheSequentialId)
-    val eventualValue = eventualResult.map(toKeyCacheValue)
-
-    for {
-      _ <- keyCache.putAsync(key, currentCacheSequentialId, eventualValue)
-      value <- eventualValue
-    } yield value
-  }
+//  private def readThroughKeyCache(
+//      key: GlobalKey
+//  )(implicit loggingContext: LoggingContext) = {
+//    val currentCacheSequentialId = cacheIndex()._2
+//    val eventualResult = contractsReader.lookupKeyState(key, currentCacheSequentialId)
+//    val eventualValue = eventualResult.map(toKeyCacheValue)
+//
+//    for {
+//      _ <- keyCache.putAsync(key, currentCacheSequentialId, eventualValue)
+//      value <- eventualValue
+//    } yield value
+//  }
 
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
     one.intersect(other).nonEmpty
