@@ -33,6 +33,11 @@ object CaffeineCache {
 
     override def getOrAcquire(key: Key, acquire: Key => Value): Value =
       cache.get(key, key => acquire(key))
+
+    override def merge(key: Key, value: Value, f: (Value, Value) => Value): Unit = {
+      cache.asMap().merge(key, value, (oldValue, newValue) => f(oldValue, newValue))
+      ()
+    }
   }
 
   final class AsyncLoadingCaffeineCache[Key <: AnyRef, Value <: AnyRef](
@@ -62,6 +67,12 @@ object CaffeineCache {
 
     override def getOrAcquire(key: Key, acquire: Key => Value): Value =
       delegate.getOrAcquire(key, acquire)
+
+    override def merge(key: Key, value: Value, f: (Value, Value) => Value): Unit = {
+      cache.asMap().merge(key, value, (oldValue, newValue) => f(oldValue, newValue))
+      ()
+    }
+
   }
 
   private def installMetrics[Key <: AnyRef, Value <: AnyRef](

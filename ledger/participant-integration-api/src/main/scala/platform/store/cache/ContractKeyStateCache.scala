@@ -14,7 +14,7 @@ object ContractKeyStateCache {
       ec: ExecutionContext
   ): StateCache[GlobalKey, ContractKeyStateValue] =
     StateCache(
-      cache = SizedCache.from[GlobalKey, ContractKeyStateValue](
+      cache = SizedCache.from[GlobalKey, (ContractKeyStateValue, Long)](
         SizedCache.Configuration(cacheSize),
         metrics.daml.execution.cache.keyState,
       ),

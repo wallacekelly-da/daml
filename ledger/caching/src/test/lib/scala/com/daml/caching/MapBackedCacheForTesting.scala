@@ -17,4 +17,9 @@ final class MapBackedCacheForTesting[Key, Value](store: ConcurrentMap[Key, Value
 
   override def getOrAcquire(key: Key, acquire: Key => Value): Value =
     store.computeIfAbsent(key, acquire(_))
+
+  override def merge(key: Key, value: Value, f: (Value, Value) => Value): Unit = {
+    store.merge(key, value, (oldValue, newValue) => f(oldValue, newValue))
+    ()
+  }
 }

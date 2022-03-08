@@ -51,6 +51,8 @@ abstract class ConcurrentCache[Key, Value] extends Cache[Key, Value] {
     * using the provided function, writes it to the cache, and returns it.
     */
   def getOrAcquire(key: Key, acquire: Key => Value): Value
+
+  def merge(key: Key, value: Value, f: (Value, Value) => Value): Unit
 }
 
 object Cache {
