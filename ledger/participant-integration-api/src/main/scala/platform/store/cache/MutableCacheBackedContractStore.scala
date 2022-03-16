@@ -28,23 +28,17 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
-import scala.util.chaining._
-import scala.util.control.NoStackTrace
 
 private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
     contractsReader: LedgerDaoContractsReader,
     signalNewLedgerHead: SignalNewLedgerHead,
-    startIndexExclusive: (Offset, Long),
     private[cache] val keyCache: StateCache[GlobalKey, ContractKeyStateValue],
     private[cache] val contractsCache: StateCache[ContractId, ContractStateValue],
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ContractStore {
 
   private val logger = ContextualizedLogger.get(getClass)
-
-  private[cache] val cacheIndex = MutableLedgerEndCache().tap(_.set(startIndexExclusive))
 
   def push(event: ContractStateEvent): Unit = {
     debugEvents(event)
@@ -57,8 +51,6 @@ private[platform] class MutableCacheBackedContractStore(
   ): Future[Option[Contract]] =
     contractsCache
       .get(contractId)
-      .map(Future.successful)
-      .getOrElse(readThroughContractsCache(contractId))
       .flatMap(contractStateToResponse(readers, contractId))
 
   override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
@@ -66,8 +58,6 @@ private[platform] class MutableCacheBackedContractStore(
   ): Future[Option[ContractId]] =
     keyCache
       .get(key)
-      .map(Future.successful)
-      .getOrElse(readThroughKeyCache(key))
       .map(keyStateToResponse(_, readers))
 
   override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
@@ -92,7 +82,7 @@ private[platform] class MutableCacheBackedContractStore(
   ): Future[MaximumLedgerTime] =
     missing match {
       case contractId :: restOfMissing =>
-        readThroughContractsCache(contractId).flatMap {
+        contractsCache.get(contractId).flatMap {
           case active: Active =>
             val newMaximumLedgerTime = Some(
               (active.createLedgerEffectiveTime :: acc.toList).max
@@ -116,10 +106,8 @@ private[platform] class MutableCacheBackedContractStore(
 
   private def partitionCached(
       ids: Set[ContractId]
-  )(implicit
-      loggingContext: LoggingContext
   ): Either[Set[ContractId], (Set[Timestamp], Set[ContractId])] = {
-    val cacheQueried = ids.map(id => id -> contractsCache.get(id))
+    val cacheQueried = ids.map(id => id -> contractsCache.getIfPresent(id))
 
     val cached = cacheQueried.view
       .foldLeft[Either[Set[ContractId], Set[Timestamp]]](Right(Set.empty[Timestamp])) {
@@ -140,32 +128,6 @@ private[platform] class MutableCacheBackedContractStore(
         val missing = cacheQueried.collect { case (id, None) => id }
         (cached, missing)
       }
-  }
-
-  private def readThroughContractsCache(contractId: ContractId)(implicit
-      loggingContext: LoggingContext
-  ) = {
-    val currentCacheSequentialId = cacheIndex()._2
-    val fetchStateRequest =
-      contractsReader.lookupContractState(contractId, currentCacheSequentialId)
-    val eventualValue = fetchStateRequest.map(toContractCacheValue)
-
-    for {
-      _ <- contractsCache.putAsync(
-        key = contractId,
-        validAt = currentCacheSequentialId,
-        eventualValue = eventualValue.transformWith {
-          case Success(NotFound) =>
-            metrics.daml.execution.cache.readThroughNotFound.inc()
-            // We must not cache negative lookups by contract-id, as they can be invalidated by later divulgence events.
-            // This is OK from a performance perspective, as we do not expect uses-cases that require
-            // caching of contract absence or the results of looking up divulged contracts.
-            Future.failed(ContractReadThroughNotFound(contractId))
-          case result => Future.fromTry(result)
-        },
-      )
-      value <- eventualValue
-    } yield value
   }
 
   private def keyStateToResponse(
@@ -221,47 +183,15 @@ private[platform] class MutableCacheBackedContractStore(
         )
     }
 
-  private val toContractCacheValue: Option[ContractState] => ContractStateValue = {
-    case Some(ActiveContract(contract, stakeholders, ledgerEffectiveTime)) =>
-      ContractStateValue.Active(contract, stakeholders, ledgerEffectiveTime)
-    case Some(ArchivedContract(stakeholders)) =>
-      ContractStateValue.Archived(stakeholders)
-    case None => ContractStateValue.NotFound
-  }
-
-  private val toKeyCacheValue: KeyState => ContractKeyStateValue = {
-    case LedgerDaoContractsReader.KeyAssigned(contractId, stakeholders) =>
-      Assigned(contractId, stakeholders)
-    case LedgerDaoContractsReader.KeyUnassigned =>
-      Unassigned
-  }
-
-  private def readThroughKeyCache(
-      key: GlobalKey
-  )(implicit loggingContext: LoggingContext) = {
-    val currentCacheSequentialId = cacheIndex()._2
-    val eventualResult = contractsReader.lookupKeyState(key, currentCacheSequentialId)
-    val eventualValue = eventualResult.map(toKeyCacheValue)
-
-    for {
-      _ <- keyCache.putAsync(key, currentCacheSequentialId, eventualValue)
-      value <- eventualValue
-    } yield value
-  }
-
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
     one.intersect(other).nonEmpty
 
-  private def updateOffsets(event: ContractStateEvent): Unit = {
-    cacheIndex.set(event.eventOffset, event.eventSequentialId)
-    metrics.daml.execution.cache.indexSequentialId
-      .updateValue(event.eventSequentialId)
+  private def updateOffsets(event: ContractStateEvent): Unit =
     event match {
       case LedgerEndMarker(eventOffset, eventSequentialId) =>
         signalNewLedgerHead(eventOffset, eventSequentialId)
       case _ => ()
     }
-  }
 
   private val updateCaches: ContractStateEvent => Unit = {
     case ContractStateEvent.Created(
@@ -341,7 +271,7 @@ private[platform] object MutableCacheBackedContractStore {
   def apply(
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: SignalNewLedgerHead,
-      startIndexExclusive: (Offset, Long),
+      ledgerEndCache: LedgerEndCache,
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
@@ -353,13 +283,23 @@ private[platform] object MutableCacheBackedContractStore {
       metrics,
       contractsReader,
       signalNewLedgerHead,
-      startIndexExclusive,
-      ContractKeyStateCache(maxKeyCacheSize, metrics),
-      ContractsStateCache(maxContractsCacheSize, metrics),
+      ContractKeyStateCache(
+        maxKeyCacheSize,
+        metrics,
+        contractsReader.lookupKeyState(_, _).map(toKeyCacheValue),
+        ledgerEndCache()._2,
+      ),
+      ContractsStateCache(
+        maxContractsCacheSize,
+        metrics,
+        contractsReader.lookupContractState(_, _).map(toContractCacheValue),
+        ledgerEndCache()._2,
+      ),
     )
 
   final class CacheUpdateSubscription(
       contractStore: MutableCacheBackedContractStore,
+      ledgerEndCache: LedgerEndCache,
       subscribeToContractStateEvents: SubscribeToContractStateEvents,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
   )(implicit materializer: Materializer)
@@ -376,7 +316,7 @@ private[platform] object MutableCacheBackedContractStore {
               randomFactor = 0.2,
             )
           )(() =>
-            subscribeToContractStateEvents(contractStore.cacheIndex())
+            subscribeToContractStateEvents(ledgerEndCache())
               .map(contractStore.push)
           )
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
@@ -389,8 +329,18 @@ private[platform] object MutableCacheBackedContractStore {
       }.map(_ => ())
   }
 
-  final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
-    override def getMessage: String =
-      s"Contract not found for contract id ${contractId.coid}. Hint: this could be due racing with a concurrent archival."
+  private val toKeyCacheValue: KeyState => ContractKeyStateValue = {
+    case LedgerDaoContractsReader.KeyAssigned(contractId, stakeholders) =>
+      Assigned(contractId, stakeholders)
+    case LedgerDaoContractsReader.KeyUnassigned =>
+      Unassigned
+  }
+
+  private val toContractCacheValue: Option[ContractState] => ContractStateValue = {
+    case Some(ActiveContract(contract, stakeholders, ledgerEffectiveTime)) =>
+      ContractStateValue.Active(contract, stakeholders, ledgerEffectiveTime)
+    case Some(ArchivedContract(stakeholders)) =>
+      ContractStateValue.Archived(stakeholders)
+    case None => ContractStateValue.NotFound
   }
 }

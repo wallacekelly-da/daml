@@ -22,4 +22,9 @@ final class MapBackedCacheForTesting[Key, Value](store: ConcurrentMap[Key, Value
     store.merge(key, value, (oldValue, newValue) => f(oldValue, newValue))
     ()
   }
+
+  override def invalidate(key: Key): Unit = {
+    store.remove(key)
+    ()
+  }
 }

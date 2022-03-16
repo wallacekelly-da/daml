@@ -7,18 +7,25 @@ import com.daml.caching.SizedCache
 import com.daml.lf.transaction.GlobalKey
 import com.daml.metrics.Metrics
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 object ContractKeyStateCache {
-  def apply(cacheSize: Long, metrics: Metrics)(implicit
+  def apply(
+      cacheSize: Long,
+      metrics: Metrics,
+      load: (GlobalKey, Long) => Future[ContractKeyStateValue],
+      initialIndex: Long,
+  )(implicit
       ec: ExecutionContext
   ): StateCache[GlobalKey, ContractKeyStateValue] =
     StateCache(
-      cache = SizedCache.from[GlobalKey, (ContractKeyStateValue, Long)](
+      cache = SizedCache.from[GlobalKey, StateCache.State[ContractKeyStateValue]](
         SizedCache.Configuration(cacheSize),
         metrics.daml.execution.cache.keyState,
       ),
       registerUpdateTimer = metrics.daml.execution.cache.registerCacheUpdate,
+      load = load,
+      initialIndex = initialIndex,
     )
 }
 

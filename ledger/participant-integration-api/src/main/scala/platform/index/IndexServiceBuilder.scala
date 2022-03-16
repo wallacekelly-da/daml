@@ -87,10 +87,11 @@ private[platform] case class IndexServiceBuilder(
       )
       contractStore = mutableCacheBackedContractStore(
         ledgerDao,
-        ledgerEnd,
         instrumentedSignalNewLedgerHead,
+        ledgerEndCache,
       )
       (transactionsReader, pruneBuffers) <- cacheComponentsAndSubscription(
+        ledgerEndCache,
         contractStore,
         ledgerDao,
         prefetchingDispatcher,
@@ -150,13 +151,13 @@ private[platform] case class IndexServiceBuilder(
 
   private def mutableCacheBackedContractStore(
       ledgerDao: LedgerReadDao,
-      ledgerEnd: LedgerEnd,
       dispatcherLagMeter: InstrumentedSignalNewLedgerHead,
+      ledgerEndCache: LedgerEndCache,
   ) =
     MutableCacheBackedContractStore(
       ledgerDao.contractsReader,
       dispatcherLagMeter,
-      ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
+      ledgerEndCache,
       metrics,
       maxContractStateCacheSize,
       maxContractKeyStateCacheSize,
@@ -179,6 +180,7 @@ private[platform] case class IndexServiceBuilder(
   }
 
   private def cacheComponentsAndSubscription(
+      ledgerEndCache: LedgerEndCache,
       contractStore: MutableCacheBackedContractStore,
       ledgerReadDao: LedgerReadDao,
       cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
@@ -231,6 +233,7 @@ private[platform] case class IndexServiceBuilder(
     } else
       new MutableCacheBackedContractStore.CacheUpdateSubscription(
         contractStore = contractStore,
+        ledgerEndCache = ledgerEndCache,
         subscribeToContractStateEvents = cacheIndex =>
           cacheUpdatesDispatcher
             .startingAt(

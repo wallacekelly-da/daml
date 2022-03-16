@@ -6,18 +6,25 @@ import com.daml.caching.SizedCache
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 object ContractsStateCache {
-  def apply(cacheSize: Long, metrics: Metrics)(implicit
+  def apply(
+      cacheSize: Long,
+      metrics: Metrics,
+      load: (ContractId, Long) => Future[ContractStateValue],
+      initialIndex: Long,
+  )(implicit
       ec: ExecutionContext
   ): StateCache[ContractId, ContractStateValue] =
     StateCache(
-      cache = SizedCache.from[ContractId, (ContractStateValue, Long)](
+      cache = SizedCache.from[ContractId, StateCache.State[ContractStateValue]](
         SizedCache.Configuration(cacheSize),
         metrics.daml.execution.cache.contractState,
       ),
       registerUpdateTimer = metrics.daml.execution.cache.registerCacheUpdate,
+      load = load,
+      initialIndex = initialIndex,
     )
 }
 

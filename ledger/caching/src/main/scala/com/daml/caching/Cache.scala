@@ -53,6 +53,8 @@ abstract class ConcurrentCache[Key, Value] extends Cache[Key, Value] {
   def getOrAcquire(key: Key, acquire: Key => Value): Value
 
   def merge(key: Key, value: Value, f: (Value, Value) => Value): Unit
+
+  def invalidate(key: Key): Unit
 }
 
 object Cache {

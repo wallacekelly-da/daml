@@ -11,4 +11,6 @@ final class NoCache[Key, Value] private[caching] extends ConcurrentCache[Key, Va
   override def getOrAcquire(key: Key, acquire: Key => Value): Value = acquire(key)
 
   override def merge(key: Key, value: Value, f: (Value, Value) => Value): Unit = ()
+
+  override def invalidate(key: Key): Unit = ()
 }

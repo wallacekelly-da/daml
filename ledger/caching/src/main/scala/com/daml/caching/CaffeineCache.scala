@@ -38,6 +38,8 @@ object CaffeineCache {
       cache.asMap().merge(key, value, (oldValue, newValue) => f(oldValue, newValue))
       ()
     }
+
+    override def invalidate(key: Key): Unit = cache.invalidate(key)
   }
 
   final class AsyncLoadingCaffeineCache[Key <: AnyRef, Value <: AnyRef](
@@ -73,6 +75,7 @@ object CaffeineCache {
       ()
     }
 
+    override def invalidate(key: Key): Unit = cache.invalidate(key)
   }
 
   private def installMetrics[Key <: AnyRef, Value <: AnyRef](
