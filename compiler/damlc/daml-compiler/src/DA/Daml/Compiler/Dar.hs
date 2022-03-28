@@ -349,8 +349,18 @@ createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot fil
         sinkEntryDeterministic Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
     let dalfName = pkgName </> fullPkgName pName pVersion pkgId <.> "dalf"
     let dependencies =
-            [ (pkgName </> T.unpack depName <> "-" <> (T.unpack $ LF.unPackageId depPkgId) <> ".dalf", BSL.fromStrict bs)
+            [ (dalfPath, BSL.fromStrict bs)
             | (depName, bs, depPkgId) <- dalfDependencies
+            , let
+                LF.PackageId packageIdTxt = depPkgId
+                -- This undoes the hack from DA.Daml.Compiler.DecodeDar.decodeDalf;
+                -- namely, if we depend on a version of daml-prim or daml-stdlib
+                -- from a previous SDK, decodeDalf already added the package id
+                -- to the package name, so adding it here again would be incorrect.
+                dalfName = if packageIdTxt `T.isInfixOf` depName
+                    then T.unpack depName
+                    else T.unpack depName <> "-" <> T.unpack packageIdTxt
+                dalfPath = pkgName </> dalfName <> ".dalf"
             ]
     let dataFiles' =
             [ (pkgName </> "data" </> n, BSC.fromStrict bs)
