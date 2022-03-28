@@ -7,6 +7,8 @@ module DA.Cli.Damlc.Packaging
   ( createProjectPackageDb
   , mbErr
   , getUnitId
+
+  , logg
   ) where
 
 import Control.Exception.Safe (tryAny)
@@ -61,6 +63,11 @@ import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
 
+logg :: String -> IO ()
+logg msg = do
+  appendFile "/Users/moises.ackerman/log" msg
+  appendFile "/Users/moises.ackerman/log" "\n"
+
 -- | Create the project package database containing the given dar packages.
 --
 -- We differentiate between two kinds of dependencies.
@@ -78,6 +85,8 @@ import SdkVersion
 createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
 createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
   = do
+    logg $ "ROOT: " <> show projectRoot
+
     (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir
     loggerH <- getLogger opts "package-db"
     when needsReinitalization $ do
@@ -98,14 +107,53 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
             bs <- BS.readFile dalf
             (dalf,) <$> either fail pure (decodeDalf builtinDependenciesIds dalf bs)
 
+      let okdd = const True
+      -- let okdd p = not $ or
+      --       [ "1041d7154af4316a5dfda1494bb260a54286b720adfd847549ff32694785580c-1041d7154af4316a5dfda1494bb260a54286b720adfd847549ff32694785580c" `isInfixOf` p
+      --       , "b76c39513d2b3214a4c507c55c719e36a35b88a33be9d36b884dda147c8e6618-b76c39513d2b3214a4c507c55c719e36a35b88a33be9d36b884dda147c8e6618" `isInfixOf` p
+      --       ]
+
       -- This is only used for unit-id collision checks and dependencies on newer LF versions.
       dalfsFromDependencyFps <- queryDalfs (Just [depMarker]) depsDir
-      dalfsFromDataDependencyFps <- queryDalfs (Just [dataDepMarker]) depsDir
+      dalfsFromDataDependencyFps <-
+        filter okdd <$> queryDalfs (Just [dataDepMarker]) depsDir
       mainDalfFps <- queryDalfs (Just [mainMarker]) depsDir
 
       dalfsFromDependenciesWithFps <- mapM decodeDalf_ (dalfsFromDependencyFps \\ dalfsFromDataDependencyFps)
       dalfsFromDataDependenciesWithFps <- mapM decodeDalf_ dalfsFromDataDependencyFps
       mainDalfsWithFps <- mapM decodeDalf_ mainDalfFps
+
+      logg $ unlines
+        [ "\tDalfsFromDeps\n" <>
+          unlines
+            (flip map dalfsFromDependenciesWithFps $ \(path,_) ->
+              "\t\t" <> path
+            )
+
+        , "\tDalfsFromDataDeps\n" <>
+          unlines
+            (flip map dalfsFromDataDependenciesWithFps $ \(path,_) ->
+              "\t\t" <> path
+            )
+
+        , "\tMainDalfs\n" <>
+          unlines
+            (flip map mainDalfsWithFps $ \(path,_) ->
+              "\t\t" <> path
+            )
+
+        , "\tBuiltinDeps\n" <>
+          unlines
+            (flip map (Set.toList builtinDependenciesIds) $ \pid ->
+              "\t\t" <> show pid
+            )
+
+        , "\tStablePackages\n" <>
+          unlines
+            (flip map (Set.toList $ Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs) $ \pid ->
+              "\t\t" <> show pid
+            )
+        ]
 
       let
         dalfsFromDependencies = fmap snd dalfsFromDependenciesWithFps
@@ -153,8 +201,11 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         let
           insert unitId dalfPackage = State.modify $ MS.insert unitId dalfPackage
 
-        forM_ (topSort $ transposeG depGraph) $ \vertex -> do
+        liftIO $ logg "\tGRAPH"
+
+        forM_ (nubOrd $ topSort $ transposeG depGraph) $ \vertex -> do
           let (pkgNode, pkgId) = vertexToNode vertex
+          liftIO $ logg $ "\t\t" <> show pkgId <> " -> " <> show pkgNode
           case pkgNode of
             MkStableDependencyPackageNode ->
               -- stable packages are mapped to the current version of daml-prim/daml-stdlib
@@ -614,6 +665,7 @@ data PackageNode
   | MkDataDependencyPackageNode DataDependencyPackageNode
   | MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode
   | MkStableDependencyPackageNode
+  deriving (Show)
 
 isDependencyPackageNode :: PackageNode -> Bool
 isDependencyPackageNode = \case
@@ -631,15 +683,24 @@ data DependencyPackageNode = DependencyPackageNode
   , dalfPackage :: LF.DalfPackage
   }
 
+instance Show DependencyPackageNode where
+  show DependencyPackageNode {..} = show (dalf, unitId)
+
 data DataDependencyPackageNode = DataDependencyPackageNode
   { unitId :: UnitId
   , dalfPackage :: LF.DalfPackage
   }
 
+instance Show DataDependencyPackageNode where
+  show DataDependencyPackageNode {..} = show unitId
+
 data BuiltinDependencyPackageNode = BuiltinDependencyPackageNode
   { unitId :: UnitId
   , dalfPackage :: LF.DalfPackage
   }
+
+instance Show BuiltinDependencyPackageNode where
+  show BuiltinDependencyPackageNode {..} = show unitId
 
 currentSdkPrefix :: String
 currentSdkPrefix = "CurrentSdk"
