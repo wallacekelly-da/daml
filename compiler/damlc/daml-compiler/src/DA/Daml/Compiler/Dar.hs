@@ -351,6 +351,7 @@ createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot fil
     let dependencies =
             [ (pkgName </> T.unpack depName <> "-" <> (T.unpack $ LF.unPackageId depPkgId) <> ".dalf", BSL.fromStrict bs)
             | (depName, bs, depPkgId) <- dalfDependencies
+            , not $ LF.unPackageId depPkgId `T.isInfixOf` depName
             ]
     let dataFiles' =
             [ (pkgName </> "data" </> n, BSC.fromStrict bs)
