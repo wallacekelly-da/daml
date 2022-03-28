@@ -168,16 +168,16 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
             MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> do
               dependenciesSoFar <- State.get
               let
-                depUnitIds :: [UnitId]
-                depUnitIds =
-                  [ unitId
+                deps :: [(UnitId, LF.DalfPackage)]
+                deps =
+                  [ unitAndDalf
                   | (depPkgNode, depPkgId) <- vertexToNode <$> reachable depGraph vertex
                   , pkgId /= depPkgId
-                  , unitId <- case depPkgNode of
+                  , unitAndDalf <- case depPkgNode of
                       MkStableDependencyPackageNode -> []
-                      MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {unitId} -> [unitId]
-                      MkDependencyPackageNode DependencyPackageNode {unitId} -> [unitId]
-                      MkDataDependencyPackageNode DataDependencyPackageNode {unitId} -> [unitId]
+                      MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {unitId, dalfPackage} -> [(unitId, dalfPackage)]
+                      MkDependencyPackageNode DependencyPackageNode {unitId, dalfPackage} -> [(unitId, dalfPackage)]
+                      MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> [(unitId, dalfPackage)]
                   ]
 
               liftIO $ installDataDep InstallDataDepArgs
@@ -187,7 +187,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
                 , pkgs
                 , stablePkgs
                 , dependenciesSoFar
-                , depUnitIds
+                , deps
                 , pkgId
                 , unitId
                 , dalfPackage
@@ -242,7 +242,7 @@ data InstallDataDepArgs = InstallDataDepArgs
   , stablePkgs :: MS.Map (UnitId, LF.ModuleName) LF.DalfPackage
   , dependenciesSoFar :: MS.Map UnitId LF.DalfPackage
     -- ^ The dependencies and data-dependencies processed before this data-dependency.
-  , depUnitIds :: [UnitId]
+  , deps :: [(UnitId, LF.DalfPackage)]
     -- ^ The UnitIds of the dependencies and data-dependencies of this data-dependency.
     -- The way we traverse the dependency graph ensures these have all been processed.
   , pkgId :: LF.PackageId
@@ -311,7 +311,7 @@ installDataDep InstallDataDepArgs {..} = do
     , pkgId
     , pkgName
     , mbPkgVersion
-    , depUnitIds
+    , deps
     , dependenciesSoFar
     , exposedModules
     }
@@ -325,8 +325,8 @@ data GenerateAndInstallIfaceFilesArgs = GenerateAndInstallIfaceFilesArgs
   , pkgId :: LF.PackageId
   , pkgName :: LF.PackageName
   , mbPkgVersion :: Maybe LF.PackageVersion
-  , depUnitIds :: [UnitId]
-    -- ^ List of units referenced by this package.
+  , deps :: [(UnitId, LF.DalfPackage)]
+    -- ^ List of packages referenced by this package.
   , dependenciesSoFar :: MS.Map UnitId LF.DalfPackage
     -- ^ The dependencies and data-dependencies processed before this data-dependency.
   , exposedModules :: MS.Map UnitId (UniqSet GHC.ModuleName)
@@ -356,7 +356,7 @@ generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
                   -- can ever fail but for now, we keep exposing the module in that case.
                   , maybe True (toGhcModuleName modName `elementOfUniqSet`) mbExposed
                   ]
-            | (unitId, LF.DalfPackage{..}) <- MS.toList dependenciesSoFar
+            | (unitId, LF.DalfPackage{..}) <- MS.toList dependenciesSoFar <> deps
             , let mbExposed = MS.lookup unitId exposedModules
             ]
     opts <-
@@ -392,7 +392,7 @@ generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
     let (cfPath, cfBs) = mkConfFile
             pkgName
             mbPkgVersion
-            depUnitIds
+            (map fst deps)
             Nothing
             (map (GHC.mkModuleName . T.unpack) $ LF.packageModuleNames dalf)
             pkgId
@@ -638,6 +638,7 @@ data DataDependencyPackageNode = DataDependencyPackageNode
 
 data BuiltinDependencyPackageNode = BuiltinDependencyPackageNode
   { unitId :: UnitId
+  , dalfPackage :: LF.DalfPackage
   }
 
 currentSdkPrefix :: String
