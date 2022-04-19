@@ -22,14 +22,11 @@ final case class ParticipantConfig(
     serverJdbcUrl: String,
     managementServiceTimeout: Duration = CliParticipantConfig.DefaultManagementServiceTimeout,
     indexerConfig: IndexerConfig,
+    indexConfiguration: IndexConfiguration,
     apiServerDatabaseConnectionPoolSize: Int =
       CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
     apiServerDatabaseConnectionTimeout: Duration =
       CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout,
-    maxContractStateCacheSize: Long = IndexConfiguration.DefaultMaxContractStateCacheSize,
-    maxContractKeyStateCacheSize: Long = IndexConfiguration.DefaultMaxContractKeyStateCacheSize,
-    maxTransactionsInMemoryFanOutBufferSize: Long =
-      IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize,
 ) {
   def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
 }

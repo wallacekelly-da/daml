@@ -18,7 +18,9 @@ trait ConfigProvider[ExtraConfig] {
 
   def extraConfigParser(parser: OptionParser[CliConfig[ExtraConfig]]): Unit
 
-  def toInternalConfig(config: CliParticipantConfig): ParticipantConfig = ParticipantConfig(
+  def toParticipantConfig(cliConfig: CliConfig[ExtraConfig])(
+      config: CliParticipantConfig
+  ): ParticipantConfig = ParticipantConfig(
     mode = config.mode,
     participantId = config.participantId,
     shardName = config.shardName,
@@ -30,25 +32,27 @@ trait ConfigProvider[ExtraConfig] {
     indexerConfig = config.indexerConfig,
     apiServerDatabaseConnectionPoolSize = config.apiServerDatabaseConnectionPoolSize,
     apiServerDatabaseConnectionTimeout = config.apiServerDatabaseConnectionTimeout,
-    maxContractStateCacheSize = config.maxContractStateCacheSize,
-    maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
-    maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
+    indexConfiguration = IndexConfiguration(
+      acsContractFetchingParallelism = cliConfig.acsContractFetchingParallelism,
+      acsGlobalParallelism = cliConfig.acsGlobalParallelism,
+      acsIdFetchingParallelism = cliConfig.acsIdFetchingParallelism,
+      acsIdPageSize = cliConfig.acsIdPageSize,
+      enableInMemoryFanOutForLedgerApi = cliConfig.enableInMemoryFanOutForLedgerApi,
+      eventsPageSize = cliConfig.eventsPageSize,
+      eventsProcessingParallelism = cliConfig.eventsProcessingParallelism,
+      maxContractStateCacheSize = config.maxContractStateCacheSize,
+      maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
+      maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
+      archiveFiles = IndexConfiguration.DefaultArchiveFiles,
+    ),
   )
 
   def toInternalConfig(config: CliConfig[ExtraConfig]): Config = {
     Config(
       engineConfig = config.engineConfig,
       authService = config.authService,
-      acsContractFetchingParallelism = config.acsContractFetchingParallelism,
-      acsGlobalParallelism = config.acsGlobalParallelism,
-      acsIdFetchingParallelism = config.acsIdFetchingParallelism,
-      acsIdPageSize = config.acsIdPageSize,
-      acsIdQueueLimit = config.acsIdQueueLimit,
       configurationLoadTimeout = config.configurationLoadTimeout,
       commandConfig = config.commandConfig,
-      enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
-      eventsPageSize = config.eventsPageSize,
-      eventsProcessingParallelism = config.eventsProcessingParallelism,
       ledgerId = config.ledgerId,
       lfValueTranslationContractCache = config.lfValueTranslationContractCache,
       lfValueTranslationEventCache = config.lfValueTranslationEventCache,
@@ -56,7 +60,7 @@ trait ConfigProvider[ExtraConfig] {
       maxInboundMessageSize = config.maxInboundMessageSize,
       metricsReporter = config.metricsReporter,
       metricsReportingInterval = config.metricsReportingInterval,
-      participants = config.participants.map(toInternalConfig),
+      participants = config.participants.map(toParticipantConfig(config)),
       seeding = config.seeding,
       stateValueCache = config.stateValueCache,
       timeProviderType = config.timeProviderType,
@@ -83,20 +87,6 @@ trait ConfigProvider[ExtraConfig] {
       maxInboundMessageSize = config.maxInboundMessageSize,
       initialLedgerConfiguration = Some(initialLedgerConfig(config)),
       configurationLoadTimeout = config.configurationLoadTimeout,
-      indexConfiguration = IndexConfiguration(
-        eventsPageSize = config.eventsPageSize,
-        eventsProcessingParallelism = config.eventsProcessingParallelism,
-        acsIdPageSize = config.acsIdPageSize,
-        acsIdFetchingParallelism = config.acsIdFetchingParallelism,
-        acsContractFetchingParallelism = config.acsContractFetchingParallelism,
-        acsGlobalParallelism = config.acsGlobalParallelism,
-        maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
-        maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
-        maxTransactionsInMemoryFanOutBufferSize =
-          participantConfig.maxTransactionsInMemoryFanOutBufferSize,
-        enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
-        archiveFiles = Nil,
-      ),
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,

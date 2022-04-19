@@ -171,7 +171,7 @@ object SandboxOnXRunner {
 
           indexService <- StandaloneIndexService(
             ledgerId = config.ledgerId,
-            config = apiServerConfig.indexConfiguration,
+            config = participantConfig.indexConfiguration,
             metrics = metrics,
             engine = sharedEngine,
             servicesExecutionContext = servicesExecutionContext,

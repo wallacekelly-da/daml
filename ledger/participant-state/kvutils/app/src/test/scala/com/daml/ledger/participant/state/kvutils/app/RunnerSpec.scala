@@ -40,6 +40,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
 import com.daml.platform.apiserver.LedgerFeatures
+import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.ports.Port
 import com.daml.telemetry.TelemetryContext
@@ -171,6 +172,7 @@ object RunnerSpec {
         jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
       ),
+      indexConfiguration = IndexConfiguration(),
     )
   }
 
