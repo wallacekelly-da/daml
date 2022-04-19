@@ -10,6 +10,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{Materializer, QueueOfferResult}
+import com.daml.caching
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -173,6 +174,8 @@ object RunnerSpec {
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
       ),
       indexConfiguration = IndexConfiguration(),
+      lfValueTranslationContractCache = caching.SizedCache.Configuration(10),
+      lfValueTranslationEventCache = caching.SizedCache.Configuration(10),
     )
   }
 

@@ -45,6 +45,8 @@ trait ConfigProvider[ExtraConfig] {
       maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
       archiveFiles = IndexConfiguration.DefaultArchiveFiles,
     ),
+    lfValueTranslationContractCache = cliConfig.lfValueTranslationContractCache,
+    lfValueTranslationEventCache = cliConfig.lfValueTranslationEventCache,
   )
 
   def toInternalConfig(config: CliConfig[ExtraConfig]): Config = {
@@ -54,8 +56,6 @@ trait ConfigProvider[ExtraConfig] {
       configurationLoadTimeout = config.configurationLoadTimeout,
       commandConfig = config.commandConfig,
       ledgerId = config.ledgerId,
-      lfValueTranslationContractCache = config.lfValueTranslationContractCache,
-      lfValueTranslationEventCache = config.lfValueTranslationEventCache,
       maxDeduplicationDuration = config.maxDeduplicationDuration,
       maxInboundMessageSize = config.maxInboundMessageSize,
       metricsReporter = config.metricsReporter,

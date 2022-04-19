@@ -21,8 +21,6 @@ final case class Config(
     configurationLoadTimeout: Duration,
     commandConfig: CommandConfiguration,
     ledgerId: String,
-    lfValueTranslationContractCache: caching.SizedCache.Configuration,
-    lfValueTranslationEventCache: caching.SizedCache.Configuration,
     maxDeduplicationDuration: Option[Duration],
     maxInboundMessageSize: Int,
     metricsReporter: Option[MetricsReporter],

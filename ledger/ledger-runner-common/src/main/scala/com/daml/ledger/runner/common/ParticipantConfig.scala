@@ -3,6 +3,7 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.caching
 import com.daml.lf.data.Ref
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.IndexerConfig
@@ -27,6 +28,8 @@ final case class ParticipantConfig(
       CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
     apiServerDatabaseConnectionTimeout: Duration =
       CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout,
+    lfValueTranslationContractCache: caching.SizedCache.Configuration,
+    lfValueTranslationEventCache: caching.SizedCache.Configuration,
 ) {
   def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
 }

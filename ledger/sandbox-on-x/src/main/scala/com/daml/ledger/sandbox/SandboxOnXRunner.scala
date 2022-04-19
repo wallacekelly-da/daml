@@ -132,8 +132,8 @@ object SandboxOnXRunner {
         for {
           metrics <- metrics.map(ResourceOwner.successful).getOrElse(buildMetrics)
           translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
-            eventConfiguration = config.lfValueTranslationEventCache,
-            contractConfiguration = config.lfValueTranslationContractCache,
+            eventConfiguration = participantConfig.lfValueTranslationEventCache,
+            contractConfiguration = participantConfig.lfValueTranslationContractCache,
             metrics = metrics,
           )
 
