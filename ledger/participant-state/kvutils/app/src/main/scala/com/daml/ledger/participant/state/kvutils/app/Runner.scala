@@ -22,8 +22,12 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
-import com.daml.platform.configuration.ServerRole
+import com.daml.platform.apiserver.{
+  LedgerFeatures,
+  StandaloneApiServer,
+  StandaloneIndexService,
+}
+import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
@@ -42,25 +46,26 @@ final class Runner[T <: ReadWriteService, Extra](
   private val logger = ContextualizedLogger.get(getClass)
 
   def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
-    Config
+    CliConfig
       .owner(name, configProvider.extraConfigParser, configProvider.defaultExtraConfig, args)
       .flatMap(owner)
 
-  def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
+  def owner(cliConfig: CliConfig[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
     override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
-      val config = configProvider.manipulateConfig(originalConfig)
-      config.mode match {
+      cliConfig.mode match {
         case Mode.DumpIndexMetadata(jdbcUrls) =>
           DumpIndexMetadata(jdbcUrls, name)
           sys.exit(0)
         case Mode.Run =>
-          run(config, ledgerFeatures)
+          val config = configProvider.toInternalConfig(cliConfig)
+          run(config, cliConfig.extra, ledgerFeatures)
       }
     }
   }
 
   private[app] def run(
-      config: Config[Extra],
+      config: Config,
+      extra: Extra,
       ledgerFeatures: LedgerFeatures,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     implicit val actorSystem: ActorSystem = ActorSystem(cleanedName)
@@ -78,15 +83,15 @@ final class Runner[T <: ReadWriteService, Extra](
         // initialize all configured participants
         _ <- Resource.sequenceIgnoringValues(
           config.participants.map(participantConfig =>
-            runParticipant(config, participantConfig, sharedEngine, ledgerFeatures)
+            runParticipant(config, participantConfig, extra, sharedEngine, ledgerFeatures)
           )
         )
       } yield logInitializationHeader(config)
     }
   }
 
-  private def logInitializationHeader(config: Config[Extra]): Unit = {
-    val authentication = configProvider.authService(config) match {
+  private def logInitializationHeader(config: Config): Unit = {
+    val authentication = config.authService match {
       case _: AuthServiceJWT => "JWT-based authentication"
       case AuthServiceNone => "none authenticated"
       case _: AuthServiceStatic => "static authentication"
@@ -112,8 +117,9 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private[app] def runParticipant(
-      config: Config[Extra],
+      config: Config,
       participantConfig: ParticipantConfig,
+      extra: Extra,
       sharedEngine: Engine,
       ledgerFeatures: LedgerFeatures,
   )(implicit
@@ -153,6 +159,7 @@ final class Runner[T <: ReadWriteService, Extra](
             .readWriteServiceFactoryOwner(
               config,
               participantConfig,
+              extra,
               sharedEngine,
               metrics,
             )(materializer, servicesExecutionContext, loggingContext)
@@ -220,13 +227,13 @@ final class Runner[T <: ReadWriteService, Extra](
                   ledgerId = config.ledgerId,
                   config = apiServerConfig,
                   commandConfig = config.commandConfig,
-                  partyConfig = configProvider.partyConfig(config),
+                  partyConfig = PartyConfiguration.default, //todo configurable?
                   optWriteService = Some(writeService),
-                  authService = configProvider.authService(config),
+                  authService = config.authService,
                   healthChecks = healthChecksWithIndexer + ("write" -> writeService),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
-                  otherInterceptors = configProvider.interceptors(config),
+                  otherInterceptors = List.empty, //todo configurable?
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   ledgerFeatures = ledgerFeatures,

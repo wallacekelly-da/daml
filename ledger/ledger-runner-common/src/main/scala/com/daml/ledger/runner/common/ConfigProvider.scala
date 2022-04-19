@@ -3,34 +3,71 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{
-  IndexConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType
-import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
-import scala.annotation.unused
 import scala.concurrent.duration.FiniteDuration
 
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
-  def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
+  def extraConfigParser(parser: OptionParser[CliConfig[ExtraConfig]]): Unit
 
-  def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
-    config
+  def toInternalConfig(config: CliParticipantConfig): ParticipantConfig = ParticipantConfig(
+    mode = config.mode,
+    participantId = config.participantId,
+    shardName = config.shardName,
+    address = config.address,
+    port = config.port,
+    portFile = config.portFile,
+    serverJdbcUrl = config.serverJdbcUrl,
+    managementServiceTimeout = config.managementServiceTimeout,
+    indexerConfig = config.indexerConfig,
+    apiServerDatabaseConnectionPoolSize = config.apiServerDatabaseConnectionPoolSize,
+    apiServerDatabaseConnectionTimeout = config.apiServerDatabaseConnectionTimeout,
+    maxContractStateCacheSize = config.maxContractStateCacheSize,
+    maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
+    maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
+  )
+
+  def toInternalConfig(config: CliConfig[ExtraConfig]): Config = {
+    Config(
+      engineConfig = config.engineConfig,
+      authService = config.authService,
+      acsContractFetchingParallelism = config.acsContractFetchingParallelism,
+      acsGlobalParallelism = config.acsGlobalParallelism,
+      acsIdFetchingParallelism = config.acsIdFetchingParallelism,
+      acsIdPageSize = config.acsIdPageSize,
+      acsIdQueueLimit = config.acsIdQueueLimit,
+      configurationLoadTimeout = config.configurationLoadTimeout,
+      commandConfig = config.commandConfig,
+      enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+      eventsPageSize = config.eventsPageSize,
+      eventsProcessingParallelism = config.eventsProcessingParallelism,
+      ledgerId = config.ledgerId,
+      lfValueTranslationContractCache = config.lfValueTranslationContractCache,
+      lfValueTranslationEventCache = config.lfValueTranslationEventCache,
+      maxDeduplicationDuration = config.maxDeduplicationDuration,
+      maxInboundMessageSize = config.maxInboundMessageSize,
+      metricsReporter = config.metricsReporter,
+      metricsReportingInterval = config.metricsReportingInterval,
+      participants = config.participants.map(toInternalConfig),
+      seeding = config.seeding,
+      stateValueCache = config.stateValueCache,
+      timeProviderType = config.timeProviderType,
+      tlsConfig = config.tlsConfig,
+      userManagementConfig = config.userManagementConfig,
+    )
+  }
 
   def apiServerConfig(
       participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig],
+      config: Config,
   ): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
@@ -66,10 +103,7 @@ trait ConfigProvider[ExtraConfig] {
       userManagementConfig = config.userManagementConfig,
     )
 
-  def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =
-    PartyConfiguration.default
-
-  def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration = {
+  def initialLedgerConfig(config: Config): InitialLedgerConfiguration = {
     InitialLedgerConfiguration(
       configuration = Configuration.reasonableInitialConfiguration.copy(maxDeduplicationDuration =
         config.maxDeduplicationDuration.getOrElse(
@@ -84,25 +118,18 @@ trait ConfigProvider[ExtraConfig] {
     )
   }
 
-  def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] =
+  def timeServiceBackend(config: Config): Option[TimeServiceBackend] =
     config.timeProviderType match {
       case TimeProviderType.Static => Some(TimeServiceBackend.simple(Instant.EPOCH))
       case TimeProviderType.WallClock => None
     }
-
-  def authService(@unused config: Config[ExtraConfig]): AuthService =
-    config.authService
-
-  def interceptors(@unused config: Config[ExtraConfig]): List[ServerInterceptor] =
-    List.empty
-
 }
 
 object ConfigProvider {
   class ForUnit extends ConfigProvider[Unit] {
     override val defaultExtraConfig: Unit = ()
 
-    override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
+    override def extraConfigParser(parser: OptionParser[CliConfig[Unit]]): Unit = ()
   }
 
   object ForUnit extends ForUnit

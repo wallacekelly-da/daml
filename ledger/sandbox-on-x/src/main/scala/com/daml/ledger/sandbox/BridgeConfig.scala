@@ -3,7 +3,7 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.runner.common.{Config, ConfigProvider}
+import com.daml.ledger.runner.common.{Config, CliConfig, ConfigProvider}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import scopt.OptionParser
 
@@ -16,7 +16,7 @@ case class BridgeConfig(
 )
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
-  override def extraConfigParser(parser: OptionParser[Config[BridgeConfig]]): Unit = {
+  override def extraConfigParser(parser: OptionParser[CliConfig[BridgeConfig]]): Unit = {
     parser
       .opt[Int]("bridge-submission-buffer-size")
       .text("Submission buffer size. Defaults to 500.")
@@ -47,7 +47,7 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     ()
   }
 
-  override def initialLedgerConfig(config: Config[BridgeConfig]): InitialLedgerConfiguration = {
+  override def initialLedgerConfig(config: Config): InitialLedgerConfiguration = {
     val superConfig = super.initialLedgerConfig(config)
     superConfig.copy(configuration =
       superConfig.configuration.copy(maxDeduplicationDuration = DefaultMaximumDeduplicationDuration)

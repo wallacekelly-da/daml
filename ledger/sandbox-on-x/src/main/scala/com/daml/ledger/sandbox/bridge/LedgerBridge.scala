@@ -29,8 +29,9 @@ trait LedgerBridge {
 
 object LedgerBridge {
   def owner(
-      config: Config[BridgeConfig],
+      config: Config,
       participantConfig: ParticipantConfig,
+      extra: BridgeConfig,
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
@@ -39,10 +40,11 @@ object LedgerBridge {
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
   ): ResourceOwner[LedgerBridge] =
-    if (config.extra.conflictCheckingEnabled)
+    if (extra.conflictCheckingEnabled)
       buildConfigCheckingLedgerBridge(
         config,
         participantConfig,
+        extra,
         indexService,
         bridgeMetrics,
         servicesThreadPoolSize,
@@ -54,8 +56,9 @@ object LedgerBridge {
       )
 
   private def buildConfigCheckingLedgerBridge(
-      config: Config[BridgeConfig],
+      config: Config,
       participantConfig: ParticipantConfig,
+      extra: BridgeConfig,
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
@@ -81,7 +84,7 @@ object LedgerBridge {
       initialAllocatedParties = allocatedPartiesAtInitialization,
       initialLedgerConfiguration = initialLedgerConfiguration,
       bridgeMetrics = bridgeMetrics,
-      validatePartyAllocation = !config.extra.implicitPartyAllocation,
+      validatePartyAllocation = !extra.implicitPartyAllocation,
       servicesThreadPoolSize = servicesThreadPoolSize,
       maxDeduplicationDuration = initialLedgerConfiguration
         .map(_.maxDeduplicationDuration)

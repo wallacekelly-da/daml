@@ -39,9 +39,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.util.{Failure, Success, Try}
-
 import scala.util.chaining._
+import scala.util.{Failure, Success, Try}
 
 final class SandboxServer(
     config: SandboxConfig,
@@ -55,7 +54,8 @@ final class SandboxServer(
 
   def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
     val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
-    val genericConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
+    val genericCliConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
+    val genericConfig = BridgeConfigProvider.toInternalConfig(genericCliConfig)
     for {
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
@@ -64,6 +64,7 @@ final class SandboxServer(
           .buildLedger(
             genericConfig,
             participantConfig,
+            genericCliConfig.extra,
             materializer,
             materializer.system,
             Some(metrics),
@@ -86,7 +87,7 @@ final class SandboxServer(
   }
 
   private def initializationLoggingHeader(
-      genericConfig: Config[BridgeConfig],
+      genericConfig: Config,
       apiServer: ApiServer,
   ): Unit = {
     Banner.show(Console.out)

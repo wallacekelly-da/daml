@@ -11,7 +11,7 @@ import com.daml.ports.Port
 import java.nio.file.Path
 import java.time.Duration
 
-final case class ParticipantConfig(
+final case class CliParticipantConfig(
     mode: ParticipantRunMode,
     participantId: Ref.ParticipantId,
     // A name of the participant shard in a horizontally scaled participant.
@@ -30,6 +30,16 @@ final case class ParticipantConfig(
     maxContractKeyStateCacheSize: Long = IndexConfiguration.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Long =
       IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize,
-) {
-  def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
+)
+
+object CliParticipantConfig {
+  def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
+    s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
+
+  val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
+  val DefaultApiServerDatabaseConnectionTimeout: Duration = Duration.ofMillis(250)
+
+  // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
+  val DefaultApiServerDatabaseConnectionPoolSize = 16
+
 }

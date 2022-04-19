@@ -20,7 +20,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.runner.common.{Config, ParticipantConfig, ParticipantRunMode}
+import com.daml.ledger.runner.common.{CliConfig, CliParticipantConfig, ParticipantRunMode}
 import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, SandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
@@ -124,23 +124,23 @@ final class MinVersionTest
   }
 
   private val participantId = Ref.ParticipantId.assertFromString("participant1")
-  private val participant = ParticipantConfig(
+  private val participant = CliParticipantConfig(
     mode = ParticipantRunMode.Combined,
     participantId = participantId,
     shardName = None,
     address = Some("localhost"),
     port = Port.Dynamic,
     portFile = Some(portfile),
-    serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
+    serverJdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
     indexerConfig = IndexerConfig(
       participantId = participantId,
-      jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
+      jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
       startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
     ),
   )
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
-    val defaultConfig = Config
+    val defaultConfig = CliConfig
       .createDefault[BridgeConfig](BridgeConfigProvider.defaultExtraConfig)
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](

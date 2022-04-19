@@ -143,7 +143,7 @@ object RunnerSpec {
 
   private val Name = classOf[RunnerSpec].getSimpleName
   private val LedgerId = s"$Name-Ledger"
-  private val config = Config.createDefault(()).copy(ledgerId = LedgerId)
+  private val config = TestConfigProvider.toInternalConfig(CliConfig.createDefault(()).copy(ledgerId = LedgerId))
 
   private val engine = Engine.StableEngine()
 
@@ -164,17 +164,17 @@ object RunnerSpec {
       address = None,
       port = Port.Dynamic,
       portFile = None,
-      serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
+      serverJdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
       indexerConfig = IndexerConfig(
         participantId = participantId,
-        jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
+        jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
       ),
     )
   }
 
   private def newApp[T <: ReadWriteService](
-      config: Config[Unit],
+      config: Config,
       participantConfig: ParticipantConfig,
       runner: Runner[T, Unit],
   )(implicit
@@ -186,7 +186,7 @@ object RunnerSpec {
       port <- new ResourceOwner[Port] {
         override def acquire()(implicit context: ResourceContext): Resource[Port] =
           runner
-            .runParticipant(config, participantConfig, engine, LedgerFeatures())
+            .runParticipant(config, participantConfig, (), engine, LedgerFeatures())
             .map(_.get)
       }
       channel <- ResourceOwner
@@ -223,8 +223,9 @@ object RunnerSpec {
     // The basic ledger used for the initial configuration update is implemented below using an
     // ArrayBuffer, a BoundedSourceQueue, and a Dispatcher.
     override def readWriteServiceFactoryOwner(
-        config: Config[Unit],
+        config: Config,
         participantConfig: ParticipantConfig,
+        extra: Unit,
         engine: Engine,
         metrics: Metrics,
     )(implicit
