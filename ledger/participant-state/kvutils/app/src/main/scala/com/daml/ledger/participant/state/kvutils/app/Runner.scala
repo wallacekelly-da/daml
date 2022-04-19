@@ -22,11 +22,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.apiserver.{
-  LedgerFeatures,
-  StandaloneApiServer,
-  StandaloneIndexService,
-}
+import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}

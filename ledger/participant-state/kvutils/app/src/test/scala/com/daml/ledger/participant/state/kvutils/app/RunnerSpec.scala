@@ -143,7 +143,8 @@ object RunnerSpec {
 
   private val Name = classOf[RunnerSpec].getSimpleName
   private val LedgerId = s"$Name-Ledger"
-  private val config = TestConfigProvider.toInternalConfig(CliConfig.createDefault(()).copy(ledgerId = LedgerId))
+  private val config =
+    TestConfigProvider.toInternalConfig(CliConfig.createDefault(()).copy(ledgerId = LedgerId))
 
   private val engine = Engine.StableEngine()
 

@@ -56,7 +56,9 @@ final class CliConfigSpec
       getEnvVar = getEnvVar,
     )
 
-  private def configParserSimple(parameters: Iterable[String] = Seq.empty): Option[CliConfig[Unit]] =
+  private def configParserSimple(
+      parameters: Iterable[String] = Seq.empty
+  ): Option[CliConfig[Unit]] =
     configParser(
       Seq(
         dumpIndexMetadataCommand,
