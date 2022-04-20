@@ -55,10 +55,15 @@ object IndexMetadata {
     DbSupport
       .owner(
         serverRole = ServerRole.ReadIndexMetadata,
-        connectionPoolSize = 1,
-        connectionTimeout = 250.millis,
         metrics = metrics,
-        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
+          jdbcUrl = jdbcUrl,
+          connectionPool = DataSourceStorageBackend.ConnectionPoolConfig(
+            minimumIdle = 1,
+            maxPoolSize = 1,
+            connectionTimeout = 250.millis,
+          ),
+        ),
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

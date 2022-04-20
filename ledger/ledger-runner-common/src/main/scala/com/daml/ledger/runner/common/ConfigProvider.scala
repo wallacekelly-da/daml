@@ -55,11 +55,6 @@ trait ConfigProvider[ExtraConfig] {
     apiServerConfig = ApiServerConfig(
       port = config.port,
       address = config.address,
-      databaseConnectionPoolSize = config.apiServerDatabaseConnectionPoolSize,
-      databaseConnectionTimeout = FiniteDuration(
-        config.apiServerDatabaseConnectionTimeout.toMillis,
-        TimeUnit.MILLISECONDS,
-      ),
       tlsConfig = cliConfig.tlsConfig,
       maxInboundMessageSize = cliConfig.maxInboundMessageSize,
       initialLedgerConfiguration = Some(initialLedgerConfig(cliConfig.maxDeduplicationDuration)),
@@ -72,7 +67,17 @@ trait ConfigProvider[ExtraConfig] {
       commandConfig = cliConfig.commandConfig,
       partyConfig = PartyConfiguration.default,
       timeProviderType = cliConfig.timeProviderType,
-      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl = config.serverJdbcUrl),
+      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
+        jdbcUrl = config.serverJdbcUrl,
+        connectionPool = DataSourceStorageBackend.ConnectionPoolConfig(
+          config.apiServerDatabaseConnectionPoolSize,
+          config.apiServerDatabaseConnectionPoolSize,
+          connectionTimeout = FiniteDuration(
+            config.apiServerDatabaseConnectionTimeout.toMillis,
+            TimeUnit.MILLISECONDS,
+          ),
+        ),
+      ),
     ),
   )
 

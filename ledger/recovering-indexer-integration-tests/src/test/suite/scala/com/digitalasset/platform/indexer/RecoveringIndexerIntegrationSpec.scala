@@ -240,10 +240,15 @@ class RecoveringIndexerIntegrationSpec
     DbSupport
       .owner(
         serverRole = ServerRole.Testing(getClass),
-        connectionPoolSize = 16,
-        connectionTimeout = 250.millis,
         metrics = metrics,
-        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
+          jdbcUrl,
+          connectionPool = DataSourceStorageBackend.ConnectionPoolConfig(
+            minimumIdle = 16,
+            maxPoolSize = 16,
+            connectionTimeout = 250.millis,
+          ),
+        ),
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

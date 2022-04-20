@@ -12,8 +12,6 @@ import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.{DataSourceStorageBackend, StorageBackendFactory}
 import com.daml.resources.{PureResource, Resource}
 
-import scala.concurrent.duration.FiniteDuration
-
 case class DbSupport(
     dbDispatcher: DbDispatcher with ReportsHealth,
     storageBackendFactory: StorageBackendFactory,
@@ -23,8 +21,6 @@ object DbSupport {
   def owner(
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       serverRole: ServerRole,
-      connectionPoolSize: Int,
-      connectionTimeout: FiniteDuration,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbSupport] = {
     val dbType = DbType.jdbcType(dataSourceConfig.jdbcUrl)
@@ -34,8 +30,9 @@ object DbSupport {
         dataSource = storageBackendFactory.createDataSourceStorageBackend
           .createDataSource(dataSourceConfig),
         serverRole = serverRole,
-        connectionPoolSize = connectionPoolSize,
-        connectionTimeout = connectionTimeout,
+        minimumIdle = dataSourceConfig.connectionPool.minimumIdle,
+        maxPoolSize = dataSourceConfig.connectionPool.maxPoolSize,
+        connectionTimeout = dataSourceConfig.connectionPool.connectionTimeout,
         metrics = metrics,
       )
       .map(dbDispatcher =>
@@ -49,8 +46,6 @@ object DbSupport {
   def migratedOwner(
       serverRole: ServerRole,
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
-      connectionPoolSize: Int,
-      connectionTimeout: FiniteDuration,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbSupport] = {
     val migrationOwner = new ResourceOwner[Unit] {
@@ -62,8 +57,6 @@ object DbSupport {
       _ <- migrationOwner
       dbSupport <- owner(
         serverRole = serverRole,
-        connectionPoolSize = connectionPoolSize,
-        connectionTimeout = connectionTimeout,
         metrics = metrics,
         dataSourceConfig = dataSourceConfig,
       )

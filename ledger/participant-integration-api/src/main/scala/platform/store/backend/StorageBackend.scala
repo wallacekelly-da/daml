@@ -28,6 +28,7 @@ import com.daml.scalautil.NeverEqualsOverride
 import java.sql.Connection
 import javax.sql.DataSource
 import scala.annotation.unused
+import scala.concurrent.duration.FiniteDuration
 
 /** Encapsulates the interface which hides database technology specific implementations.
   * Naming convention for the interface methods, which requiring Connection:
@@ -364,10 +365,21 @@ trait DataSourceStorageBackend {
 
 object DataSourceStorageBackend {
 
+  case class ConnectionPoolConfig(
+      minimumIdle: Int,
+      maxPoolSize: Int,
+      connectionTimeout: FiniteDuration,
+  )
+
   /** @param postgresConfig configurations which apply only for the PostgresSQL backend
     */
   case class DataSourceConfig(
       jdbcUrl: String,
+      connectionPool: ConnectionPoolConfig = ConnectionPoolConfig(
+        minimumIdle = 1,
+        maxPoolSize = 1,
+        connectionTimeout = FiniteDuration(250, "millis"),
+      ),
       postgresConfig: PostgresDataSourceConfig = PostgresDataSourceConfig(),
   )
 }

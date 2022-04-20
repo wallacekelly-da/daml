@@ -39,7 +39,6 @@ object JdbcIndexer {
       val indexer = ParallelIndexerFactory(
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
-        ingestionParallelism = config.ingestionParallelism,
         dataSourceConfig = config.dataSourceConfig,
         haConfig = config.haConfig,
         metrics = metrics,

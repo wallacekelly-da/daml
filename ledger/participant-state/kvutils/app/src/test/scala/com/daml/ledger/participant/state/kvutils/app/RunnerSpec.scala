@@ -183,12 +183,6 @@ object RunnerSpec {
       apiServerConfig = ApiServerConfig(
         port = Port.Dynamic,
         address = None,
-        databaseConnectionPoolSize =
-          CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
-        databaseConnectionTimeout = FiniteDuration(
-          CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout.toMillis,
-          TimeUnit.MILLISECONDS,
-        ),
         tlsConfig = None,
         maxInboundMessageSize = CliConfig.DefaultMaxInboundMessageSize,
         initialLedgerConfiguration = None,
@@ -202,7 +196,15 @@ object RunnerSpec {
         commandConfig = CommandConfiguration.default,
         timeProviderType = TimeProviderType.WallClock,
         dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
-          jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId)
+          jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
+          connectionPool = DataSourceStorageBackend.ConnectionPoolConfig(
+            minimumIdle = CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
+            maxPoolSize = CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
+            connectionTimeout = FiniteDuration(
+              CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout.toMillis,
+              TimeUnit.MILLISECONDS,
+            ),
+          ),
         ),
       ),
     )

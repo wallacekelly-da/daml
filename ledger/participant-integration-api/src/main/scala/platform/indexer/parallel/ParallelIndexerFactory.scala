@@ -24,7 +24,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import java.util.Timer
 import java.util.concurrent.Executors
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
@@ -34,7 +33,6 @@ object ParallelIndexerFactory {
   def apply(
       inputMappingParallelism: Int,
       batchingParallelism: Int,
-      ingestionParallelism: Int,
       dataSourceConfig: DataSourceConfig,
       haConfig: HaConfig,
       metrics: Metrics,
@@ -104,12 +102,9 @@ object ParallelIndexerFactory {
                   connectionInitHook = Some(connectionInitializer.initialize),
                 ),
                 serverRole = ServerRole.Indexer,
-                connectionPoolSize =
-                  ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
-                connectionTimeout = FiniteDuration(
-                  250,
-                  "millis",
-                ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
+                minimumIdle = dataSourceConfig.connectionPool.minimumIdle,
+                maxPoolSize = dataSourceConfig.connectionPool.maxPoolSize,
+                connectionTimeout = dataSourceConfig.connectionPool.connectionTimeout,
                 metrics = metrics,
               )
             _ <- meteringAggregator(dbDispatcher)

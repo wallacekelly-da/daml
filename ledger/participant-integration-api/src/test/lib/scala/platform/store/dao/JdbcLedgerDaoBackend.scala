@@ -61,10 +61,15 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     DbSupport
       .migratedOwner(
         serverRole = ServerRole.Testing(getClass),
-        connectionPoolSize = dbType.maxSupportedWriteConnections(16),
-        connectionTimeout = 250.millis,
         metrics = metrics,
-        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
+          jdbcUrl,
+          connectionPool = DataSourceStorageBackend.ConnectionPoolConfig(
+            minimumIdle = dbType.maxSupportedWriteConnections(16),
+            maxPoolSize = dbType.maxSupportedWriteConnections(16),
+            connectionTimeout = 250.millis,
+          ),
+        ),
       )
       .map { dbSupport =>
         JdbcLedgerDao.write(

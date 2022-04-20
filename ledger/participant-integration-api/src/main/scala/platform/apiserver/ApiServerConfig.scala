@@ -18,13 +18,10 @@ import com.daml.ports.Port
 
 import java.nio.file.Path
 import java.time.Duration
-import scala.concurrent.duration.FiniteDuration
 
 case class ApiServerConfig(
     port: Port,
     address: Option[String], // This defaults to "localhost" when set to `None`.
-    databaseConnectionPoolSize: Int,
-    databaseConnectionTimeout: FiniteDuration,
     tlsConfig: Option[TlsConfiguration],
     maxInboundMessageSize: Int,
     initialLedgerConfiguration: Option[InitialLedgerConfiguration],
