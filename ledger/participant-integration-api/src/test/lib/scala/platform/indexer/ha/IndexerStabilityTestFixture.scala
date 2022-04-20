@@ -65,7 +65,7 @@ object IndexerStabilityTestFixture {
         indexerLockId = lockIdSeed,
         indexerWorkerLockId = lockIdSeed + 1,
       ),
-      dbConfig = IndexerConfig.createDefault(jdbcUrl),
+      database = IndexerConfig.createDefaultDatabaseConfig(jdbcUrl),
     )
 
     newLoggingContext { implicit loggingContext =>

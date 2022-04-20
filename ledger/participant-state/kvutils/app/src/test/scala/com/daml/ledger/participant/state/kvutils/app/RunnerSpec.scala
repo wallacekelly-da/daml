@@ -45,7 +45,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.net.InetAddress
-import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CompletableFuture, CompletionStage, TimeUnit}
@@ -163,8 +162,8 @@ object RunnerSpec {
       indexerConfig = IndexerConfig(
         participantId = participantId,
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
-        dbConfig =
-          IndexerConfig.createDefault(CliParticipantConfig.defaultIndexJdbcUrl(participantId)),
+        database =
+          IndexerConfig.createDefaultDatabaseConfig(CliParticipantConfig.defaultIndexJdbcUrl(participantId)),
       ),
       indexConfiguration = IndexConfiguration(),
       lfValueTranslationCacheConfig = LfValueTranslationCache
@@ -179,16 +178,16 @@ object RunnerSpec {
         tlsConfig = None,
         maxInboundMessageSize = CliConfig.DefaultMaxInboundMessageSize,
         initialLedgerConfiguration = None,
-        configurationLoadTimeout = Duration.ofSeconds(10),
+        configurationLoadTimeout = 10.seconds,
         portFile = None,
         seeding = Seeding.Strong,
         managementServiceTimeout = CliParticipantConfig.DefaultManagementServiceTimeout,
         userManagementConfig = UserManagementConfig.default(enabled = false),
-        authService = AuthServiceWildcard,
-        partyConfig = PartyConfiguration.default,
-        commandConfig = CommandConfiguration.default,
+        authentication = AuthServiceWildcard,
+        party = PartyConfiguration.default,
+        command = CommandConfiguration.default,
         timeProviderType = TimeProviderType.WallClock,
-        dbConfig = DbConfig(
+        database = DbConfig(
           jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
           connectionPool = ConnectionPoolConfig(
             minimumIdle = CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,

@@ -9,7 +9,7 @@ import com.daml.platform.indexer.IndexerConfig
 import com.daml.ports.Port
 
 import java.nio.file.Path
-import java.time.Duration
+import scala.concurrent.duration._
 
 final case class CliParticipantConfig(
     mode: ParticipantRunMode,
@@ -36,8 +36,8 @@ object CliParticipantConfig {
   def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 
-  val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
-  val DefaultApiServerDatabaseConnectionTimeout: Duration = Duration.ofMillis(250)
+  val DefaultManagementServiceTimeout: FiniteDuration = 2.minutes
+  val DefaultApiServerDatabaseConnectionTimeout: Duration = 250.millis
 
   // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
   val DefaultApiServerDatabaseConnectionPoolSize = 16

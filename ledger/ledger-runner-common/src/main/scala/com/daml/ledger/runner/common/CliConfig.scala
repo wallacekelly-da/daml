@@ -22,6 +22,7 @@ import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
+import scala.jdk.DurationConverters.JavaDurationOps
 
 import java.io.File
 import java.time.Duration
@@ -220,7 +221,9 @@ object CliConfig {
             val apiServerConnectionTimeout = kv
               .get("api-server-connection-timeout")
               .map(Duration.parse)
+              .map(_.toScala)
               .getOrElse(CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
+
             val indexerInputMappingParallelism = kv
               .get("indexer-input-mapping-parallelism")
               .map(_.toInt)
@@ -257,6 +260,7 @@ object CliConfig {
             val managementServiceTimeout = kv
               .get("management-service-timeout")
               .map(Duration.parse)
+              .map(_.toScala)
               .getOrElse(CliParticipantConfig.DefaultManagementServiceTimeout)
             val shardName = kv.get("shard-name")
             val maxContractStateCacheSize = kv
@@ -290,7 +294,7 @@ object CliConfig {
                 tailingRateLimitPerSecond = indexerTailingRateLimitPerSecond,
                 batchWithinMillis = indexerBatchWithinMillis,
                 enableCompression = indexerEnableCompression,
-                dbConfig = IndexerConfig.createDefault(jdbcUrl),
+                database = IndexerConfig.createDefaultDatabaseConfig(jdbcUrl),
               ),
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
               apiServerDatabaseConnectionTimeout = apiServerConnectionTimeout,

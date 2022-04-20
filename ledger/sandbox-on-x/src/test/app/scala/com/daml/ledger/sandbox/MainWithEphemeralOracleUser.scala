@@ -25,7 +25,7 @@ object MainWithEphemeralOracleUser {
                     indexerLockId = user.lockIdSeed,
                     indexerWorkerLockId = user.lockIdSeed + 1,
                   ),
-                  dbConfig = IndexerConfig.createDefault(user.jdbcUrl),
+                  database = IndexerConfig.createDefaultDatabaseConfig(user.jdbcUrl),
                 ),
               )
             )

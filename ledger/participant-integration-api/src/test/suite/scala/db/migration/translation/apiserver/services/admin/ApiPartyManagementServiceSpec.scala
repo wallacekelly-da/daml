@@ -3,17 +3,13 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.{PartyDetails, PartyEntry}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
-import com.daml.ledger.participant.state.index.v2.{
-  IndexPartyManagementService,
-  IndexTransactionsService,
-}
+import com.daml.ledger.participant.state.index.v2.{IndexPartyManagementService, IndexTransactionsService}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -25,6 +21,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
 class ApiPartyManagementServiceSpec
     extends AsyncWordSpec
@@ -59,7 +56,7 @@ class ApiPartyManagementServiceSpec
         mockIndexPartyManagementService,
         mockIndexTransactionsService,
         TestWritePartyService,
-        Duration.ZERO,
+        Duration.Zero,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 

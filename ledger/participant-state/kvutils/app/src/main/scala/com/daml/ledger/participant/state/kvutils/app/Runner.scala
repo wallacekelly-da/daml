@@ -89,7 +89,7 @@ final class Runner[T <: ReadWriteService, Extra](
   private def logInitializationHeader(config: Config): Unit = {
     val participantsInitializationText = config.participants
       .map { participantConfig =>
-        val authentication = participantConfig.apiServerConfig.authService match {
+        val authentication = participantConfig.apiServerConfig.authentication match {
           case _: AuthServiceJWT => "JWT-based authentication"
           case AuthServiceNone => "none authenticated"
           case _: AuthServiceStatic => "static authentication"
@@ -189,7 +189,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   .owner(
                     serverRole = ServerRole.ApiServer,
                     metrics = metrics,
-                    dbConfig = apiServerConfig.dbConfig,
+                    dbConfig = apiServerConfig.database,
                   )
                   .acquire()
                 userManagementStore = PersistentUserManagementStore.cached(

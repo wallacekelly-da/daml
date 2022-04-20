@@ -28,7 +28,7 @@ final class StandaloneIndexerServer(
   override def acquire()(implicit context: ResourceContext): Resource[ReportsHealth] = {
     val flywayMigrations =
       new FlywayMigrations(
-        config.dbConfig.dataSourceConfig,
+        config.database.dataSourceConfig,
         additionalMigrationPaths,
       )
     val indexerFactory = new JdbcIndexer.Factory(

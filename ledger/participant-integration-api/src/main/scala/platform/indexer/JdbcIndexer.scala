@@ -28,7 +28,7 @@ object JdbcIndexer {
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
-      val factory = StorageBackendFactory.of(DbType.jdbcType(config.dbConfig.jdbcUrl))
+      val factory = StorageBackendFactory.of(DbType.jdbcType(config.database.jdbcUrl))
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
       val meteringStoreBackend = factory.createMeteringStorageWriteBackend
@@ -39,7 +39,7 @@ object JdbcIndexer {
       val indexer = ParallelIndexerFactory(
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
-        dbConfig = config.dbConfig,
+        dbConfig = config.database,
         haConfig = config.haConfig,
         metrics = metrics,
         dbLockStorageBackend = DBLockStorageBackend,

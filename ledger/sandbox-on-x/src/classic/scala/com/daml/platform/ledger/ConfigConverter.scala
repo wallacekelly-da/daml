@@ -36,13 +36,13 @@ object ConfigConverter {
       port = sandboxConfig.port,
       portFile = sandboxConfig.portFile,
       serverJdbcUrl = serverJdbcUrl,
-      managementServiceTimeout = sandboxConfig.managementServiceTimeout,
+      managementServiceTimeout = sandboxConfig.managementServiceTimeout.toScala,
       indexerConfig = IndexerConfig(
         participantId = sandboxConfig.participantId,
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
         enableCompression = sandboxConfig.enableCompression,
-        dbConfig = IndexerConfig.createDefault(serverJdbcUrl),
+        database = IndexerConfig.createDefaultDatabaseConfig(serverJdbcUrl),
       ),
       apiServerDatabaseConnectionPoolSize = sandboxConfig.databaseConnectionPoolSize,
     )

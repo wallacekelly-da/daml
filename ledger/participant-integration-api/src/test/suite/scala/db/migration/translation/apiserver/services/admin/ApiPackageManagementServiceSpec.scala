@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipInputStream
 import akka.stream.scaladsl.Source
@@ -12,10 +11,7 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.api.v1.admin.package_management_service.{
-  PackageManagementServiceGrpc,
-  UploadDarFileRequest,
-}
+import com.daml.ledger.api.v1.admin.package_management_service.{PackageManagementServiceGrpc, UploadDarFileRequest}
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.testing.Encode
@@ -36,6 +32,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
 class ApiPackageManagementServiceSpec
     extends AsyncWordSpec
@@ -94,7 +91,7 @@ class ApiPackageManagementServiceSpec
       mockIndexPackagesService,
       mockIndexTransactionsService,
       TestWritePackagesService,
-      Duration.ZERO,
+      Duration.Zero,
       mockEngine,
       mockDarReader,
       _ => Ref.SubmissionId.assertFromString("aSubmission"),

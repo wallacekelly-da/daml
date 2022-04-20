@@ -23,7 +23,7 @@ object MainWithEphemeralPostgresql extends PostgresAround {
               p.copy(
                 serverJdbcUrl = database.url,
                 indexerConfig =
-                  p.indexerConfig.copy(dbConfig = IndexerConfig.createDefault(database.url)),
+                  p.indexerConfig.copy(database = IndexerConfig.createDefaultDatabaseConfig(database.url)),
               )
             )
           ),

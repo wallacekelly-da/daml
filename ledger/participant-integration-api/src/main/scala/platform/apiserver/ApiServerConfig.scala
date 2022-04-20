@@ -6,18 +6,14 @@ package com.daml.platform.apiserver
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.DbConfig
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 
 import java.nio.file.Path
-import java.time.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 case class ApiServerConfig(
     port: Port,
@@ -28,11 +24,11 @@ case class ApiServerConfig(
     configurationLoadTimeout: Duration,
     portFile: Option[Path],
     seeding: Seeding,
-    managementServiceTimeout: Duration,
+    managementServiceTimeout: FiniteDuration,
     userManagementConfig: UserManagementConfig,
-    authService: AuthService,
-    partyConfig: PartyConfiguration,
-    commandConfig: CommandConfiguration,
+    authentication: AuthService,
+    party: PartyConfiguration,
+    command: CommandConfiguration,
     timeProviderType: TimeProviderType,
-    dbConfig: DbConfig,
+    database: DbConfig,
 )

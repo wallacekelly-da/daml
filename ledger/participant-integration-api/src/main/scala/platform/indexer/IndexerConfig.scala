@@ -24,12 +24,12 @@ case class IndexerConfig(
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
     haConfig: HaConfig = HaConfig(),
-    dbConfig: DbConfig,
+    database: DbConfig,
 )
 
 object IndexerConfig {
 
-  def createDefault(jdbcUrl: String): DbConfig = DbConfig(
+  def createDefaultDatabaseConfig(jdbcUrl: String): DbConfig = DbConfig(
     jdbcUrl = jdbcUrl,
     // PostgresSQL specific configurations
     // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.

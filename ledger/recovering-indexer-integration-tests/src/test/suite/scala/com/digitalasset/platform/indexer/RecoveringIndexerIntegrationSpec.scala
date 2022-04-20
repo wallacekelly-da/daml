@@ -199,7 +199,7 @@ class RecoveringIndexerIntegrationSpec
           participantId = participantId,
           startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
-          dbConfig = IndexerConfig.createDefault(jdbcUrl),
+          database = IndexerConfig.createDefaultDatabaseConfig(jdbcUrl),
         ),
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,

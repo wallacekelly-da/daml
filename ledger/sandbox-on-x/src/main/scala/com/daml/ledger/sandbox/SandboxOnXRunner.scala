@@ -165,7 +165,7 @@ object SandboxOnXRunner {
             .owner(
               serverRole = ServerRole.ApiServer,
               metrics = metrics,
-              dbConfig = apiServerConfig.dbConfig,
+              dbConfig = apiServerConfig.database,
             )
 
           indexService <- StandaloneIndexService(
@@ -357,7 +357,7 @@ object SandboxOnXRunner {
       participantConfig: ParticipantConfig,
       extra: BridgeConfig,
   ): Unit = {
-    val authentication = participantConfig.apiServerConfig.authService match {
+    val authentication = participantConfig.apiServerConfig.authentication match {
       case _: AuthServiceJWT => "JWT-based authentication"
       case AuthServiceNone => "none authenticated"
       case _: AuthServiceStatic => "static authentication"
@@ -369,7 +369,7 @@ object SandboxOnXRunner {
       Seq[(String, String)](
         "run-mode" -> s"${participantConfig.mode} participant",
         "index DB backend" -> DbType
-          .jdbcType(participantConfig.apiServerConfig.dbConfig.jdbcUrl)
+          .jdbcType(participantConfig.apiServerConfig.database.jdbcUrl)
           .name,
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,

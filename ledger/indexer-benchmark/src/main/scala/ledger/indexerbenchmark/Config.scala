@@ -35,7 +35,7 @@ object Config {
     indexerConfig = IndexerConfig(
       participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
       startupMode = IndexerStartupMode.MigrateAndStart(),
-      dbConfig = IndexerConfig.createDefault(""),
+      database = IndexerConfig.createDefaultDatabaseConfig(""),
     ),
     waitForUserInput = false,
     minUpdateRate = None,
@@ -100,7 +100,7 @@ object Config {
         .action((value, config) =>
           config.copy(indexerConfig =
             config.indexerConfig
-              .copy(dbConfig = config.indexerConfig.dbConfig.copy(jdbcUrl = value))
+              .copy(database = config.indexerConfig.database.copy(jdbcUrl = value))
           )
         )
 

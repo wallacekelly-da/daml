@@ -3,9 +3,7 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.Duration
 import java.util.UUID
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
@@ -13,11 +11,7 @@ import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.api.validation.ValidationErrors
-import com.daml.ledger.participant.state.index.v2.{
-  IndexPartyManagementService,
-  IndexTransactionsService,
-  LedgerEndService,
-}
+import com.daml.ledger.participant.state.index.v2.{IndexPartyManagementService, IndexTransactionsService, LedgerEndService}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -29,6 +23,7 @@ import com.daml.platform.server.api.ValidationLogger
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,7 +31,7 @@ private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     transactionService: IndexTransactionsService,
     writeService: state.WritePartyService,
-    managementServiceTimeout: Duration,
+    managementServiceTimeout: FiniteDuration,
     submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
@@ -151,7 +146,7 @@ private[apiserver] object ApiPartyManagementService {
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
       writeBackend: state.WritePartyService,
-      managementServiceTimeout: Duration,
+      managementServiceTimeout: FiniteDuration,
       submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId = CreateSubmissionId.withPrefix,
   )(implicit
       materializer: Materializer,

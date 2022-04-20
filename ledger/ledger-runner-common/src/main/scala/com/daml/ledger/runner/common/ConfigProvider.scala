@@ -54,16 +54,22 @@ trait ConfigProvider[ExtraConfig] {
       tlsConfig = cliConfig.tlsConfig,
       maxInboundMessageSize = cliConfig.maxInboundMessageSize,
       initialLedgerConfiguration = Some(initialLedgerConfig(cliConfig.maxDeduplicationDuration)),
-      configurationLoadTimeout = cliConfig.configurationLoadTimeout,
+      configurationLoadTimeout = FiniteDuration(
+        cliConfig.configurationLoadTimeout.toMillis,
+        TimeUnit.MILLISECONDS,
+      ),
       portFile = config.portFile,
       seeding = cliConfig.seeding,
-      managementServiceTimeout = config.managementServiceTimeout,
+      managementServiceTimeout = FiniteDuration(
+        config.managementServiceTimeout.toMillis,
+        TimeUnit.MILLISECONDS,
+      ),
       userManagementConfig = cliConfig.userManagementConfig,
-      authService = cliConfig.authService,
-      commandConfig = cliConfig.commandConfig,
-      partyConfig = PartyConfiguration.default,
+      authentication = cliConfig.authService,
+      command = cliConfig.commandConfig,
+      party = PartyConfiguration.default,
       timeProviderType = cliConfig.timeProviderType,
-      dbConfig = DbConfig(
+      database = DbConfig(
         jdbcUrl = config.serverJdbcUrl,
         connectionPool = ConnectionPoolConfig(
           config.apiServerDatabaseConnectionPoolSize,
