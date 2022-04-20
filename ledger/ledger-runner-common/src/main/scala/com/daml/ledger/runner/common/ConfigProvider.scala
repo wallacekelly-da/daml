@@ -5,12 +5,9 @@ package com.daml.ledger.runner.common
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{
-  IndexConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.LfValueTranslationCache
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
@@ -18,6 +15,7 @@ import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import scala.annotation.unused
 import scala.concurrent.duration.FiniteDuration
+import scala.jdk.DurationConverters.JavaDurationOps
 
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
@@ -44,8 +42,10 @@ trait ConfigProvider[ExtraConfig] {
       maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
       archiveFiles = IndexConfiguration.DefaultArchiveFiles,
     ),
-    lfValueTranslationContractCache = cliConfig.lfValueTranslationContractCache,
-    lfValueTranslationEventCache = cliConfig.lfValueTranslationEventCache,
+    lfValueTranslationCacheConfig =  LfValueTranslationCache.Config(
+      contract = cliConfig.lfValueTranslationContractCache,
+      event = cliConfig.lfValueTranslationEventCache,
+    ),
     maxDeduplicationDuration = cliConfig.maxDeduplicationDuration,
     apiServerConfig = ApiServerConfig(
       port = config.port,
@@ -77,8 +77,10 @@ trait ConfigProvider[ExtraConfig] {
     Config(
       engineConfig = config.engineConfig,
       ledgerId = config.ledgerId,
-      metricsReporter = config.metricsReporter,
-      metricsReportingInterval = config.metricsReportingInterval,
+      metricsConfig = MetricsConfig(
+        reporter = config.metricsReporter,
+        reportingInterval = config.metricsReportingInterval.toScala,
+      ),
       participants = config.participants.map(toParticipantConfig(config)),
     )
   }

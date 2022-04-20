@@ -101,7 +101,7 @@ final class Runner[T <: ReadWriteService, Extra](
           s"run-mode = ${participantConfig.mode}, " +
           s"port = ${participantConfig.apiServerConfig.port.toString}, " +
           s"contract ids seeding = ${participantConfig.apiServerConfig.seeding}, " +
-          s"authentication = ${authentication}"
+          s"authentication = $authentication"
       }
       .mkString("[", ", ", "]")
     logger.withoutContext.info(
@@ -133,15 +133,14 @@ final class Runner[T <: ReadWriteService, Extra](
           .fromSharedMetricRegistries(participantConfig.metricsRegistryName)
         metrics.registry.registerAll(new JvmMetricSet)
         val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
-          eventConfiguration = participantConfig.lfValueTranslationEventCache,
-          contractConfiguration = participantConfig.lfValueTranslationContractCache,
+          config = participantConfig.lfValueTranslationCacheConfig,
           metrics = metrics,
         )
         for {
-          _ <- config.metricsReporter.fold(Resource.unit)(reporter =>
+          _ <- config.metricsConfig.reporter.fold(Resource.unit)(reporter =>
             ResourceOwner
               .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+              .map(_.start(config.metricsConfig.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
               .acquire()
           )
           servicesExecutionContext <- ResourceOwner

@@ -3,23 +3,22 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.caching
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.IndexerConfig
+import com.daml.platform.store.LfValueTranslationCache
 
 import java.time.Duration
 
 final case class ParticipantConfig(
-    mode: ParticipantRunMode,
     participantId: Ref.ParticipantId,
-    // A name of the participant shard in a horizontally scaled participant.
     shardName: Option[String],
+    mode: ParticipantRunMode,
+    // A name of the participant shard in a horizontally scaled participant.
     indexerConfig: IndexerConfig,
     indexConfiguration: IndexConfiguration,
-    lfValueTranslationContractCache: caching.SizedCache.Configuration,
-    lfValueTranslationEventCache: caching.SizedCache.Configuration,
+    lfValueTranslationCacheConfig: LfValueTranslationCache.Config,
     maxDeduplicationDuration: Option[Duration],
     apiServerConfig: ApiServerConfig,
 ) {

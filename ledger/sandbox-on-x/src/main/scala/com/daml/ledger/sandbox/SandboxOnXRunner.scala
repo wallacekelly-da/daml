@@ -134,8 +134,7 @@ object SandboxOnXRunner {
         for {
           metrics <- metrics.map(ResourceOwner.successful).getOrElse(buildMetrics)
           translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
-            eventConfiguration = participantConfig.lfValueTranslationEventCache,
-            contractConfiguration = participantConfig.lfValueTranslationContractCache,
+            config = participantConfig.lfValueTranslationCacheConfig,
             metrics = metrics,
           )
 
@@ -310,11 +309,11 @@ object SandboxOnXRunner {
       .fromSharedMetricRegistries(participantConfig.metricsRegistryName)
       .tap(_.registry.registerAll(new JvmMetricSet))
       .pipe { metrics =>
-        config.metricsReporter
+        config.metricsConfig.reporter
           .fold(ResourceOwner.unit)(reporter =>
             ResourceOwner
               .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+              .map(_.start(config.metricsConfig.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
           )
           .map(_ => metrics)
       }

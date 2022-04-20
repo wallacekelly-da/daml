@@ -3,9 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.net.InetAddress
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CompletableFuture, CompletionStage, TimeUnit}
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -23,15 +20,7 @@ import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
 import com.daml.ledger.participant.state.kvutils.app.RunnerSpec._
-import com.daml.ledger.participant.state.v2.{
-  PruningResult,
-  ReadService,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  Update,
-  WriteService,
-}
+import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
 import com.daml.lf.data.Ref
@@ -41,8 +30,8 @@ import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
-import com.daml.platform.apiserver.{ApiServerConfig, LedgerFeatures}
 import com.daml.platform.apiserver.SeedService.Seeding
+import com.daml.platform.apiserver.{ApiServerConfig, LedgerFeatures}
 import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexConfiguration,
@@ -50,6 +39,7 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import com.daml.telemetry.TelemetryContext
@@ -60,8 +50,11 @@ import io.grpc.{Channel, ManagedChannelBuilder, Status}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.net.InetAddress
 import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{CompletableFuture, CompletionStage, TimeUnit}
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -179,8 +172,11 @@ object RunnerSpec {
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
       ),
       indexConfiguration = IndexConfiguration(),
-      lfValueTranslationContractCache = caching.SizedCache.Configuration(10),
-      lfValueTranslationEventCache = caching.SizedCache.Configuration(10),
+      lfValueTranslationCacheConfig = LfValueTranslationCache
+        .Config(
+          caching.SizedCache.Configuration(10),
+          caching.SizedCache.Configuration(10),
+        ),
       maxDeduplicationDuration = None,
       apiServerConfig = ApiServerConfig(
         port = Port.Dynamic,
