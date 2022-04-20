@@ -3,7 +3,7 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.runner.common.{Config, CliConfig, ConfigProvider}
+import com.daml.ledger.runner.common.{CliConfig, ConfigProvider, ParticipantConfig}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import scopt.OptionParser
 
@@ -47,7 +47,7 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     ()
   }
 
-  override def initialLedgerConfig(config: Config): InitialLedgerConfiguration = {
+  override def initialLedgerConfig(config: ParticipantConfig): InitialLedgerConfiguration = {
     val superConfig = super.initialLedgerConfig(config)
     superConfig.copy(configuration =
       superConfig.configuration.copy(maxDeduplicationDuration = DefaultMaximumDeduplicationDuration)

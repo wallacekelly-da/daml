@@ -47,6 +47,12 @@ trait ConfigProvider[ExtraConfig] {
     ),
     lfValueTranslationContractCache = cliConfig.lfValueTranslationContractCache,
     lfValueTranslationEventCache = cliConfig.lfValueTranslationEventCache,
+    maxDeduplicationDuration = cliConfig.maxDeduplicationDuration,
+    tlsConfig = cliConfig.tlsConfig,
+    userManagementConfig = cliConfig.userManagementConfig,
+    seeding = cliConfig.seeding,
+    maxInboundMessageSize = cliConfig.maxInboundMessageSize,
+    configurationLoadTimeout = cliConfig.configurationLoadTimeout,
   )
 
   def toInternalConfig(config: CliConfig[ExtraConfig]): Config = {
@@ -56,22 +62,16 @@ trait ConfigProvider[ExtraConfig] {
       configurationLoadTimeout = config.configurationLoadTimeout,
       commandConfig = config.commandConfig,
       ledgerId = config.ledgerId,
-      maxDeduplicationDuration = config.maxDeduplicationDuration,
-      maxInboundMessageSize = config.maxInboundMessageSize,
       metricsReporter = config.metricsReporter,
       metricsReportingInterval = config.metricsReportingInterval,
       participants = config.participants.map(toParticipantConfig(config)),
-      seeding = config.seeding,
       stateValueCache = config.stateValueCache,
       timeProviderType = config.timeProviderType,
-      tlsConfig = config.tlsConfig,
-      userManagementConfig = config.userManagementConfig,
     )
   }
 
   def apiServerConfig(
-      participantConfig: ParticipantConfig,
-      config: Config,
+      participantConfig: ParticipantConfig
   ): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
@@ -83,17 +83,17 @@ trait ConfigProvider[ExtraConfig] {
         participantConfig.apiServerDatabaseConnectionTimeout.toMillis,
         TimeUnit.MILLISECONDS,
       ),
-      tlsConfig = config.tlsConfig,
-      maxInboundMessageSize = config.maxInboundMessageSize,
-      initialLedgerConfiguration = Some(initialLedgerConfig(config)),
-      configurationLoadTimeout = config.configurationLoadTimeout,
+      tlsConfig = participantConfig.tlsConfig,
+      maxInboundMessageSize = participantConfig.maxInboundMessageSize,
+      initialLedgerConfiguration = Some(initialLedgerConfig(participantConfig)),
+      configurationLoadTimeout = participantConfig.configurationLoadTimeout,
       portFile = participantConfig.portFile,
-      seeding = config.seeding,
+      seeding = participantConfig.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
-      userManagementConfig = config.userManagementConfig,
+      userManagementConfig = participantConfig.userManagementConfig,
     )
 
-  def initialLedgerConfig(config: Config): InitialLedgerConfiguration = {
+  def initialLedgerConfig(config: ParticipantConfig): InitialLedgerConfiguration = {
     InitialLedgerConfiguration(
       configuration = Configuration.reasonableInitialConfiguration.copy(maxDeduplicationDuration =
         config.maxDeduplicationDuration.getOrElse(

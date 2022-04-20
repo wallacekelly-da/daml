@@ -41,8 +41,10 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
 import com.daml.platform.apiserver.LedgerFeatures
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.status.{Status => StatusProto}
@@ -52,6 +54,7 @@ import io.grpc.{Channel, ManagedChannelBuilder, Status}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.time.Duration
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.mutable
@@ -176,6 +179,12 @@ object RunnerSpec {
       indexConfiguration = IndexConfiguration(),
       lfValueTranslationContractCache = caching.SizedCache.Configuration(10),
       lfValueTranslationEventCache = caching.SizedCache.Configuration(10),
+      maxDeduplicationDuration = None,
+      tlsConfig = None,
+      userManagementConfig = UserManagementConfig.default(enabled = false),
+      seeding = Seeding.Strong,
+      maxInboundMessageSize = CliConfig.DefaultMaxInboundMessageSize,
+      configurationLoadTimeout = Duration.ofSeconds(10),
     )
   }
 

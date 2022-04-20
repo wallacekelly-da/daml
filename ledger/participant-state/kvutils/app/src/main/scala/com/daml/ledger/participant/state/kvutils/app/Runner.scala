@@ -96,18 +96,17 @@ final class Runner[T <: ReadWriteService, Extra](
     }
     val participantsInitializationText = config.participants
       .map(participantConfig =>
-        s"{participant-id = ${participantConfig.participantId}, shared-name = ${participantConfig.shardName}, run-mode = ${participantConfig.mode}, port = ${participantConfig.port.toString}}"
+        s"{participant-id = ${participantConfig.participantId}, shared-name = ${participantConfig.shardName}, run-mode = ${participantConfig.mode}, port = ${participantConfig.port.toString}, contract ids seeding = ${participantConfig.seeding}"
       )
       .mkString("[", ", ", "]")
     logger.withoutContext.info(
-      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, authentication = {}, contract ids seeding = {} with participants: {}",
+      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, authentication = {}, with participants: {}",
       name,
       BuildInfo.Version,
       config.ledgerId,
       factory.ledgerName,
       s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
       authentication,
-      config.seeding,
       participantsInitializationText,
     )
   }
@@ -179,7 +178,7 @@ final class Runner[T <: ReadWriteService, Extra](
             case ParticipantRunMode.LedgerApiServer =>
               Resource.successful(new HealthChecks())
           }
-          apiServerConfig = configProvider.apiServerConfig(participantConfig, config)
+          apiServerConfig = configProvider.apiServerConfig(participantConfig)
           port <- participantConfig.mode match {
             case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
               for {
@@ -196,8 +195,8 @@ final class Runner[T <: ReadWriteService, Extra](
                   dbSupport = dbSupport,
                   metrics = metrics,
                   cacheExpiryAfterWriteInSeconds =
-                    config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-                  maxCacheSize = config.userManagementConfig.maxCacheSize,
+                    participantConfig.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+                  maxCacheSize = participantConfig.userManagementConfig.maxCacheSize,
                   maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
                   timeProvider = TimeProvider.UTC,
                 )(servicesExecutionContext, loggingContext)
@@ -233,7 +232,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   ledgerFeatures = ledgerFeatures,
-                  userManagementConfig = config.userManagementConfig,
+                  userManagementConfig = participantConfig.userManagementConfig,
                 ).acquire()
               } yield Some(apiServer.port)
             case ParticipantRunMode.Indexer =>

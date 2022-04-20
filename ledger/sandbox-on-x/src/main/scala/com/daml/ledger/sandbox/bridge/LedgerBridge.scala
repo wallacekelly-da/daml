@@ -8,12 +8,12 @@ import akka.stream.scaladsl.Flow
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider}
+import com.daml.ledger.runner.common.ParticipantConfig
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider}
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
@@ -29,7 +29,6 @@ trait LedgerBridge {
 
 object LedgerBridge {
   def owner(
-      config: Config,
       participantConfig: ParticipantConfig,
       extra: BridgeConfig,
       indexService: IndexService,
@@ -42,7 +41,6 @@ object LedgerBridge {
   ): ResourceOwner[LedgerBridge] =
     if (extra.conflictCheckingEnabled)
       buildConfigCheckingLedgerBridge(
-        config,
         participantConfig,
         extra,
         indexService,
@@ -56,7 +54,6 @@ object LedgerBridge {
       )
 
   private def buildConfigCheckingLedgerBridge(
-      config: Config,
       participantConfig: ParticipantConfig,
       extra: BridgeConfig,
       indexService: IndexService,
@@ -89,7 +86,10 @@ object LedgerBridge {
       maxDeduplicationDuration = initialLedgerConfiguration
         .map(_.maxDeduplicationDuration)
         .getOrElse(
-          BridgeConfigProvider.initialLedgerConfig(config).configuration.maxDeduplicationDuration
+          BridgeConfigProvider
+            .initialLedgerConfig(participantConfig)
+            .configuration
+            .maxDeduplicationDuration
         ),
     )
 
