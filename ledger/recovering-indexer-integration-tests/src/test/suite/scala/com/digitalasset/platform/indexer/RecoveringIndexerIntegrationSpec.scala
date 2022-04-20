@@ -18,7 +18,12 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v2.{ReadService, SubmissionResult, Update, WritePartyService}
+import com.daml.ledger.participant.state.v2.{
+  ReadService,
+  SubmissionResult,
+  Update,
+  WritePartyService,
+}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
@@ -199,7 +204,7 @@ class RecoveringIndexerIntegrationSpec
           participantId = participantId,
           startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
-          dataSourceConfig = IndexerConfig.createDefault(jdbcUrl)
+          dataSourceConfig = IndexerConfig.createDefault(jdbcUrl),
         ),
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -238,7 +243,7 @@ class RecoveringIndexerIntegrationSpec
         connectionPoolSize = 16,
         connectionTimeout = 250.millis,
         metrics = metrics,
-        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

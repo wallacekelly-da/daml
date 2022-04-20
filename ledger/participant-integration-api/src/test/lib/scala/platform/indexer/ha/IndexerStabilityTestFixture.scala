@@ -66,7 +66,7 @@ object IndexerStabilityTestFixture {
         indexerLockId = lockIdSeed,
         indexerWorkerLockId = lockIdSeed + 1,
       ),
-      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
+      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
     )
 
     newLoggingContext { implicit loggingContext =>

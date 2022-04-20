@@ -262,7 +262,7 @@ class IntegrityChecker[LogResult](
       migrating <- ResourceOwner.forFuture(() =>
         StandaloneIndexerServer
           .migrateOnly(
-            dataSourceConfig = config.dataSourceConfig,
+            dataSourceConfig = config.dataSourceConfig
           )
           .map(_ => indexerFactory.initialized())(materializer.executionContext)
       )
@@ -326,7 +326,7 @@ object IntegrityChecker {
     IndexerConfig(
       participantId = Ref.ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       startupMode = IndexerStartupMode.MigrateAndStart(),
-      dataSourceConfig = IndexerConfig.createDefault(jdbcUrl(config))
+      dataSourceConfig = IndexerConfig.createDefault(jdbcUrl(config)),
     )
 
   private[integritycheck] def jdbcUrl(config: Config): String =

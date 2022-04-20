@@ -61,7 +61,9 @@ final class IntegrityCheckerSpec
     "use the configured jdbcUrl if available" in {
       val configuredJdbcUrl = "aJdbcUrl"
       val config = Config.ParseInput.copy(jdbcUrl = Some(configuredJdbcUrl))
-      IntegrityChecker.createIndexerConfig(config).dataSourceConfig.jdbcUrl should be(configuredJdbcUrl)
+      IntegrityChecker.createIndexerConfig(config).dataSourceConfig.jdbcUrl should be(
+        configuredJdbcUrl
+      )
     }
 
     "use the default jdbcUrl if none is configured" in {

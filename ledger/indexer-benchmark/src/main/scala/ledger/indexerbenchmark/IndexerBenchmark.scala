@@ -97,7 +97,9 @@ class IndexerBenchmark() {
 
         // Note: this allows the user to inpsect the contents of an ephemeral database
         if (config.waitForUserInput) {
-          println(s"Index database is still running at ${config.indexerConfig.dataSourceConfig.jdbcUrl}.")
+          println(
+            s"Index database is still running at ${config.indexerConfig.dataSourceConfig.jdbcUrl}."
+          )
           StdIn.readLine("Press <enter> to terminate this process.")
         }
 

@@ -58,7 +58,7 @@ object IndexMetadata {
         connectionPoolSize = 1,
         connectionTimeout = 250.millis,
         metrics = metrics,
-        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

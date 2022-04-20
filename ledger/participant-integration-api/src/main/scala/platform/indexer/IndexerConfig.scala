@@ -24,7 +24,7 @@ case class IndexerConfig(
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
     haConfig: HaConfig = HaConfig(),
-    dataSourceConfig: DataSourceStorageBackend.DataSourceConfig
+    dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
 )
 
 object IndexerConfig {
@@ -39,7 +39,7 @@ object IndexerConfig {
       tcpKeepalivesIdle = Some(10),
       tcpKeepalivesInterval = Some(1),
       tcpKeepalivesCount = Some(5),
-    )
+    ),
   )
 
   val DefaultUpdatePreparationParallelism = 2

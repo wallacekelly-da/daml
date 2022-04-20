@@ -26,9 +26,7 @@ private[daml] class FlywayMigrations(
   implicit private val ec: ExecutionContext = resourceContext.executionContext
 
   private def runF[T](t: FluentConfiguration => Future[T]): Future[T] =
-    VerifiedDataSource(dataSourceConfig).flatMap(dataSource =>
-      t(configurationBase(dataSource))
-    )
+    VerifiedDataSource(dataSourceConfig).flatMap(dataSource => t(configurationBase(dataSource)))
 
   private def run[T](t: FluentConfiguration => T): Future[T] =
     runF(fc => Future(t(fc)))

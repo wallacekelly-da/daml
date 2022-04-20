@@ -42,7 +42,7 @@ object ConfigConverter {
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
         enableCompression = sandboxConfig.enableCompression,
-        dataSourceConfig = IndexerConfig.createDefault(serverJdbcUrl)
+        dataSourceConfig = IndexerConfig.createDefault(serverJdbcUrl),
       ),
       apiServerDatabaseConnectionPoolSize = sandboxConfig.databaseConnectionPoolSize,
     )

@@ -24,7 +24,9 @@ object VerifiedDataSource {
       loggingContext: LoggingContext,
   ): Future[DataSource] = {
     val dataSourceStorageBackend =
-      StorageBackendFactory.of(DbType.jdbcType(dataSourceConfig.jdbcUrl)).createDataSourceStorageBackend
+      StorageBackendFactory
+        .of(DbType.jdbcType(dataSourceConfig.jdbcUrl))
+        .createDataSourceStorageBackend
     for {
       dataSource <- RetryStrategy.constant(
         attempts = MaxInitialConnectRetryAttempts,
