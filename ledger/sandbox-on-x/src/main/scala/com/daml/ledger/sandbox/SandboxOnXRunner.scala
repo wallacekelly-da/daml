@@ -10,19 +10,9 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.auth.{
-  AuthServiceJWT,
-  AuthServiceNone,
-  AuthServiceStatic,
-  AuthServiceWildcard,
-}
+import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceNone, AuthServiceStatic, AuthServiceWildcard}
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-}
+import com.daml.ledger.api.v1.experimental_features.{CommandDeduplicationFeatures, CommandDeduplicationPeriodSupport, CommandDeduplicationType, ExperimentalContractIds}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
@@ -30,6 +20,7 @@ import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -123,7 +114,7 @@ object SandboxOnXRunner {
       actorSystem: ActorSystem,
       metrics: Option[Metrics] = None,
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
-    implicit val apiServerConfig: ApiServerConfig = participantConfig.apiServerConfig
+    val apiServerConfig: ApiServerConfig = participantConfig.apiServerConfig
     val sharedEngine = new Engine(config.engineConfig)
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
@@ -176,7 +167,7 @@ object SandboxOnXRunner {
             servicesExecutionContext = servicesExecutionContext,
             lfValueTranslationCache = translationCache,
             dbSupport = dbSupport,
-            participantId = apiServerConfig.participantId,
+            participantId = participantConfig.participantId,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -188,6 +179,8 @@ object SandboxOnXRunner {
             servicesExecutionContext,
             servicesThreadPoolSize,
             timeServiceBackend,
+            participantConfig,
+            extra
           )
 
           apiServer <- buildStandaloneApiServer(
@@ -199,6 +192,10 @@ object SandboxOnXRunner {
             indexerHealthChecks,
             timeServiceBackend,
             dbSupport,
+            config,
+            extra,
+            apiServerConfig,
+            participantConfig.participantId
           )
         } yield (apiServer, writeService, indexService)
     }
@@ -213,12 +210,13 @@ object SandboxOnXRunner {
       healthChecksWithIndexer: HealthChecks,
       timeServiceBackend: Option[TimeServiceBackend],
       dbSupport: DbSupport,
-  )(implicit
-      actorSystem: ActorSystem,
-      loggingContext: LoggingContext,
       config: Config,
       extra: BridgeConfig,
       apiServerConfig: ApiServerConfig,
+      participantId: Ref.ParticipantId,
+  )(implicit
+      actorSystem: ActorSystem,
+      loggingContext: LoggingContext,
   ): ResourceOwner[ApiServer] =
     StandaloneApiServer(
       indexService = indexService,
@@ -259,6 +257,7 @@ object SandboxOnXRunner {
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
         ),
       ),
+      participantId = participantId
     )
 
   private def buildIndexerServer(
@@ -321,10 +320,10 @@ object SandboxOnXRunner {
       servicesExecutionContext: ExecutionContext,
       servicesThreadPoolSize: Int,
       timeServiceBackend: Option[TimeServiceBackend],
-  )(implicit
-      materializer: Materializer,
       participantConfig: ParticipantConfig,
       extra: BridgeConfig,
+  )(implicit
+      materializer: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[WriteService] = {
     implicit val ec: ExecutionContext = servicesExecutionContext

@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver
 
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.usermanagement.UserManagementConfig
@@ -15,7 +14,6 @@ import java.time.Duration
 import scala.concurrent.duration.FiniteDuration
 
 case class ApiServerConfig(
-    participantId: Ref.ParticipantId,
     port: Port,
     address: Option[String], // This defaults to "localhost" when set to `None`.
     jdbcUrl: String,

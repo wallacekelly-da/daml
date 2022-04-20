@@ -42,7 +42,6 @@ trait ConfigProvider[ExtraConfig] {
     lfValueTranslationEventCache = cliConfig.lfValueTranslationEventCache,
     maxDeduplicationDuration = cliConfig.maxDeduplicationDuration,
     apiServerConfig = ApiServerConfig(
-      participantId = config.participantId,
       port = config.port,
       address = config.address,
       jdbcUrl = config.serverJdbcUrl,

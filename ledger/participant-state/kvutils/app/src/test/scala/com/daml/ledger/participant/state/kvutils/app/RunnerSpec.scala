@@ -177,7 +177,6 @@ object RunnerSpec {
       lfValueTranslationEventCache = caching.SizedCache.Configuration(10),
       maxDeduplicationDuration = None,
       apiServerConfig = ApiServerConfig(
-        participantId = participantId,
         port = Port.Dynamic,
         address = None,
         jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),

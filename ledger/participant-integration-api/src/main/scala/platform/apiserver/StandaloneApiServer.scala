@@ -38,6 +38,7 @@ object StandaloneApiServer {
       indexService: IndexService,
       userManagementStore: UserManagementStore,
       ledgerId: LedgerId,
+      participantId: Ref.ParticipantId,
       config: ApiServerConfig,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
@@ -58,7 +59,6 @@ object StandaloneApiServer {
       materializer: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[ApiServer] = {
-    val participantId: Ref.ParticipantId = config.participantId
 
     def writePortFile(port: Port): Try[Unit] = {
       config.portFile match {
