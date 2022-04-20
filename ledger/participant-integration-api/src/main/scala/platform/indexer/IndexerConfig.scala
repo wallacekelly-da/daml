@@ -6,7 +6,8 @@ package com.daml.platform.indexer
 import com.daml.lf.data.Ref
 import com.daml.platform.indexer.IndexerConfig._
 import com.daml.platform.indexer.ha.HaConfig
-import com.daml.platform.store.DbType
+import com.daml.platform.store.backend.DataSourceStorageBackend
+import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
@@ -15,7 +16,6 @@ case class IndexerConfig(
     jdbcUrl: String,
     startupMode: IndexerStartupMode,
     restartDelay: FiniteDuration = DefaultRestartDelay,
-    asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,
     batchingParallelism: Int = DefaultBatchingParallelism,
@@ -28,17 +28,21 @@ case class IndexerConfig(
     // PostgresSQL specific configurations
     // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
     // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
-    postgresTcpKeepalivesIdle: Option[Int] = Some(10),
-    postgresTcpKeepalivesInterval: Option[Int] = Some(1),
-    postgresTcpKeepalivesCount: Option[Int] = Some(5),
+    dataSourceConfig: DataSourceStorageBackend.DataSourceConfig =
+      DataSourceStorageBackend.DataSourceConfig(
+        postgresConfig = PostgresDataSourceConfig(
+          synchronousCommit = Some(PostgresDataSourceConfig.SynchronousCommitValue.Off),
+          tcpKeepalivesIdle = Some(10),
+          tcpKeepalivesInterval = Some(1),
+          tcpKeepalivesCount = Some(5),
+        )
+      ),
 )
 
 object IndexerConfig {
 
   val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds
-  val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
-
   val DefaultMaxInputBufferSize: Int = 50
   val DefaultInputMappingParallelism: Int = 16
   val DefaultBatchingParallelism: Int = 4

@@ -8,7 +8,6 @@ import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{BroadcastHub, Keep, Source}
@@ -19,12 +18,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v2.{
-  ReadService,
-  SubmissionResult,
-  Update,
-  WritePartyService,
-}
+import com.daml.ledger.participant.state.v2.{ReadService, SubmissionResult, Update, WritePartyService}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
@@ -34,6 +28,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerReadDao}
+import com.daml.platform.store.backend.DataSourceStorageBackend
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
@@ -244,6 +239,7 @@ class RecoveringIndexerIntegrationSpec
         connectionPoolSize = 16,
         connectionTimeout = 250.millis,
         metrics = metrics,
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig()
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

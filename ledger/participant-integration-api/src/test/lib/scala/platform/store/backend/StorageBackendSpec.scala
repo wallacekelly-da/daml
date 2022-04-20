@@ -80,9 +80,10 @@ private[backend] trait StorageBackendSpec
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
     implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
+    val dataSourceConfig = DataSourceStorageBackend.DataSourceConfig()
     val dataSourceFuture = for {
-      _ <- new FlywayMigrations(jdbcUrl).migrate()
-      dataSource <- VerifiedDataSource(jdbcUrl)
+      _ <- new FlywayMigrations(jdbcUrl, dataSourceConfig).migrate()
+      dataSource <- VerifiedDataSource(jdbcUrl, dataSourceConfig)
     } yield dataSource
 
     dataSource = Await.result(dataSourceFuture, 60.seconds)

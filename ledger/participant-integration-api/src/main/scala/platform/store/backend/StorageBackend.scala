@@ -352,8 +352,7 @@ object EventStorageBackend {
 trait DataSourceStorageBackend {
   def createDataSource(
       jdbcUrl: String,
-      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig =
-        DataSourceStorageBackend.DataSourceConfig(),
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       connectionInitHook: Option[Connection => Unit] = None,
   )(implicit loggingContext: LoggingContext): DataSource
 

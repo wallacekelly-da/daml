@@ -262,7 +262,8 @@ class IntegrityChecker[LogResult](
       migrating <- ResourceOwner.forFuture(() =>
         StandaloneIndexerServer
           .migrateOnly(
-            jdbcUrl = config.jdbcUrl
+            jdbcUrl = config.jdbcUrl,
+            dataSourceConfig = config.dataSourceConfig,
           )
           .map(_ => indexerFactory.initialized())(materializer.executionContext)
       )

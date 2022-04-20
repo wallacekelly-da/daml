@@ -13,15 +13,8 @@ import com.daml.platform.indexer.parallel.{
   ParallelIndexerFactory,
   ParallelIndexerSubscription,
 }
-import com.daml.platform.store.DbType.{
-  AsynchronousCommit,
-  LocalSynchronousCommit,
-  SynchronousCommit,
-}
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
-import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.StorageBackendFactory
-import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
 import scala.concurrent.Future
@@ -48,19 +41,7 @@ object JdbcIndexer {
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
         ingestionParallelism = config.ingestionParallelism,
-        dataSourceConfig = DataSourceConfig(
-          postgresConfig = PostgresDataSourceConfig(
-            synchronousCommit = Some(config.asyncCommitMode match {
-              case SynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.On
-              case AsynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.Off
-              case LocalSynchronousCommit =>
-                PostgresDataSourceConfig.SynchronousCommitValue.Local
-            }),
-            tcpKeepalivesIdle = config.postgresTcpKeepalivesIdle,
-            tcpKeepalivesInterval = config.postgresTcpKeepalivesInterval,
-            tcpKeepalivesCount = config.postgresTcpKeepalivesCount,
-          )
-        ),
+        dataSourceConfig = config.dataSourceConfig,
         haConfig = config.haConfig,
         metrics = metrics,
         dbLockStorageBackend = DBLockStorageBackend,

@@ -4,11 +4,11 @@
 package com.daml.platform.store.migration.postgres
 
 import java.sql.Connection
-
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.DbType
-import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.backend.{DataSourceStorageBackend, StorageBackendFactory}
 import com.daml.testing.postgresql.PostgresAroundEach
+
 import javax.sql.DataSource
 import org.scalatest.Suite
 
@@ -25,7 +25,10 @@ trait PostgresConnectionSupport extends PostgresAroundEach {
 
   override def beforeEach(): Unit = {
     super.beforeEach()
-    dataSource = dataSourceBackend.createDataSource(postgresDatabase.url)(LoggingContext.ForTesting)
+    dataSource = dataSourceBackend.createDataSource(
+      jdbcUrl = postgresDatabase.url,
+      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(),
+    )(LoggingContext.ForTesting)
     conn = retry(20, 1000) {
       val c = dataSource.getConnection
       dataSourceBackend.checkDatabaseAvailable(c)

@@ -24,7 +24,7 @@ import com.daml.platform.apiserver.ApiServer
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.logging
-import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.backend.{DataSourceStorageBackend, StorageBackendFactory}
 import com.daml.platform.store.{DbType, FlywayMigrations}
 import com.daml.ports.Port
 import com.daml.resources.AbstractResourceOwner
@@ -238,7 +238,7 @@ object SandboxServer {
   )(implicit resourceContext: ResourceContext): Future[Unit] =
     newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       logger.info("Running only schema migration scripts")
-      new FlywayMigrations(config.jdbcUrl.get)
+      new FlywayMigrations(config.jdbcUrl.get, DataSourceStorageBackend.DataSourceConfig())
         .migrate()
     }
 
@@ -253,7 +253,7 @@ object SandboxServer {
         // on new db when creating via `IndexMetadata.read`
         val storageBackendFactory = StorageBackendFactory.of(dbType)
         val dataSource =
-          storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl)
+          storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl, DataSourceStorageBackend.DataSourceConfig())
 
         storageBackendFactory.createParameterStorageBackend
           .ledgerIdentity(dataSource.getConnection)

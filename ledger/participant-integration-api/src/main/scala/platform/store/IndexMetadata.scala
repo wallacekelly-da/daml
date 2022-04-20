@@ -15,6 +15,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.backend.DataSourceStorageBackend
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
 import scalaz.Tag
@@ -58,6 +59,7 @@ object IndexMetadata {
         connectionPoolSize = 1,
         connectionTimeout = 250.millis,
         metrics = metrics,
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig()
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

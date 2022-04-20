@@ -192,6 +192,7 @@ final class Runner[T <: ReadWriteService, Extra](
                     connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
                     connectionTimeout = apiServerConfig.databaseConnectionTimeout,
                     metrics = metrics,
+                    dataSourceConfig = apiServerConfig.dataSourceConfig
                   )
                   .acquire()
                 userManagementStore = PersistentUserManagementStore.cached(

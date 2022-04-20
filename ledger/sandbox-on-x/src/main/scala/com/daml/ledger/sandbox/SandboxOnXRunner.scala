@@ -168,6 +168,7 @@ object SandboxOnXRunner {
               connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
               connectionTimeout = apiServerConfig.databaseConnectionTimeout,
               metrics = metrics,
+              dataSourceConfig = apiServerConfig.dataSourceConfig
             )
 
           indexService <- StandaloneIndexService(
