@@ -5,7 +5,11 @@ package com.daml.ledger.runner.common
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{
+  IndexConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.LfValueTranslationCache
 import io.grpc.ServerInterceptor
@@ -42,7 +46,7 @@ trait ConfigProvider[ExtraConfig] {
       maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
       archiveFiles = IndexConfiguration.DefaultArchiveFiles,
     ),
-    lfValueTranslationCacheConfig =  LfValueTranslationCache.Config(
+    lfValueTranslationCacheConfig = LfValueTranslationCache.Config(
       contract = cliConfig.lfValueTranslationContractCache,
       event = cliConfig.lfValueTranslationEventCache,
     ),
