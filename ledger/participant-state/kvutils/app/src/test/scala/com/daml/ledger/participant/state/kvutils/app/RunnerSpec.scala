@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.app
 
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import java.util.concurrent.{CompletableFuture, CompletionStage, TimeUnit}
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Keep, Sink, Source}
@@ -40,7 +40,7 @@ import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
-import com.daml.platform.apiserver.LedgerFeatures
+import com.daml.platform.apiserver.{ApiServerConfig, LedgerFeatures}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
@@ -58,7 +58,7 @@ import java.time.Duration
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.mutable
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
 
@@ -167,10 +167,6 @@ object RunnerSpec {
       mode = ParticipantRunMode.Combined,
       participantId = participantId,
       shardName = Some(UUID.randomUUID().toString),
-      address = None,
-      port = Port.Dynamic,
-      portFile = None,
-      serverJdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
       indexerConfig = IndexerConfig(
         participantId = participantId,
         jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
@@ -180,11 +176,26 @@ object RunnerSpec {
       lfValueTranslationContractCache = caching.SizedCache.Configuration(10),
       lfValueTranslationEventCache = caching.SizedCache.Configuration(10),
       maxDeduplicationDuration = None,
-      tlsConfig = None,
-      userManagementConfig = UserManagementConfig.default(enabled = false),
-      seeding = Seeding.Strong,
-      maxInboundMessageSize = CliConfig.DefaultMaxInboundMessageSize,
-      configurationLoadTimeout = Duration.ofSeconds(10),
+      apiServerConfig = ApiServerConfig(
+        participantId = participantId,
+        port = Port.Dynamic,
+        address = None,
+        jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
+        databaseConnectionPoolSize =
+          CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
+        databaseConnectionTimeout = FiniteDuration(
+          CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout.toMillis,
+          TimeUnit.MILLISECONDS,
+        ),
+        tlsConfig = None,
+        maxInboundMessageSize = CliConfig.DefaultMaxInboundMessageSize,
+        initialLedgerConfiguration = None,
+        configurationLoadTimeout = Duration.ofSeconds(10),
+        portFile = None,
+        seeding = Seeding.Strong,
+        managementServiceTimeout = CliParticipantConfig.DefaultManagementServiceTimeout,
+        userManagementConfig = UserManagementConfig.default(enabled = false),
+      ),
     )
   }
 

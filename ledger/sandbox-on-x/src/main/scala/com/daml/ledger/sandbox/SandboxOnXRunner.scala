@@ -123,8 +123,7 @@ object SandboxOnXRunner {
       actorSystem: ActorSystem,
       metrics: Option[Metrics] = None,
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
-    implicit val apiServerConfig: ApiServerConfig =
-      BridgeConfigProvider.apiServerConfig(participantConfig)
+    implicit val apiServerConfig: ApiServerConfig = participantConfig.apiServerConfig
     val sharedEngine = new Engine(config.engineConfig)
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
@@ -260,7 +259,6 @@ object SandboxOnXRunner {
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
         ),
       ),
-      userManagementConfig = apiServerConfig.userManagementConfig,
     )
 
   private def buildIndexerServer(
@@ -367,14 +365,14 @@ object SandboxOnXRunner {
     val ledgerDetails =
       Seq[(String, String)](
         "run-mode" -> s"${participantConfig.mode} participant",
-        "index DB backend" -> DbType.jdbcType(participantConfig.serverJdbcUrl).name,
+        "index DB backend" -> DbType.jdbcType(participantConfig.apiServerConfig.jdbcUrl).name,
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,
-        "port" -> participantConfig.port.toString,
+        "port" -> participantConfig.apiServerConfig.port.toString,
         "time mode" -> config.timeProviderType.description,
         "allowed language versions" -> s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
         "authentication" -> authentication,
-        "contract ids seeding" -> participantConfig.seeding.toString,
+        "contract ids seeding" -> participantConfig.apiServerConfig.seeding.toString,
       ).map { case (key, value) =>
         s"$key = $value"
       }.mkString(", ")

@@ -24,14 +24,7 @@ trait ConfigProvider[ExtraConfig] {
     mode = config.mode,
     participantId = config.participantId,
     shardName = config.shardName,
-    address = config.address,
-    port = config.port,
-    portFile = config.portFile,
-    serverJdbcUrl = config.serverJdbcUrl,
-    managementServiceTimeout = config.managementServiceTimeout,
     indexerConfig = config.indexerConfig,
-    apiServerDatabaseConnectionPoolSize = config.apiServerDatabaseConnectionPoolSize,
-    apiServerDatabaseConnectionTimeout = config.apiServerDatabaseConnectionTimeout,
     indexConfiguration = IndexConfiguration(
       acsContractFetchingParallelism = cliConfig.acsContractFetchingParallelism,
       acsGlobalParallelism = cliConfig.acsGlobalParallelism,
@@ -48,11 +41,25 @@ trait ConfigProvider[ExtraConfig] {
     lfValueTranslationContractCache = cliConfig.lfValueTranslationContractCache,
     lfValueTranslationEventCache = cliConfig.lfValueTranslationEventCache,
     maxDeduplicationDuration = cliConfig.maxDeduplicationDuration,
-    tlsConfig = cliConfig.tlsConfig,
-    userManagementConfig = cliConfig.userManagementConfig,
-    seeding = cliConfig.seeding,
-    maxInboundMessageSize = cliConfig.maxInboundMessageSize,
-    configurationLoadTimeout = cliConfig.configurationLoadTimeout,
+    apiServerConfig = ApiServerConfig(
+      participantId = config.participantId,
+      port = config.port,
+      address = config.address,
+      jdbcUrl = config.serverJdbcUrl,
+      databaseConnectionPoolSize = config.apiServerDatabaseConnectionPoolSize,
+      databaseConnectionTimeout = FiniteDuration(
+        config.apiServerDatabaseConnectionTimeout.toMillis,
+        TimeUnit.MILLISECONDS,
+      ),
+      tlsConfig = cliConfig.tlsConfig,
+      maxInboundMessageSize = cliConfig.maxInboundMessageSize,
+      initialLedgerConfiguration = Some(initialLedgerConfig(cliConfig.maxDeduplicationDuration)),
+      configurationLoadTimeout = cliConfig.configurationLoadTimeout,
+      portFile = config.portFile,
+      seeding = cliConfig.seeding,
+      managementServiceTimeout = config.managementServiceTimeout,
+      userManagementConfig = cliConfig.userManagementConfig,
+    ),
   )
 
   def toInternalConfig(config: CliConfig[ExtraConfig]): Config = {
@@ -70,33 +77,12 @@ trait ConfigProvider[ExtraConfig] {
     )
   }
 
-  def apiServerConfig(
-      participantConfig: ParticipantConfig
-  ): ApiServerConfig =
-    ApiServerConfig(
-      participantId = participantConfig.participantId,
-      port = participantConfig.port,
-      address = participantConfig.address,
-      jdbcUrl = participantConfig.serverJdbcUrl,
-      databaseConnectionPoolSize = participantConfig.apiServerDatabaseConnectionPoolSize,
-      databaseConnectionTimeout = FiniteDuration(
-        participantConfig.apiServerDatabaseConnectionTimeout.toMillis,
-        TimeUnit.MILLISECONDS,
-      ),
-      tlsConfig = participantConfig.tlsConfig,
-      maxInboundMessageSize = participantConfig.maxInboundMessageSize,
-      initialLedgerConfiguration = Some(initialLedgerConfig(participantConfig)),
-      configurationLoadTimeout = participantConfig.configurationLoadTimeout,
-      portFile = participantConfig.portFile,
-      seeding = participantConfig.seeding,
-      managementServiceTimeout = participantConfig.managementServiceTimeout,
-      userManagementConfig = participantConfig.userManagementConfig,
-    )
-
-  def initialLedgerConfig(config: ParticipantConfig): InitialLedgerConfiguration = {
+  def initialLedgerConfig(
+      maxDeduplicationDuration: Option[Duration]
+  ): InitialLedgerConfiguration = {
     InitialLedgerConfiguration(
       configuration = Configuration.reasonableInitialConfiguration.copy(maxDeduplicationDuration =
-        config.maxDeduplicationDuration.getOrElse(
+        maxDeduplicationDuration.getOrElse(
           Configuration.reasonableInitialConfiguration.maxDeduplicationDuration
         )
       ),

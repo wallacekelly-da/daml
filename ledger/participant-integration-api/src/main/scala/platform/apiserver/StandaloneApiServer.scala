@@ -22,7 +22,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.{CommandConfiguration, PartyConfiguration}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext
 import io.grpc.{BindableService, ServerInterceptor}
@@ -54,7 +53,6 @@ object StandaloneApiServer {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       ledgerFeatures: LedgerFeatures,
-      userManagementConfig: UserManagementConfig,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -80,7 +78,7 @@ object StandaloneApiServer {
       participantId,
       userManagementStore,
       servicesExecutionContext,
-      userRightsCheckIntervalInSeconds = userManagementConfig.cacheExpiryAfterWriteInSeconds,
+      userRightsCheckIntervalInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
       akkaScheduler = actorSystem.scheduler,
     )
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)

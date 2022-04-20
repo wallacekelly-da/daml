@@ -87,7 +87,7 @@ object LedgerBridge {
         .map(_.maxDeduplicationDuration)
         .getOrElse(
           BridgeConfigProvider
-            .initialLedgerConfig(participantConfig)
+            .initialLedgerConfig(participantConfig.maxDeduplicationDuration)
             .configuration
             .maxDeduplicationDuration
         ),

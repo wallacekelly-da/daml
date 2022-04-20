@@ -96,7 +96,7 @@ final class SandboxServer(
       BuildInfo.Version,
       genericConfig.ledgerId,
       apiServer.port.toString,
-      DbType.jdbcType(genericConfig.participants.head.serverJdbcUrl).name,
+      DbType.jdbcType(genericConfig.participants.head.apiServerConfig.jdbcUrl).name,
       config.damlPackages,
       genericConfig.timeProviderType.description,
       "SQL-backed conflict-checking ledger-bridge",
