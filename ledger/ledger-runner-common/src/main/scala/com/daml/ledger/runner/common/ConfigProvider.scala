@@ -5,12 +5,18 @@ package com.daml.ledger.runner.common
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration}
+import com.daml.platform.configuration.{
+  IndexConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.services.time.TimeProviderType
+import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
+import scala.annotation.unused
 import scala.concurrent.duration.FiniteDuration
 
 trait ConfigProvider[ExtraConfig] {
@@ -58,20 +64,22 @@ trait ConfigProvider[ExtraConfig] {
       seeding = cliConfig.seeding,
       managementServiceTimeout = config.managementServiceTimeout,
       userManagementConfig = cliConfig.userManagementConfig,
+      authService = cliConfig.authService,
+      commandConfig = cliConfig.commandConfig,
+      partyConfig = PartyConfiguration.default,
+      timeProviderType = cliConfig.timeProviderType,
     ),
   )
+
+  def partyConfig(@unused extra: ExtraConfig): PartyConfiguration = PartyConfiguration.default
 
   def toInternalConfig(config: CliConfig[ExtraConfig]): Config = {
     Config(
       engineConfig = config.engineConfig,
-      authService = config.authService,
-      configurationLoadTimeout = config.configurationLoadTimeout,
-      commandConfig = config.commandConfig,
       ledgerId = config.ledgerId,
       metricsReporter = config.metricsReporter,
       metricsReportingInterval = config.metricsReportingInterval,
       participants = config.participants.map(toParticipantConfig(config)),
-      timeProviderType = config.timeProviderType,
     )
   }
 
@@ -92,11 +100,14 @@ trait ConfigProvider[ExtraConfig] {
     )
   }
 
-  def timeServiceBackend(config: Config): Option[TimeServiceBackend] =
+  def timeServiceBackend(config: ApiServerConfig): Option[TimeServiceBackend] =
     config.timeProviderType match {
       case TimeProviderType.Static => Some(TimeServiceBackend.simple(Instant.EPOCH))
       case TimeProviderType.WallClock => None
     }
+
+  def interceptors: List[ServerInterceptor] = List.empty
+
 }
 
 object ConfigProvider {

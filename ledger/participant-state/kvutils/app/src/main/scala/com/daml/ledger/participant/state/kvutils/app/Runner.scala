@@ -23,7 +23,7 @@ import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingCo
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
-import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
+import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
@@ -87,26 +87,30 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def logInitializationHeader(config: Config): Unit = {
-    val authentication = config.authService match {
-      case _: AuthServiceJWT => "JWT-based authentication"
-      case AuthServiceNone => "none authenticated"
-      case _: AuthServiceStatic => "static authentication"
-      case AuthServiceWildcard => "all unauthenticated allowed"
-      case other => other.getClass.getSimpleName
-    }
     val participantsInitializationText = config.participants
-      .map(participantConfig =>
-        s"{participant-id = ${participantConfig.participantId}, shared-name = ${participantConfig.shardName}, run-mode = ${participantConfig.mode}, port = ${participantConfig.apiServerConfig.port.toString}, contract ids seeding = ${participantConfig.apiServerConfig.seeding}"
-      )
+      .map { participantConfig =>
+        val authentication = participantConfig.apiServerConfig.authService match {
+          case _: AuthServiceJWT => "JWT-based authentication"
+          case AuthServiceNone => "none authenticated"
+          case _: AuthServiceStatic => "static authentication"
+          case AuthServiceWildcard => "all unauthenticated allowed"
+          case other => other.getClass.getSimpleName
+        }
+        s"{participant-id = ${participantConfig.participantId}, " +
+          s"shared-name = ${participantConfig.shardName}, " +
+          s"run-mode = ${participantConfig.mode}, " +
+          s"port = ${participantConfig.apiServerConfig.port.toString}, " +
+          s"contract ids seeding = ${participantConfig.apiServerConfig.seeding}, " +
+          s"authentication = ${authentication}"
+      }
       .mkString("[", ", ", "]")
     logger.withoutContext.info(
-      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, authentication = {}, with participants: {}",
+      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, with participants: {}",
       name,
       BuildInfo.Version,
       config.ledgerId,
       factory.ledgerName,
       s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
-      authentication,
       participantsInitializationText,
     )
   }
@@ -215,20 +219,17 @@ final class Runner[T <: ReadWriteService, Extra](
                   indexService,
                 )(implicitly, servicesExecutionContext)
                 writeService = new TimedWriteService(factory.writeService(), metrics)
-                timeServiceBackend = configProvider.timeServiceBackend(config)
+                timeServiceBackend = configProvider.timeServiceBackend(apiServerConfig)
                 apiServer <- StandaloneApiServer(
                   indexService = indexService,
                   userManagementStore = userManagementStore,
                   ledgerId = config.ledgerId,
                   config = apiServerConfig,
-                  commandConfig = config.commandConfig,
-                  partyConfig = PartyConfiguration.default, //todo configurable?
                   optWriteService = Some(writeService),
-                  authService = config.authService,
                   healthChecks = healthChecksWithIndexer + ("write" -> writeService),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
-                  otherInterceptors = List.empty, //todo configurable?
+                  otherInterceptors = configProvider.interceptors,
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   ledgerFeatures = ledgerFeatures,

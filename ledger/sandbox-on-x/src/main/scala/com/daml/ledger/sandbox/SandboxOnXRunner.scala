@@ -36,7 +36,7 @@ import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
+import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
@@ -49,6 +49,8 @@ object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
 
+  val configProvider: ConfigProvider[BridgeConfig] = BridgeConfigProvider
+
   def owner(
       args: collection.Seq[String],
       manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
@@ -56,8 +58,8 @@ object SandboxOnXRunner {
     CliConfig
       .owner(
         RunnerName,
-        BridgeConfigProvider.extraConfigParser,
-        BridgeConfigProvider.defaultExtraConfig,
+        configProvider.extraConfigParser,
+        configProvider.defaultExtraConfig,
         args,
       )
       .map(manipulateConfig)
@@ -71,7 +73,7 @@ object SandboxOnXRunner {
             DumpIndexMetadata(jdbcUrls, RunnerName)
             sys.exit(0)
           case Mode.Run =>
-            val config = BridgeConfigProvider.toInternalConfig(originalConfig)
+            val config = configProvider.toInternalConfig(originalConfig)
             run(config, originalConfig.extra)
         }
       }
@@ -180,7 +182,7 @@ object SandboxOnXRunner {
             participantId = participantConfig.participantId,
           )
 
-          timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
+          timeServiceBackend = configProvider.timeServiceBackend(apiServerConfig)
 
           writeService <- buildWriteService(
             stateUpdatesFeedSink,
@@ -203,7 +205,6 @@ object SandboxOnXRunner {
             timeServiceBackend,
             dbSupport,
             config,
-            extra,
             apiServerConfig,
             participantConfig.participantId,
           )
@@ -221,7 +222,6 @@ object SandboxOnXRunner {
       timeServiceBackend: Option[TimeServiceBackend],
       dbSupport: DbSupport,
       config: Config,
-      extra: BridgeConfig,
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
   )(implicit
@@ -232,10 +232,7 @@ object SandboxOnXRunner {
       indexService = indexService,
       ledgerId = config.ledgerId,
       config = apiServerConfig,
-      commandConfig = config.commandConfig,
-      partyConfig = PartyConfiguration(extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
-      authService = config.authService,
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
@@ -363,7 +360,7 @@ object SandboxOnXRunner {
       participantConfig: ParticipantConfig,
       extra: BridgeConfig,
   ): Unit = {
-    val authentication = config.authService match {
+    val authentication = participantConfig.apiServerConfig.authService match {
       case _: AuthServiceJWT => "JWT-based authentication"
       case AuthServiceNone => "none authenticated"
       case _: AuthServiceStatic => "static authentication"
@@ -378,7 +375,7 @@ object SandboxOnXRunner {
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,
         "port" -> participantConfig.apiServerConfig.port.toString,
-        "time mode" -> config.timeProviderType.description,
+        "time mode" -> participantConfig.apiServerConfig.timeProviderType.description,
         "allowed language versions" -> s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
         "authentication" -> authentication,
         "contract ids seeding" -> participantConfig.apiServerConfig.seeding.toString,

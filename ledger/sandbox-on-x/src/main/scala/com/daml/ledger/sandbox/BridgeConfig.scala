@@ -4,7 +4,7 @@
 package com.daml.ledger.sandbox
 
 import com.daml.ledger.runner.common.{CliConfig, ConfigProvider}
-import com.daml.platform.configuration.InitialLedgerConfiguration
+import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import scopt.OptionParser
 
 import java.time.Duration
@@ -16,6 +16,9 @@ case class BridgeConfig(
 )
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
+  override def partyConfig(extra: BridgeConfig): PartyConfiguration =
+    PartyConfiguration(implicitPartyAllocation = extra.implicitPartyAllocation)
+
   override def extraConfigParser(parser: OptionParser[CliConfig[BridgeConfig]]): Unit = {
     parser
       .opt[Int]("bridge-submission-buffer-size")

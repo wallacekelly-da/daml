@@ -12,6 +12,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{Materializer, QueueOfferResult}
 import com.daml.caching
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.ledger_identity_service.{
@@ -42,8 +43,13 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
 import com.daml.platform.apiserver.{ApiServerConfig, LedgerFeatures}
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.configuration.IndexConfiguration
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  IndexConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import com.daml.telemetry.TelemetryContext
@@ -194,6 +200,10 @@ object RunnerSpec {
         seeding = Seeding.Strong,
         managementServiceTimeout = CliParticipantConfig.DefaultManagementServiceTimeout,
         userManagementConfig = UserManagementConfig.default(enabled = false),
+        authService = AuthServiceWildcard,
+        partyConfig = PartyConfiguration.default,
+        commandConfig = CommandConfiguration.default,
+        timeProviderType = TimeProviderType.WallClock,
       ),
     )
   }

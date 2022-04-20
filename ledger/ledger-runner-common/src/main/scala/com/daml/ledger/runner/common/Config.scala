@@ -3,22 +3,15 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.ledger.api.auth.AuthService
 import com.daml.lf.engine.EngineConfig
 import com.daml.metrics.MetricsReporter
-import com.daml.platform.configuration.CommandConfiguration
-import com.daml.platform.services.time.TimeProviderType
 
 import java.time.Duration
 
 final case class Config(
-    engineConfig: EngineConfig,
-    authService: AuthService,
-    configurationLoadTimeout: Duration,
-    commandConfig: CommandConfiguration,
     ledgerId: String,
+    engineConfig: EngineConfig,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     participants: Seq[ParticipantConfig],
-    timeProviderType: TimeProviderType,
 )

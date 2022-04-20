@@ -10,7 +10,7 @@ import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, Authorizer}
+import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.index.v2.{IndexService, UserManagementStore}
@@ -20,7 +20,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.{CommandConfiguration, PartyConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext
@@ -40,10 +39,7 @@ object StandaloneApiServer {
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
       config: ApiServerConfig,
-      commandConfig: CommandConfiguration,
-      partyConfig: PartyConfiguration,
       optWriteService: Option[state.WriteService],
-      authService: AuthService,
       healthChecks: HealthChecks,
       metrics: Metrics,
       timeServiceBackend: Option[TimeServiceBackend] = None,
@@ -98,8 +94,8 @@ object StandaloneApiServer {
           ),
         configurationLoadTimeout = config.configurationLoadTimeout,
         initialLedgerConfiguration = config.initialLedgerConfiguration,
-        commandConfig = commandConfig,
-        partyConfig = partyConfig,
+        commandConfig = config.commandConfig,
+        partyConfig = config.partyConfig,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
@@ -119,7 +115,7 @@ object StandaloneApiServer {
         config.address,
         config.tlsConfig,
         AuthorizationInterceptor(
-          authService,
+          config.authService,
           Option.when(config.userManagementConfig.enabled)(userManagementStore),
           servicesExecutionContext,
         ) :: otherInterceptors,

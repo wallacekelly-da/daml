@@ -13,7 +13,7 @@ import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.Config
+import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -81,13 +81,14 @@ final class SandboxServer(
             .acquire()
       }
     } yield {
-      initializationLoggingHeader(genericConfig, apiServer)
+      initializationLoggingHeader(genericConfig, participantConfig, apiServer)
       apiServer.port
     }
   }
 
   private def initializationLoggingHeader(
       genericConfig: Config,
+      participantConfig: ParticipantConfig,
       apiServer: ApiServer,
   ): Unit = {
     Banner.show(Console.out)
@@ -98,9 +99,9 @@ final class SandboxServer(
       apiServer.port.toString,
       DbType.jdbcType(genericConfig.participants.head.apiServerConfig.jdbcUrl).name,
       config.damlPackages,
-      genericConfig.timeProviderType.description,
+      participantConfig.apiServerConfig.timeProviderType.description,
       "SQL-backed conflict-checking ledger-bridge",
-      genericConfig.authService.getClass.getSimpleName,
+      participantConfig.apiServerConfig.authService.getClass.getSimpleName,
       config.seeding.name,
       if (config.stackTraces) "" else ", stack traces = no",
       config.profileDir match {
