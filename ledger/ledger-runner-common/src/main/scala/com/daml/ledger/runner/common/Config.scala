@@ -3,7 +3,6 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.caching
 import com.daml.ledger.api.auth.AuthService
 import com.daml.lf.engine.EngineConfig
 import com.daml.metrics.MetricsReporter
@@ -21,6 +20,5 @@ final case class Config(
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     participants: Seq[ParticipantConfig],
-    stateValueCache: caching.WeightedCache.Configuration,
     timeProviderType: TimeProviderType,
 )

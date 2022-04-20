@@ -71,7 +71,6 @@ trait ConfigProvider[ExtraConfig] {
       metricsReporter = config.metricsReporter,
       metricsReportingInterval = config.metricsReportingInterval,
       participants = config.participants.map(toParticipantConfig(config)),
-      stateValueCache = config.stateValueCache,
       timeProviderType = config.timeProviderType,
     )
   }

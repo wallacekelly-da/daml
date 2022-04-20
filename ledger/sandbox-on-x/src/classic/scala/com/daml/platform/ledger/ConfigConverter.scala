@@ -3,7 +3,6 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.caching
 import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.runner.common._
 import com.daml.lf.engine.EngineConfig
@@ -94,7 +93,6 @@ object ConfigConverter {
         singleCombinedParticipant
       ),
       seeding = sandboxConfig.seeding,
-      stateValueCache = caching.WeightedCache.Configuration.none,
       timeProviderType = sandboxConfig.timeProviderType.getOrElse(DefaultTimeProviderType),
       tlsConfig = sandboxConfig.tlsConfig,
       userManagementConfig = sandboxConfig.userManagementConfig,

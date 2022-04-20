@@ -232,7 +232,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   ledgerFeatures = ledgerFeatures,
-                  participantId = participantConfig.participantId
+                  participantId = participantConfig.participantId,
                 ).acquire()
               } yield Some(apiServer.port)
             case ParticipantRunMode.Indexer =>

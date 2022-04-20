@@ -10,9 +10,19 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceNone, AuthServiceStatic, AuthServiceWildcard}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceNone,
+  AuthServiceStatic,
+  AuthServiceWildcard,
+}
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.{CommandDeduplicationFeatures, CommandDeduplicationPeriodSupport, CommandDeduplicationType, ExperimentalContractIds}
+import com.daml.ledger.api.v1.experimental_features.{
+  CommandDeduplicationFeatures,
+  CommandDeduplicationPeriodSupport,
+  CommandDeduplicationType,
+  ExperimentalContractIds,
+}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
@@ -180,7 +190,7 @@ object SandboxOnXRunner {
             servicesThreadPoolSize,
             timeServiceBackend,
             participantConfig,
-            extra
+            extra,
           )
 
           apiServer <- buildStandaloneApiServer(
@@ -195,7 +205,7 @@ object SandboxOnXRunner {
             config,
             extra,
             apiServerConfig,
-            participantConfig.participantId
+            participantConfig.participantId,
           )
         } yield (apiServer, writeService, indexService)
     }
@@ -257,7 +267,7 @@ object SandboxOnXRunner {
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
         ),
       ),
-      participantId = participantId
+      participantId = participantId,
     )
 
   private def buildIndexerServer(

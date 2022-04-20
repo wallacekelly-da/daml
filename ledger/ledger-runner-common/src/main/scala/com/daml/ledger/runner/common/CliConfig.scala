@@ -51,7 +51,6 @@ final case class CliConfig[Extra](
     mode: Mode,
     participants: Seq[CliParticipantConfig],
     seeding: Seeding,
-    stateValueCache: caching.WeightedCache.Configuration,
     timeProviderType: TimeProviderType,
     tlsConfig: Option[TlsConfiguration],
     userManagementConfig: UserManagementConfig,
@@ -100,7 +99,6 @@ object CliConfig {
       mode = Mode.Run,
       participants = Vector.empty,
       seeding = Seeding.Strong,
-      stateValueCache = caching.WeightedCache.Configuration.none,
       timeProviderType = TimeProviderType.WallClock,
       tlsConfig = None,
       userManagementConfig = UserManagementConfig.default(enabled = false),
@@ -513,17 +511,6 @@ object CliConfig {
             s"Maximum number of contract ids queued for fetching. Default is ${IndexConfiguration.DefaultAcsIdQueueLimit}."
           )
           .action((acsIdQueueLimit, config) => config.copy(acsIdQueueLimit = acsIdQueueLimit))
-
-        opt[Long]("max-state-value-cache-size")
-          .optional()
-          .text(
-            s"The maximum size of the cache used to deserialize state values, in MB. By default, nothing is cached."
-          )
-          .action((maximumStateValueCacheSize, config) =>
-            config.copy(stateValueCache =
-              config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)
-            )
-          )
 
         opt[Long]("max-lf-value-translation-cache-entries")
           .optional()
