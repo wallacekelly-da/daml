@@ -197,9 +197,9 @@ class RecoveringIndexerIntegrationSpec
         readService = participantState._1,
         config = IndexerConfig(
           participantId = participantId,
-          jdbcUrl = jdbcUrl,
           startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
+          dataSourceConfig = IndexerConfig.createDefault(jdbcUrl)
         ),
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -234,12 +234,11 @@ class RecoveringIndexerIntegrationSpec
     val metrics = new Metrics(new MetricRegistry)
     DbSupport
       .owner(
-        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
         connectionPoolSize = 16,
         connectionTimeout = 250.millis,
         metrics = metrics,
-        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig()
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

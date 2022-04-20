@@ -283,7 +283,6 @@ object CliConfig {
               serverJdbcUrl = jdbcUrl,
               indexerConfig = IndexerConfig(
                 participantId = participantId,
-                jdbcUrl = jdbcUrl,
                 startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
                 maxInputBufferSize = indexerMaxInputBufferSize,
                 inputMappingParallelism = indexerInputMappingParallelism,
@@ -293,6 +292,7 @@ object CliConfig {
                 tailingRateLimitPerSecond = indexerTailingRateLimitPerSecond,
                 batchWithinMillis = indexerBatchWithinMillis,
                 enableCompression = indexerEnableCompression,
+                dataSourceConfig = IndexerConfig.createDefault(jdbcUrl)
               ),
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
               apiServerDatabaseConnectionTimeout = apiServerConnectionTimeout,

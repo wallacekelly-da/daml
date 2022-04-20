@@ -5,6 +5,7 @@ package com.daml.ledger.sandbox
 
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.sandbox.SandboxOnXRunner
+import com.daml.platform.indexer.IndexerConfig
 import com.daml.resources.ProgramResource
 import com.daml.testing.postgresql.PostgresAround
 
@@ -21,7 +22,8 @@ object MainWithEphemeralPostgresql extends PostgresAround {
             participants = originalConfig.participants.map(p =>
               p.copy(
                 serverJdbcUrl = database.url,
-                indexerConfig = p.indexerConfig.copy(jdbcUrl = database.url),
+                indexerConfig =
+                  p.indexerConfig.copy(dataSourceConfig = IndexerConfig.createDefault(database.url)),
               )
             )
           ),

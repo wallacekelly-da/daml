@@ -163,7 +163,6 @@ object SandboxOnXRunner {
 
           dbSupport <- DbSupport
             .owner(
-              jdbcUrl = apiServerConfig.jdbcUrl,
               serverRole = ServerRole.ApiServer,
               connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
               connectionTimeout = apiServerConfig.databaseConnectionTimeout,
@@ -371,7 +370,7 @@ object SandboxOnXRunner {
     val ledgerDetails =
       Seq[(String, String)](
         "run-mode" -> s"${participantConfig.mode} participant",
-        "index DB backend" -> DbType.jdbcType(participantConfig.apiServerConfig.jdbcUrl).name,
+        "index DB backend" -> DbType.jdbcType(participantConfig.apiServerConfig.dataSourceConfig.jdbcUrl).name,
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,
         "port" -> participantConfig.apiServerConfig.port.toString,

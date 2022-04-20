@@ -39,10 +39,10 @@ object ConfigConverter {
       managementServiceTimeout = sandboxConfig.managementServiceTimeout,
       indexerConfig = IndexerConfig(
         participantId = sandboxConfig.participantId,
-        jdbcUrl = serverJdbcUrl,
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
         enableCompression = sandboxConfig.enableCompression,
+        dataSourceConfig = IndexerConfig.createDefault(serverJdbcUrl)
       ),
       apiServerDatabaseConnectionPoolSize = sandboxConfig.databaseConnectionPoolSize,
     )

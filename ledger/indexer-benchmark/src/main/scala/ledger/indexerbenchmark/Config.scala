@@ -4,11 +4,11 @@
 package com.daml.ledger.indexerbenchmark
 
 import java.time.Duration
-
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.store.backend.DataSourceStorageBackend
 import scopt.OptionParser
 
 /** @param updateCount The number of updates to process.
@@ -34,8 +34,8 @@ object Config {
     metricsReportingInterval = Duration.ofSeconds(1),
     indexerConfig = IndexerConfig(
       participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
-      jdbcUrl = "",
       startupMode = IndexerStartupMode.MigrateAndStart(),
+      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(""),
     ),
     waitForUserInput = false,
     minUpdateRate = None,
@@ -98,7 +98,10 @@ object Config {
           "The JDBC URL of the index database. Default: the benchmark will run against an ephemeral Postgres database."
         )
         .action((value, config) =>
-          config.copy(indexerConfig = config.indexerConfig.copy(jdbcUrl = value))
+          config.copy(indexerConfig =
+            config.indexerConfig
+              .copy(dataSourceConfig = config.indexerConfig.dataSourceConfig.copy(jdbcUrl = value))
+          )
         )
 
       opt[Long]("update-count")

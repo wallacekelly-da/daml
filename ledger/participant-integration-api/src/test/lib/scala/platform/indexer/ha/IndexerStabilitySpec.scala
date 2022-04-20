@@ -59,8 +59,7 @@ trait IndexerStabilitySpec
       .use[Unit] { indexers =>
         val factory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
         val dataSource = factory.createDataSourceStorageBackend.createDataSource(
-          jdbcUrl,
-          DataSourceStorageBackend.DataSourceConfig(),
+          DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
         )
         val parameterStorageBackend = factory.createParameterStorageBackend
         val integrityStorageBackend = factory.createIntegrityStorageBackend

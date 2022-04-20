@@ -19,7 +19,6 @@ import scala.concurrent.duration.FiniteDuration
 case class ApiServerConfig(
     port: Port,
     address: Option[String], // This defaults to "localhost" when set to `None`.
-    jdbcUrl: String,
     databaseConnectionPoolSize: Int,
     databaseConnectionTimeout: FiniteDuration,
     tlsConfig: Option[TlsConfiguration],
@@ -34,5 +33,5 @@ case class ApiServerConfig(
     partyConfig: PartyConfiguration,
     commandConfig: CommandConfiguration,
     timeProviderType: TimeProviderType,
-    dataSourceConfig: DataSourceStorageBackend.DataSourceConfig = DataSourceStorageBackend.DataSourceConfig()
+    dataSourceConfig: DataSourceStorageBackend.DataSourceConfig
 )

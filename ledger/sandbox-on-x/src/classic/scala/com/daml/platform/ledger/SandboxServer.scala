@@ -97,7 +97,9 @@ final class SandboxServer(
       BuildInfo.Version,
       genericConfig.ledgerId,
       apiServer.port.toString,
-      DbType.jdbcType(genericConfig.participants.head.apiServerConfig.jdbcUrl).name,
+      DbType
+        .jdbcType(genericConfig.participants.head.apiServerConfig.dataSourceConfig.jdbcUrl)
+        .name,
       config.damlPackages,
       participantConfig.apiServerConfig.timeProviderType.description,
       "SQL-backed conflict-checking ledger-bridge",
@@ -238,7 +240,7 @@ object SandboxServer {
   )(implicit resourceContext: ResourceContext): Future[Unit] =
     newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       logger.info("Running only schema migration scripts")
-      new FlywayMigrations(config.jdbcUrl.get, DataSourceStorageBackend.DataSourceConfig())
+      new FlywayMigrations(DataSourceStorageBackend.DataSourceConfig(config.jdbcUrl.get))
         .migrate()
     }
 
@@ -253,7 +255,9 @@ object SandboxServer {
         // on new db when creating via `IndexMetadata.read`
         val storageBackendFactory = StorageBackendFactory.of(dbType)
         val dataSource =
-          storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl, DataSourceStorageBackend.DataSourceConfig())
+          storageBackendFactory.createDataSourceStorageBackend.createDataSource(
+            DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
+          )
 
         storageBackendFactory.createParameterStorageBackend
           .ledgerIdentity(dataSource.getConnection)

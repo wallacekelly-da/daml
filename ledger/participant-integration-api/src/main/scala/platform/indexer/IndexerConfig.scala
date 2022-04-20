@@ -13,7 +13,6 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
     participantId: Ref.ParticipantId,
-    jdbcUrl: String,
     startupMode: IndexerStartupMode,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
@@ -25,21 +24,23 @@ case class IndexerConfig(
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
     haConfig: HaConfig = HaConfig(),
-    // PostgresSQL specific configurations
-    // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
-    // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
-    dataSourceConfig: DataSourceStorageBackend.DataSourceConfig =
-      DataSourceStorageBackend.DataSourceConfig(
-        postgresConfig = PostgresDataSourceConfig(
-          synchronousCommit = Some(PostgresDataSourceConfig.SynchronousCommitValue.Off),
-          tcpKeepalivesIdle = Some(10),
-          tcpKeepalivesInterval = Some(1),
-          tcpKeepalivesCount = Some(5),
-        )
-      ),
+    dataSourceConfig: DataSourceStorageBackend.DataSourceConfig
 )
 
 object IndexerConfig {
+
+  def createDefault(jdbcUrl: String) = DataSourceStorageBackend.DataSourceConfig(
+    jdbcUrl = jdbcUrl,
+    // PostgresSQL specific configurations
+    // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
+    // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
+    postgresConfig = PostgresDataSourceConfig(
+      synchronousCommit = Some(PostgresDataSourceConfig.SynchronousCommitValue.Off),
+      tcpKeepalivesIdle = Some(10),
+      tcpKeepalivesInterval = Some(1),
+      tcpKeepalivesCount = Some(5),
+    )
+  )
 
   val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds

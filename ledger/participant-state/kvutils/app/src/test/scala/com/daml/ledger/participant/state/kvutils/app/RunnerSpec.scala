@@ -12,10 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.api.v1.ledger_identity_service.{
-  GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc,
-}
+import com.daml.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, LedgerIdentityServiceGrpc}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
@@ -32,14 +29,11 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.{ApiServerConfig, LedgerFeatures}
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  IndexConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.backend.DataSourceStorageBackend
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import com.daml.telemetry.TelemetryContext
@@ -168,8 +162,8 @@ object RunnerSpec {
       shardName = Some(UUID.randomUUID().toString),
       indexerConfig = IndexerConfig(
         participantId = participantId,
-        jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
+        dataSourceConfig = IndexerConfig.createDefault(CliParticipantConfig.defaultIndexJdbcUrl(participantId))
       ),
       indexConfiguration = IndexConfiguration(),
       lfValueTranslationCacheConfig = LfValueTranslationCache
@@ -181,7 +175,6 @@ object RunnerSpec {
       apiServerConfig = ApiServerConfig(
         port = Port.Dynamic,
         address = None,
-        jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
         databaseConnectionPoolSize =
           CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
         databaseConnectionTimeout = FiniteDuration(
@@ -200,6 +193,9 @@ object RunnerSpec {
         partyConfig = PartyConfiguration.default,
         commandConfig = CommandConfiguration.default,
         timeProviderType = TimeProviderType.WallClock,
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
+          jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId)
+        )
       ),
     )
   }

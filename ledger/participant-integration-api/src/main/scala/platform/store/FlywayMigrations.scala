@@ -18,16 +18,15 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] class FlywayMigrations(
-    jdbcUrl: String,
     dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
     additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit resourceContext: ResourceContext, loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val dbType = DbType.jdbcType(jdbcUrl)
+  private val dbType = DbType.jdbcType(dataSourceConfig.jdbcUrl)
   implicit private val ec: ExecutionContext = resourceContext.executionContext
 
   private def runF[T](t: FluentConfiguration => Future[T]): Future[T] =
-    VerifiedDataSource(jdbcUrl, dataSourceConfig).flatMap(dataSource =>
+    VerifiedDataSource(dataSourceConfig).flatMap(dataSource =>
       t(configurationBase(dataSource))
     )
 

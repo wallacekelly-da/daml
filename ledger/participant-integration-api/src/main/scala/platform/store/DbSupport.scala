@@ -21,19 +21,18 @@ case class DbSupport(
 
 object DbSupport {
   def owner(
-      jdbcUrl: String,
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       serverRole: ServerRole,
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbSupport] = {
-    val dbType = DbType.jdbcType(jdbcUrl)
+    val dbType = DbType.jdbcType(dataSourceConfig.jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbDispatcher
       .owner(
         dataSource = storageBackendFactory.createDataSourceStorageBackend
-          .createDataSource(jdbcUrl, dataSourceConfig),
+          .createDataSource(dataSourceConfig),
         serverRole = serverRole,
         connectionPoolSize = connectionPoolSize,
         connectionTimeout = connectionTimeout,
@@ -48,7 +47,6 @@ object DbSupport {
   }
 
   def migratedOwner(
-      jdbcUrl: String,
       serverRole: ServerRole,
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       connectionPoolSize: Int,
@@ -57,13 +55,12 @@ object DbSupport {
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbSupport] = {
     val migrationOwner = new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[ResourceContext, Unit] =
-        PureResource(new FlywayMigrations(jdbcUrl, dataSourceConfig).migrate())
+        PureResource(new FlywayMigrations(dataSourceConfig).migrate())
     }
 
     for {
       _ <- migrationOwner
       dbSupport <- owner(
-        jdbcUrl = jdbcUrl,
         serverRole = serverRole,
         connectionPoolSize = connectionPoolSize,
         connectionTimeout = connectionTimeout,

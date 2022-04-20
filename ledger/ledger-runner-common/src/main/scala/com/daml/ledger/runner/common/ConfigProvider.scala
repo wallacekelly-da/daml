@@ -12,6 +12,7 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.backend.DataSourceStorageBackend
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
@@ -54,7 +55,6 @@ trait ConfigProvider[ExtraConfig] {
     apiServerConfig = ApiServerConfig(
       port = config.port,
       address = config.address,
-      jdbcUrl = config.serverJdbcUrl,
       databaseConnectionPoolSize = config.apiServerDatabaseConnectionPoolSize,
       databaseConnectionTimeout = FiniteDuration(
         config.apiServerDatabaseConnectionTimeout.toMillis,
@@ -72,6 +72,7 @@ trait ConfigProvider[ExtraConfig] {
       commandConfig = cliConfig.commandConfig,
       partyConfig = PartyConfiguration.default,
       timeProviderType = cliConfig.timeProviderType,
+      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl = config.serverJdbcUrl),
     ),
   )
 

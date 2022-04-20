@@ -26,8 +26,7 @@ trait PostgresConnectionSupport extends PostgresAroundEach {
   override def beforeEach(): Unit = {
     super.beforeEach()
     dataSource = dataSourceBackend.createDataSource(
-      jdbcUrl = postgresDatabase.url,
-      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(),
+      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(postgresDatabase.url)
     )(LoggingContext.ForTesting)
     conn = retry(20, 1000) {
       val c = dataSource.getConnection

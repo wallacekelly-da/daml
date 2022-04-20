@@ -60,12 +60,11 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbSupport
       .migratedOwner(
-        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
         connectionPoolSize = dbType.maxSupportedWriteConnections(16),
         connectionTimeout = 250.millis,
         metrics = metrics,
-        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig()
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
       )
       .map { dbSupport =>
         JdbcLedgerDao.write(

@@ -28,7 +28,6 @@ final class StandaloneIndexerServer(
   override def acquire()(implicit context: ResourceContext): Resource[ReportsHealth] = {
     val flywayMigrations =
       new FlywayMigrations(
-        config.jdbcUrl,
         config.dataSourceConfig,
         additionalMigrationPaths,
       )
@@ -97,13 +96,12 @@ object StandaloneIndexerServer {
   // Separate entry point for migrateOnly that serves as an operations rather than a startup command. As such it
   // does not require any of the configurations of a full-fledged indexer except for the jdbc url.
   def migrateOnly(
-      jdbcUrl: String,
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       allowExistingSchema: Boolean = false,
       additionalMigrationPaths: Seq[String] = Seq.empty,
   )(implicit rc: ResourceContext, loggingContext: LoggingContext): Future[Unit] = {
     val flywayMigrations =
-      new FlywayMigrations(jdbcUrl, dataSourceConfig, additionalMigrationPaths)
+      new FlywayMigrations(dataSourceConfig, additionalMigrationPaths)
     flywayMigrations.migrate(allowExistingSchema)
   }
 }

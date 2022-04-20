@@ -54,12 +54,11 @@ object IndexMetadata {
     val metrics = new Metrics(new MetricRegistry)
     DbSupport
       .owner(
-        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.ReadIndexMetadata,
         connectionPoolSize = 1,
         connectionTimeout = 250.millis,
         metrics = metrics,
-        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig()
+        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

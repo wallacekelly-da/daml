@@ -187,7 +187,6 @@ final class Runner[T <: ReadWriteService, Extra](
               for {
                 dbSupport <- DbSupport
                   .owner(
-                    jdbcUrl = apiServerConfig.jdbcUrl,
                     serverRole = ServerRole.ApiServer,
                     connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
                     connectionTimeout = apiServerConfig.databaseConnectionTimeout,
