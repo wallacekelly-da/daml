@@ -7,7 +7,7 @@ import com.daml.lf.engine.EngineConfig
 
 final case class Config(
     ledgerId: String,
-    engineConfig: EngineConfig,
-    metricsConfig: MetricsConfig,
+    engine: EngineConfig,
+    metrics: MetricsConfig,
     participants: Seq[ParticipantConfig],
 )

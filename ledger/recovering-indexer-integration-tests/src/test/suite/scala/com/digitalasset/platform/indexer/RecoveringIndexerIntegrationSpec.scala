@@ -18,7 +18,12 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v2.{ReadService, SubmissionResult, Update, WritePartyService}
+import com.daml.ledger.participant.state.v2.{
+  ReadService,
+  SubmissionResult,
+  Update,
+  WritePartyService,
+}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}

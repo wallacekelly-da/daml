@@ -74,7 +74,7 @@ final class Runner[T <: ReadWriteService, Extra](
         _ <- ResourceOwner.forActorSystem(() => actorSystem).acquire()
         _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
 
-        sharedEngine = new Engine(config.engineConfig)
+        sharedEngine = new Engine(config.engine)
 
         // initialize all configured participants
         _ <- Resource.sequenceIgnoringValues(
@@ -89,7 +89,7 @@ final class Runner[T <: ReadWriteService, Extra](
   private def logInitializationHeader(config: Config): Unit = {
     val participantsInitializationText = config.participants
       .map { participantConfig =>
-        val authentication = participantConfig.apiServerConfig.authentication match {
+        val authentication = participantConfig.apiServer.authentication match {
           case _: AuthServiceJWT => "JWT-based authentication"
           case AuthServiceNone => "none authenticated"
           case _: AuthServiceStatic => "static authentication"
@@ -99,8 +99,8 @@ final class Runner[T <: ReadWriteService, Extra](
         s"{participant-id = ${participantConfig.participantId}, " +
           s"shared-name = ${participantConfig.shardName}, " +
           s"run-mode = ${participantConfig.mode}, " +
-          s"port = ${participantConfig.apiServerConfig.port.toString}, " +
-          s"contract ids seeding = ${participantConfig.apiServerConfig.seeding}, " +
+          s"port = ${participantConfig.apiServer.port.toString}, " +
+          s"contract ids seeding = ${participantConfig.apiServer.seeding}, " +
           s"authentication = $authentication"
       }
       .mkString("[", ", ", "]")
@@ -110,7 +110,7 @@ final class Runner[T <: ReadWriteService, Extra](
       BuildInfo.Version,
       config.ledgerId,
       factory.ledgerName,
-      s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
+      s"[min = ${config.engine.allowedLanguageVersions.min}, max = ${config.engine.allowedLanguageVersions.max}]",
       participantsInitializationText,
     )
   }
@@ -133,14 +133,14 @@ final class Runner[T <: ReadWriteService, Extra](
           .fromSharedMetricRegistries(participantConfig.metricsRegistryName)
         metrics.registry.registerAll(new JvmMetricSet)
         val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
-          config = participantConfig.lfValueTranslationCacheConfig,
+          config = participantConfig.lfValueTranslationCache,
           metrics = metrics,
         )
         for {
-          _ <- config.metricsConfig.reporter.fold(Resource.unit)(reporter =>
+          _ <- config.metrics.reporter.fold(Resource.unit)(reporter =>
             ResourceOwner
               .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metricsConfig.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
+              .map(_.start(config.metrics.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
               .acquire()
           )
           servicesExecutionContext <- ResourceOwner
@@ -168,7 +168,7 @@ final class Runner[T <: ReadWriteService, Extra](
               for {
                 indexerHealth <- new StandaloneIndexerServer(
                   readService = readService,
-                  config = participantConfig.indexerConfig,
+                  config = participantConfig.indexer,
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
@@ -181,7 +181,7 @@ final class Runner[T <: ReadWriteService, Extra](
             case ParticipantRunMode.LedgerApiServer =>
               Resource.successful(new HealthChecks())
           }
-          apiServerConfig = participantConfig.apiServerConfig
+          apiServerConfig = participantConfig.apiServer
           port <- participantConfig.mode match {
             case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
               for {
@@ -196,15 +196,15 @@ final class Runner[T <: ReadWriteService, Extra](
                   dbSupport = dbSupport,
                   metrics = metrics,
                   cacheExpiryAfterWriteInSeconds =
-                    apiServerConfig.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-                  maxCacheSize = apiServerConfig.userManagementConfig.maxCacheSize,
+                    apiServerConfig.userManagement.cacheExpiryAfterWriteInSeconds,
+                  maxCacheSize = apiServerConfig.userManagement.maxCacheSize,
                   maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
                   timeProvider = TimeProvider.UTC,
                 )(servicesExecutionContext, loggingContext)
                 indexService <- StandaloneIndexService(
                   dbSupport = dbSupport,
                   ledgerId = config.ledgerId,
-                  config = participantConfig.indexConfiguration,
+                  config = participantConfig.index,
                   participantId = participantConfig.participantId,
                   metrics = metrics,
                   engine = sharedEngine,

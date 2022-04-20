@@ -40,7 +40,7 @@ object JdbcIndexer {
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
         dbConfig = config.database,
-        haConfig = config.haConfig,
+        haConfig = config.highAvailability,
         metrics = metrics,
         dbLockStorageBackend = DBLockStorageBackend,
         dataSourceStorageBackend = dataSourceStorageBackend,

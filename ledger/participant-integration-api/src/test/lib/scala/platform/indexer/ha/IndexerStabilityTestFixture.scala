@@ -61,7 +61,7 @@ object IndexerStabilityTestFixture {
     val indexerConfig = IndexerConfig(
       participantId = EndlessReadService.participantId,
       startupMode = IndexerStartupMode.MigrateAndStart(),
-      haConfig = HaConfig(
+      highAvailability = HaConfig(
         indexerLockId = lockIdSeed,
         indexerWorkerLockId = lockIdSeed + 1,
       ),

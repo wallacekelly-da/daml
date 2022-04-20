@@ -98,12 +98,12 @@ final class SandboxServer(
       genericConfig.ledgerId,
       apiServer.port.toString,
       DbType
-        .jdbcType(genericConfig.participants.head.apiServerConfig.database.jdbcUrl)
+        .jdbcType(genericConfig.participants.head.apiServer.database.jdbcUrl)
         .name,
       config.damlPackages,
-      participantConfig.apiServerConfig.timeProviderType.description,
+      participantConfig.apiServer.timeProviderType.description,
       "SQL-backed conflict-checking ledger-bridge",
-      participantConfig.apiServerConfig.authentication.getClass.getSimpleName,
+      participantConfig.apiServer.authentication.getClass.getSimpleName,
       config.seeding.name,
       if (config.stackTraces) "" else ", stack traces = no",
       config.profileDir match {

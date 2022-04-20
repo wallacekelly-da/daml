@@ -126,15 +126,15 @@ object SandboxOnXRunner {
       actorSystem: ActorSystem,
       metrics: Option[Metrics] = None,
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
-    val apiServerConfig: ApiServerConfig = participantConfig.apiServerConfig
-    val sharedEngine = new Engine(config.engineConfig)
+    val apiServerConfig: ApiServerConfig = participantConfig.apiServer
+    val sharedEngine = new Engine(config.engine)
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
         for {
           metrics <- metrics.map(ResourceOwner.successful).getOrElse(buildMetrics)
           translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
-            config = participantConfig.lfValueTranslationCacheConfig,
+            config = participantConfig.lfValueTranslationCache,
             metrics = metrics,
           )
 
@@ -170,7 +170,7 @@ object SandboxOnXRunner {
 
           indexService <- StandaloneIndexService(
             ledgerId = config.ledgerId,
-            config = participantConfig.indexConfiguration,
+            config = participantConfig.index,
             metrics = metrics,
             engine = sharedEngine,
             servicesExecutionContext = servicesExecutionContext,
@@ -240,8 +240,8 @@ object SandboxOnXRunner {
         dbSupport = dbSupport,
         metrics = metrics,
         cacheExpiryAfterWriteInSeconds =
-          apiServerConfig.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-        maxCacheSize = apiServerConfig.userManagementConfig.maxCacheSize,
+          apiServerConfig.userManagement.cacheExpiryAfterWriteInSeconds,
+        maxCacheSize = apiServerConfig.userManagement.maxCacheSize,
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
@@ -276,7 +276,7 @@ object SandboxOnXRunner {
     for {
       indexerHealth <- new StandaloneIndexerServer(
         readService = readService,
-        config = participantConfig.indexerConfig,
+        config = participantConfig.indexer,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
       )
@@ -307,11 +307,11 @@ object SandboxOnXRunner {
       .fromSharedMetricRegistries(participantConfig.metricsRegistryName)
       .tap(_.registry.registerAll(new JvmMetricSet))
       .pipe { metrics =>
-        config.metricsConfig.reporter
+        config.metrics.reporter
           .fold(ResourceOwner.unit)(reporter =>
             ResourceOwner
               .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metricsConfig.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
+              .map(_.start(config.metrics.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
           )
           .map(_ => metrics)
       }
@@ -357,7 +357,7 @@ object SandboxOnXRunner {
       participantConfig: ParticipantConfig,
       extra: BridgeConfig,
   ): Unit = {
-    val authentication = participantConfig.apiServerConfig.authentication match {
+    val authentication = participantConfig.apiServer.authentication match {
       case _: AuthServiceJWT => "JWT-based authentication"
       case AuthServiceNone => "none authenticated"
       case _: AuthServiceStatic => "static authentication"
@@ -369,15 +369,15 @@ object SandboxOnXRunner {
       Seq[(String, String)](
         "run-mode" -> s"${participantConfig.mode} participant",
         "index DB backend" -> DbType
-          .jdbcType(participantConfig.apiServerConfig.database.jdbcUrl)
+          .jdbcType(participantConfig.apiServer.database.jdbcUrl)
           .name,
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,
-        "port" -> participantConfig.apiServerConfig.port.toString,
-        "time mode" -> participantConfig.apiServerConfig.timeProviderType.description,
-        "allowed language versions" -> s"[min = ${config.engineConfig.allowedLanguageVersions.min}, max = ${config.engineConfig.allowedLanguageVersions.max}]",
+        "port" -> participantConfig.apiServer.port.toString,
+        "time mode" -> participantConfig.apiServer.timeProviderType.description,
+        "allowed language versions" -> s"[min = ${config.engine.allowedLanguageVersions.min}, max = ${config.engine.allowedLanguageVersions.max}]",
         "authentication" -> authentication,
-        "contract ids seeding" -> participantConfig.apiServerConfig.seeding.toString,
+        "contract ids seeding" -> participantConfig.apiServer.seeding.toString,
       ).map { case (key, value) =>
         s"$key = $value"
       }.mkString(", ")

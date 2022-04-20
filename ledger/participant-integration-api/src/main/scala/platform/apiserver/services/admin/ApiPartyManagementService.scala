@@ -11,7 +11,11 @@ import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.api.validation.ValidationErrors
-import com.daml.ledger.participant.state.index.v2.{IndexPartyManagementService, IndexTransactionsService, LedgerEndService}
+import com.daml.ledger.participant.state.index.v2.{
+  IndexPartyManagementService,
+  IndexTransactionsService,
+  LedgerEndService,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext

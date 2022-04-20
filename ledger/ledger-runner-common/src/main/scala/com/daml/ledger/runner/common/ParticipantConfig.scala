@@ -16,11 +16,11 @@ final case class ParticipantConfig(
     shardName: Option[String],
     mode: ParticipantRunMode,
     // A name of the participant shard in a horizontally scaled participant.
-    indexerConfig: IndexerConfig,
-    indexConfiguration: IndexConfiguration,
-    lfValueTranslationCacheConfig: LfValueTranslationCache.Config,
+    indexer: IndexerConfig,
+    index: IndexConfiguration,
+    lfValueTranslationCache: LfValueTranslationCache.Config,
     maxDeduplicationDuration: Option[Duration],
-    apiServerConfig: ApiServerConfig,
+    apiServer: ApiServerConfig,
 ) {
   def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
 }

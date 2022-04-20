@@ -30,11 +30,11 @@ object DbSupport {
   case class DbConfig(
       jdbcUrl: String,
       connectionPool: ConnectionPoolConfig,
-      postgresConfig: PostgresDataSourceConfig = PostgresDataSourceConfig(),
+      postgres: PostgresDataSourceConfig = PostgresDataSourceConfig(),
   ) {
     def dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
       jdbcUrl = jdbcUrl,
-      postgresConfig = postgresConfig,
+      postgresConfig = postgres,
     )
   }
 

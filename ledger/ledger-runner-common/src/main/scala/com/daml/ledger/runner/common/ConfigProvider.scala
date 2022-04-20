@@ -5,7 +5,11 @@ package com.daml.ledger.runner.common
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{
+  IndexConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.LfValueTranslationCache
@@ -29,8 +33,8 @@ trait ConfigProvider[ExtraConfig] {
     mode = config.mode,
     participantId = config.participantId,
     shardName = config.shardName,
-    indexerConfig = config.indexerConfig,
-    indexConfiguration = IndexConfiguration(
+    indexer = config.indexerConfig,
+    index = IndexConfiguration(
       acsContractFetchingParallelism = cliConfig.acsContractFetchingParallelism,
       acsGlobalParallelism = cliConfig.acsGlobalParallelism,
       acsIdFetchingParallelism = cliConfig.acsIdFetchingParallelism,
@@ -43,15 +47,15 @@ trait ConfigProvider[ExtraConfig] {
       maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
       archiveFiles = IndexConfiguration.DefaultArchiveFiles,
     ),
-    lfValueTranslationCacheConfig = LfValueTranslationCache.Config(
+    lfValueTranslationCache = LfValueTranslationCache.Config(
       contract = cliConfig.lfValueTranslationContractCache,
       event = cliConfig.lfValueTranslationEventCache,
     ),
     maxDeduplicationDuration = cliConfig.maxDeduplicationDuration,
-    apiServerConfig = ApiServerConfig(
+    apiServer = ApiServerConfig(
       port = config.port,
       address = config.address,
-      tlsConfig = cliConfig.tlsConfig,
+      tls = cliConfig.tlsConfig,
       maxInboundMessageSize = cliConfig.maxInboundMessageSize,
       initialLedgerConfiguration = Some(initialLedgerConfig(cliConfig.maxDeduplicationDuration)),
       configurationLoadTimeout = FiniteDuration(
@@ -64,7 +68,7 @@ trait ConfigProvider[ExtraConfig] {
         config.managementServiceTimeout.toMillis,
         TimeUnit.MILLISECONDS,
       ),
-      userManagementConfig = cliConfig.userManagementConfig,
+      userManagement = cliConfig.userManagementConfig,
       authentication = cliConfig.authService,
       command = cliConfig.commandConfig,
       party = PartyConfiguration.default,
@@ -87,9 +91,9 @@ trait ConfigProvider[ExtraConfig] {
 
   def toInternalConfig(config: CliConfig[ExtraConfig]): Config = {
     Config(
-      engineConfig = config.engineConfig,
+      engine = config.engineConfig,
       ledgerId = config.ledgerId,
-      metricsConfig = MetricsConfig(
+      metrics = MetricsConfig(
         reporter = config.metricsReporter,
         reportingInterval = config.metricsReportingInterval.toScala,
       ),

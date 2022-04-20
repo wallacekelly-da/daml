@@ -14,7 +14,11 @@ import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoor
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.DbSupport.DbConfig
 import com.daml.platform.store.appendonlydao.DbDispatcher
-import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend, StringInterningStorageBackend}
+import com.daml.platform.store.backend.{
+  DBLockStorageBackend,
+  DataSourceStorageBackend,
+  StringInterningStorageBackend,
+}
 import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 

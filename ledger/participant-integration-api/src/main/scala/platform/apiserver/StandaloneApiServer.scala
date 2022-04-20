@@ -74,7 +74,7 @@ object StandaloneApiServer {
       participantId,
       userManagementStore,
       servicesExecutionContext,
-      userRightsCheckIntervalInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+      userRightsCheckIntervalInSeconds = config.userManagement.cacheExpiryAfterWriteInSeconds,
       akkaScheduler = actorSystem.scheduler,
     )
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
@@ -105,7 +105,7 @@ object StandaloneApiServer {
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
-        userManagementConfig = config.userManagementConfig,
+        userManagementConfig = config.userManagement,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
@@ -113,10 +113,10 @@ object StandaloneApiServer {
         config.port,
         config.maxInboundMessageSize,
         config.address,
-        config.tlsConfig,
+        config.tls,
         AuthorizationInterceptor(
           config.authentication,
-          Option.when(config.userManagementConfig.enabled)(userManagementStore),
+          Option.when(config.userManagement.enabled)(userManagementStore),
           servicesExecutionContext,
         ) :: otherInterceptors,
         servicesExecutionContext,

@@ -12,7 +12,10 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, LedgerIdentityServiceGrpc}
+import com.daml.ledger.api.v1.ledger_identity_service.{
+  GetLedgerIdentityRequest,
+  LedgerIdentityServiceGrpc,
+}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
@@ -29,7 +32,11 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.{ApiServerConfig, LedgerFeatures}
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  IndexConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
@@ -159,30 +166,31 @@ object RunnerSpec {
       mode = ParticipantRunMode.Combined,
       participantId = participantId,
       shardName = Some(UUID.randomUUID().toString),
-      indexerConfig = IndexerConfig(
+      indexer = IndexerConfig(
         participantId = participantId,
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
-        database =
-          IndexerConfig.createDefaultDatabaseConfig(CliParticipantConfig.defaultIndexJdbcUrl(participantId)),
+        database = IndexerConfig.createDefaultDatabaseConfig(
+          CliParticipantConfig.defaultIndexJdbcUrl(participantId)
+        ),
       ),
-      indexConfiguration = IndexConfiguration(),
-      lfValueTranslationCacheConfig = LfValueTranslationCache
+      index = IndexConfiguration(),
+      lfValueTranslationCache = LfValueTranslationCache
         .Config(
           caching.SizedCache.Configuration(10),
           caching.SizedCache.Configuration(10),
         ),
       maxDeduplicationDuration = None,
-      apiServerConfig = ApiServerConfig(
+      apiServer = ApiServerConfig(
         port = Port.Dynamic,
         address = None,
-        tlsConfig = None,
+        tls = None,
         maxInboundMessageSize = CliConfig.DefaultMaxInboundMessageSize,
         initialLedgerConfiguration = None,
         configurationLoadTimeout = 10.seconds,
         portFile = None,
         seeding = Seeding.Strong,
         managementServiceTimeout = CliParticipantConfig.DefaultManagementServiceTimeout,
-        userManagementConfig = UserManagementConfig.default(enabled = false),
+        userManagement = UserManagementConfig.default(enabled = false),
         authentication = AuthServiceWildcard,
         party = PartyConfiguration.default,
         command = CommandConfiguration.default,

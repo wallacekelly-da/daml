@@ -9,7 +9,10 @@ import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.{PartyDetails, PartyEntry}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
-import com.daml.ledger.participant.state.index.v2.{IndexPartyManagementService, IndexTransactionsService}
+import com.daml.ledger.participant.state.index.v2.{
+  IndexPartyManagementService,
+  IndexTransactionsService,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
