@@ -165,7 +165,7 @@ object SandboxOnXRunner {
             .owner(
               serverRole = ServerRole.ApiServer,
               metrics = metrics,
-              dataSourceConfig = apiServerConfig.dataSourceConfig,
+              dbConfig = apiServerConfig.dbConfig,
             )
 
           indexService <- StandaloneIndexService(
@@ -369,7 +369,7 @@ object SandboxOnXRunner {
       Seq[(String, String)](
         "run-mode" -> s"${participantConfig.mode} participant",
         "index DB backend" -> DbType
-          .jdbcType(participantConfig.apiServerConfig.dataSourceConfig.jdbcUrl)
+          .jdbcType(participantConfig.apiServerConfig.dbConfig.jdbcUrl)
           .name,
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,

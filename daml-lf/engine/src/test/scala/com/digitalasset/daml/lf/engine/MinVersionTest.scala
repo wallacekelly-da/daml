@@ -135,7 +135,7 @@ final class MinVersionTest
     indexerConfig = IndexerConfig(
       participantId = participantId,
       startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
-      dataSourceConfig =
+      dbConfig =
         IndexerConfig.createDefault(CliParticipantConfig.defaultIndexJdbcUrl(participantId)),
     ),
   )

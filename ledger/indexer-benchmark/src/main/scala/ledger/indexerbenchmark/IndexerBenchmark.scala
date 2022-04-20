@@ -46,7 +46,7 @@ class IndexerBenchmark() {
           createUpdates,
           config.copy(indexerConfig =
             config.indexerConfig
-              .copy(dataSourceConfig = config.indexerConfig.dataSourceConfig.copy(jdbcUrl = db.url))
+              .copy(dbConfig = config.indexerConfig.dbConfig.copy(jdbcUrl = db.url))
           ),
         )
       })(ExecutionContext.parasitic)
@@ -98,7 +98,7 @@ class IndexerBenchmark() {
         // Note: this allows the user to inpsect the contents of an ephemeral database
         if (config.waitForUserInput) {
           println(
-            s"Index database is still running at ${config.indexerConfig.dataSourceConfig.jdbcUrl}."
+            s"Index database is still running at ${config.indexerConfig.dbConfig.jdbcUrl}."
           )
           StdIn.readLine("Press <enter> to terminate this process.")
         }
@@ -121,7 +121,7 @@ class IndexerBenchmark() {
     Await
       .result(
         StandaloneIndexerServer
-          .migrateOnly(dataSourceConfig = config.indexerConfig.dataSourceConfig)
+          .migrateOnly(dataSourceConfig = config.indexerConfig.dbConfig.dataSourceConfig)
           .map(_ => indexerFactory.initialized())(indexerExecutionContext),
         Duration(5, "minute"),
       )
@@ -173,7 +173,7 @@ object IndexerBenchmark {
       updates: () => Future[Source[(Offset, Update), NotUsed]],
   ): Unit = {
     val result: Future[Unit] =
-      (if (config.indexerConfig.dataSourceConfig.jdbcUrl.isEmpty) {
+      (if (config.indexerConfig.dbConfig.jdbcUrl.isEmpty) {
          new IndexerBenchmark().runWithEphemeralPostgres(updates, config)
        } else {
          new IndexerBenchmark().run(updates, config)

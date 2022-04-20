@@ -12,7 +12,6 @@ import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingCo
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.backend.DataSourceStorageBackend
 
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
@@ -66,7 +65,7 @@ object IndexerStabilityTestFixture {
         indexerLockId = lockIdSeed,
         indexerWorkerLockId = lockIdSeed + 1,
       ),
-      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
+      dbConfig = IndexerConfig.createDefault(jdbcUrl),
     )
 
     newLoggingContext { implicit loggingContext =>

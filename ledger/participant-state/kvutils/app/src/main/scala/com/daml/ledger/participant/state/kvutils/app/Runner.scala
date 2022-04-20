@@ -189,7 +189,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   .owner(
                     serverRole = ServerRole.ApiServer,
                     metrics = metrics,
-                    dataSourceConfig = apiServerConfig.dataSourceConfig,
+                    dbConfig = apiServerConfig.dbConfig,
                   )
                   .acquire()
                 userManagementStore = PersistentUserManagementStore.cached(

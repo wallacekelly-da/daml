@@ -98,7 +98,7 @@ final class SandboxServer(
       genericConfig.ledgerId,
       apiServer.port.toString,
       DbType
-        .jdbcType(genericConfig.participants.head.apiServerConfig.dataSourceConfig.jdbcUrl)
+        .jdbcType(genericConfig.participants.head.apiServerConfig.dbConfig.jdbcUrl)
         .name,
       config.damlPackages,
       participantConfig.apiServerConfig.timeProviderType.description,

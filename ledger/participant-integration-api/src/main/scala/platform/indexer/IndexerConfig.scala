@@ -6,7 +6,7 @@ package com.daml.platform.indexer
 import com.daml.lf.data.Ref
 import com.daml.platform.indexer.IndexerConfig._
 import com.daml.platform.indexer.ha.HaConfig
-import com.daml.platform.store.backend.DataSourceStorageBackend
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -24,12 +24,12 @@ case class IndexerConfig(
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
     haConfig: HaConfig = HaConfig(),
-    dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
+    dbConfig: DbConfig,
 )
 
 object IndexerConfig {
 
-  def createDefault(jdbcUrl: String) = DataSourceStorageBackend.DataSourceConfig(
+  def createDefault(jdbcUrl: String): DbConfig = DbConfig(
     jdbcUrl = jdbcUrl,
     // PostgresSQL specific configurations
     // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
@@ -40,7 +40,7 @@ object IndexerConfig {
       tcpKeepalivesInterval = Some(1),
       tcpKeepalivesCount = Some(5),
     ),
-    connectionPool = DataSourceStorageBackend.ConnectionPoolConfig(
+    connectionPool = ConnectionPoolConfig(
       minimumIdle = DefaultIngestionParallelism + 1, //+ 1 for the tailing ledger_end updates
       maxPoolSize = DefaultIngestionParallelism + 1, //+ 1 for the tailing ledger_end updates
       // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)

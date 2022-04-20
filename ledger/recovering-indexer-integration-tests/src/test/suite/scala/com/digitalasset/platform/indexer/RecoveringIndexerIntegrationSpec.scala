@@ -18,12 +18,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v2.{
-  ReadService,
-  SubmissionResult,
-  Update,
-  WritePartyService,
-}
+import com.daml.ledger.participant.state.v2.{ReadService, SubmissionResult, Update, WritePartyService}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
@@ -32,8 +27,8 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.backend.DataSourceStorageBackend
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
@@ -204,7 +199,7 @@ class RecoveringIndexerIntegrationSpec
           participantId = participantId,
           startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
-          dataSourceConfig = IndexerConfig.createDefault(jdbcUrl),
+          dbConfig = IndexerConfig.createDefault(jdbcUrl),
         ),
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -241,9 +236,9 @@ class RecoveringIndexerIntegrationSpec
       .owner(
         serverRole = ServerRole.Testing(getClass),
         metrics = metrics,
-        dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
+        dbConfig = DbConfig(
           jdbcUrl,
-          connectionPool = DataSourceStorageBackend.ConnectionPoolConfig(
+          connectionPool = ConnectionPoolConfig(
             minimumIdle = 16,
             maxPoolSize = 16,
             connectionTimeout = 250.millis,

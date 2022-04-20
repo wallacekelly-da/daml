@@ -12,7 +12,7 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
 }
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.backend.DataSourceStorageBackend
+import com.daml.platform.store.DbSupport.DbConfig
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 
@@ -34,5 +34,5 @@ case class ApiServerConfig(
     partyConfig: PartyConfiguration,
     commandConfig: CommandConfiguration,
     timeProviderType: TimeProviderType,
-    dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
+    dbConfig: DbConfig,
 )

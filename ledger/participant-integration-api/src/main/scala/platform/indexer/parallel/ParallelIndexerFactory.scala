@@ -12,13 +12,9 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.Indexer
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
+import com.daml.platform.store.DbSupport.DbConfig
 import com.daml.platform.store.appendonlydao.DbDispatcher
-import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
-import com.daml.platform.store.backend.{
-  DBLockStorageBackend,
-  DataSourceStorageBackend,
-  StringInterningStorageBackend,
-}
+import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend, StringInterningStorageBackend}
 import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -33,7 +29,7 @@ object ParallelIndexerFactory {
   def apply(
       inputMappingParallelism: Int,
       batchingParallelism: Int,
-      dataSourceConfig: DataSourceConfig,
+      dbConfig: DbConfig,
       haConfig: HaConfig,
       metrics: Metrics,
       dbLockStorageBackend: DBLockStorageBackend,
@@ -78,7 +74,7 @@ object ParallelIndexerFactory {
             timer <- ResourceOwner.forTimer(() => new Timer)
             // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
             // The life-cycle of such connections matches the life-cycle of a protectedExecution
-            dataSource = dataSourceStorageBackend.createDataSource(dataSourceConfig)
+            dataSource = dataSourceStorageBackend.createDataSource(dbConfig.dataSourceConfig)
           } yield HaCoordinator.databaseLockBasedHaCoordinator(
             connectionFactory = () => dataSource.getConnection,
             storageBackend = dbLockStorageBackend,
@@ -98,13 +94,13 @@ object ParallelIndexerFactory {
                 // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
                 // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
                 dataSource = dataSourceStorageBackend.createDataSource(
-                  dataSourceConfig = dataSourceConfig,
+                  dataSourceConfig = dbConfig.dataSourceConfig,
                   connectionInitHook = Some(connectionInitializer.initialize),
                 ),
                 serverRole = ServerRole.Indexer,
-                minimumIdle = dataSourceConfig.connectionPool.minimumIdle,
-                maxPoolSize = dataSourceConfig.connectionPool.maxPoolSize,
-                connectionTimeout = dataSourceConfig.connectionPool.connectionTimeout,
+                minimumIdle = dbConfig.connectionPool.minimumIdle,
+                maxPoolSize = dbConfig.connectionPool.maxPoolSize,
+                connectionTimeout = dbConfig.connectionPool.connectionTimeout,
                 metrics = metrics,
               )
             _ <- meteringAggregator(dbDispatcher)

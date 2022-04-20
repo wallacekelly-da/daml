@@ -292,7 +292,7 @@ object CliConfig {
                 tailingRateLimitPerSecond = indexerTailingRateLimitPerSecond,
                 batchWithinMillis = indexerBatchWithinMillis,
                 enableCompression = indexerEnableCompression,
-                dataSourceConfig = IndexerConfig.createDefault(jdbcUrl),
+                dbConfig = IndexerConfig.createDefault(jdbcUrl),
               ),
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
               apiServerDatabaseConnectionTimeout = apiServerConnectionTimeout,

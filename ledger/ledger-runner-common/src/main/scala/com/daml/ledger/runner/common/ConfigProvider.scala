@@ -5,14 +5,10 @@ package com.daml.ledger.runner.common
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{
-  IndexConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.backend.DataSourceStorageBackend
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
@@ -67,9 +63,9 @@ trait ConfigProvider[ExtraConfig] {
       commandConfig = cliConfig.commandConfig,
       partyConfig = PartyConfiguration.default,
       timeProviderType = cliConfig.timeProviderType,
-      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(
+      dbConfig = DbConfig(
         jdbcUrl = config.serverJdbcUrl,
-        connectionPool = DataSourceStorageBackend.ConnectionPoolConfig(
+        connectionPool = ConnectionPoolConfig(
           config.apiServerDatabaseConnectionPoolSize,
           config.apiServerDatabaseConnectionPoolSize,
           connectionTimeout = FiniteDuration(
