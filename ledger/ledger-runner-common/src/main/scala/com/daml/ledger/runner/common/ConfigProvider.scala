@@ -109,8 +109,7 @@ trait ConfigProvider[ExtraConfig] {
       maxDeduplicationDuration = maxDeduplicationDuration.getOrElse(
         conf.maxDeduplicationDuration
       ),
-      avgTransactionLatency =
-        conf.timeModel.avgTransactionLatency,
+      avgTransactionLatency = conf.timeModel.avgTransactionLatency,
       minSkew = conf.timeModel.minSkew,
       maxSkew = conf.timeModel.maxSkew,
       generation = conf.generation,

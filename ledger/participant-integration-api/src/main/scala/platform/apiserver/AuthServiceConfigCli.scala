@@ -9,7 +9,8 @@ import scala.util.Try
 
 object AuthServiceConfigCli {
   def parse[C](parser: scopt.OptionParser[C])(setter: (AuthServiceConfig, C) => C): Unit = {
-    def setAuthServiceConfig(authServiceConfig: AuthServiceConfig, c: C): C = setter(authServiceConfig, c)
+    def setAuthServiceConfig(authServiceConfig: AuthServiceConfig, c: C): C =
+      setter(authServiceConfig, c)
 
     import parser.opt
 

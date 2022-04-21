@@ -230,7 +230,7 @@ class CommonCliBase(name: LedgerName) {
 
       com.daml.cliopts.Logging.logLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
 
-      AuthServiceConfigCli.parse(this)((v,c) => c.copy(authService = Some(v)))
+      AuthServiceConfigCli.parse(this)((v, c) => c.copy(authService = Some(v)))
 
       opt[Int]("events-page-size")
         .optional()

@@ -1,3 +1,6 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.runner.common
 
 import com.daml.caching.SizedCache
@@ -11,7 +14,12 @@ import com.daml.lf.{VersionRange, interpretation, language}
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, InitialLedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  IndexConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
@@ -223,45 +231,70 @@ object FileBasedConfig {
   implicit val apiServerConfigWriter: ConfigWriter[ApiServerConfig] = deriveWriter[ApiServerConfig]
 
   //
-  implicit val participantRunModeReader: ConfigReader[ParticipantRunMode] = deriveEnumerationReader[ParticipantRunMode]
-  implicit val participantRunModeWriter: ConfigWriter[ParticipantRunMode] = deriveEnumerationWriter[ParticipantRunMode]
+  implicit val participantRunModeReader: ConfigReader[ParticipantRunMode] =
+    deriveEnumerationReader[ParticipantRunMode]
+  implicit val participantRunModeWriter: ConfigWriter[ParticipantRunMode] =
+    deriveEnumerationWriter[ParticipantRunMode]
 
-  implicit val validateAndStartReader: ConfigReader[IndexerStartupMode.ValidateAndStart.type] = deriveReader[IndexerStartupMode.ValidateAndStart.type]
-  implicit val validateAndStartWriter: ConfigWriter[IndexerStartupMode.ValidateAndStart.type] = deriveWriter[IndexerStartupMode.ValidateAndStart.type]
+  implicit val validateAndStartReader: ConfigReader[IndexerStartupMode.ValidateAndStart.type] =
+    deriveReader[IndexerStartupMode.ValidateAndStart.type]
+  implicit val validateAndStartWriter: ConfigWriter[IndexerStartupMode.ValidateAndStart.type] =
+    deriveWriter[IndexerStartupMode.ValidateAndStart.type]
 
-  implicit val MigrateOnEmptySchemaAndStartReader: ConfigReader[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type] = deriveReader[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type]
-  implicit val MigrateOnEmptySchemaAndStartWriter: ConfigWriter[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type] = deriveWriter[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type]
+  implicit val MigrateOnEmptySchemaAndStartReader
+      : ConfigReader[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type] =
+    deriveReader[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type]
+  implicit val MigrateOnEmptySchemaAndStartWriter
+      : ConfigWriter[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type] =
+    deriveWriter[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type]
 
-  implicit val migrateAndStartReader: ConfigReader[IndexerStartupMode.MigrateAndStart] = deriveReader[IndexerStartupMode.MigrateAndStart]
-  implicit val migrateAndStartWriter: ConfigWriter[IndexerStartupMode.MigrateAndStart] = deriveWriter[IndexerStartupMode.MigrateAndStart]
+  implicit val migrateAndStartReader: ConfigReader[IndexerStartupMode.MigrateAndStart] =
+    deriveReader[IndexerStartupMode.MigrateAndStart]
+  implicit val migrateAndStartWriter: ConfigWriter[IndexerStartupMode.MigrateAndStart] =
+    deriveWriter[IndexerStartupMode.MigrateAndStart]
 
-  implicit val validateAndWaitOnlyReader: ConfigReader[IndexerStartupMode.ValidateAndWaitOnly] = deriveReader[IndexerStartupMode.ValidateAndWaitOnly]
-  implicit val validateAndWaitOnlyWriter: ConfigWriter[IndexerStartupMode.ValidateAndWaitOnly] = deriveWriter[IndexerStartupMode.ValidateAndWaitOnly]
+  implicit val validateAndWaitOnlyReader: ConfigReader[IndexerStartupMode.ValidateAndWaitOnly] =
+    deriveReader[IndexerStartupMode.ValidateAndWaitOnly]
+  implicit val validateAndWaitOnlyWriter: ConfigWriter[IndexerStartupMode.ValidateAndWaitOnly] =
+    deriveWriter[IndexerStartupMode.ValidateAndWaitOnly]
 
-  implicit val indexerStartupModeReader: ConfigReader[IndexerStartupMode] = deriveReader[IndexerStartupMode]
-  implicit val indexerStartupModeWriter: ConfigWriter[IndexerStartupMode] = deriveWriter[IndexerStartupMode]
+  implicit val indexerStartupModeReader: ConfigReader[IndexerStartupMode] =
+    deriveReader[IndexerStartupMode]
+  implicit val indexerStartupModeWriter: ConfigWriter[IndexerStartupMode] =
+    deriveWriter[IndexerStartupMode]
 
   implicit val haConfigReader: ConfigReader[HaConfig] = deriveReader[HaConfig]
   implicit val haConfigWriter: ConfigWriter[HaConfig] = deriveWriter[HaConfig]
 
   implicit val participantIdReader: ConfigReader[Ref.ParticipantId] = ConfigReader
-    .fromString[Ref.ParticipantId](s => Ref.ParticipantId.fromString(s).left.map(err => CannotConvert(s, "Ref.ParticipantId", err)))
-  implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] = ConfigWriter.toString[Ref.ParticipantId](_.toString)
+    .fromString[Ref.ParticipantId](s =>
+      Ref.ParticipantId.fromString(s).left.map(err => CannotConvert(s, "Ref.ParticipantId", err))
+    )
+  implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
+    ConfigWriter.toString[Ref.ParticipantId](_.toString)
 
   implicit val indexerConfigReader: ConfigReader[IndexerConfig] = deriveReader[IndexerConfig]
   implicit val indexerConfigWriter: ConfigWriter[IndexerConfig] = deriveWriter[IndexerConfig]
 
-  implicit val sizedCacheReader: ConfigReader[SizedCache.Configuration] = deriveReader[SizedCache.Configuration]
-  implicit val sizedCacheWriter: ConfigWriter[SizedCache.Configuration] = deriveWriter[SizedCache.Configuration]
+  implicit val sizedCacheReader: ConfigReader[SizedCache.Configuration] =
+    deriveReader[SizedCache.Configuration]
+  implicit val sizedCacheWriter: ConfigWriter[SizedCache.Configuration] =
+    deriveWriter[SizedCache.Configuration]
 
-  implicit val lfValueTranslationCacheReader: ConfigReader[LfValueTranslationCache.Config] = deriveReader[LfValueTranslationCache.Config]
-  implicit val lfValueTranslationCacheWriter: ConfigWriter[LfValueTranslationCache.Config] = deriveWriter[LfValueTranslationCache.Config]
+  implicit val lfValueTranslationCacheReader: ConfigReader[LfValueTranslationCache.Config] =
+    deriveReader[LfValueTranslationCache.Config]
+  implicit val lfValueTranslationCacheWriter: ConfigWriter[LfValueTranslationCache.Config] =
+    deriveWriter[LfValueTranslationCache.Config]
 
-  implicit val indexConfigurationReader: ConfigReader[IndexConfiguration] = deriveReader[IndexConfiguration]
-  implicit val indexConfigurationWriter: ConfigWriter[IndexConfiguration] = deriveWriter[IndexConfiguration]
+  implicit val indexConfigurationReader: ConfigReader[IndexConfiguration] =
+    deriveReader[IndexConfiguration]
+  implicit val indexConfigurationWriter: ConfigWriter[IndexConfiguration] =
+    deriveWriter[IndexConfiguration]
 
-  implicit val participantConfigReader: ConfigReader[ParticipantConfig] = deriveReader[ParticipantConfig]
-  implicit val participantConfigWriter: ConfigWriter[ParticipantConfig] = deriveWriter[ParticipantConfig]
+  implicit val participantConfigReader: ConfigReader[ParticipantConfig] =
+    deriveReader[ParticipantConfig]
+  implicit val participantConfigWriter: ConfigWriter[ParticipantConfig] =
+    deriveWriter[ParticipantConfig]
 
   implicit val reader: ConfigReader[Config] = deriveReader[Config]
   implicit val writer: ConfigWriter[Config] = deriveWriter[Config]

@@ -686,7 +686,7 @@ object CliConfig {
               "Enabling stack traces may have a significant performance impact."
           )
 
-        AuthServiceConfigCli.parse(this)((v,c)=> c.copy(authService = v))
+        AuthServiceConfigCli.parse(this)((v, c) => c.copy(authService = v))
       }
     extraOptions(parser)
     parser
