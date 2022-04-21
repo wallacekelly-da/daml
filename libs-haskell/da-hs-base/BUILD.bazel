@@ -7,6 +7,9 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_haskell_library(
     name = "da-hs-base",
     srcs = glob(["src/**/*.hs"]),
+    compiler_flags = [
+        "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
+    ],
     hackage_deps = [
         "aeson-pretty",
         "aeson",
@@ -42,6 +45,7 @@ da_haskell_library(
         "stm",
         "tar-conduit",
         "tasty-hunit",
+        "tasty-golden",
         "tasty-quickcheck",
         "tasty",
         "template-haskell",
@@ -56,6 +60,9 @@ da_haskell_library(
         "vector",
     ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "src",
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
