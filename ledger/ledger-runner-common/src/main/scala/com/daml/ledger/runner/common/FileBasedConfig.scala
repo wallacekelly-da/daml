@@ -12,8 +12,8 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.{VersionRange, interpretation, language}
 import com.daml.metrics.MetricsReporter
-import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
+import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexConfiguration,
@@ -34,10 +34,27 @@ import pureconfig.error.CannotConvert
 import pureconfig.generic.semiauto._
 import pureconfig.{ConfigReader, ConfigWriter, ConvertHelpers}
 
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.jdk.DurationConverters.{JavaDurationOps, ScalaDurationOps}
 import scala.util.Try
 
 object FileBasedConfig {
   val Secret = "****"
+
+  implicit val javaDurationWriter: ConfigWriter[java.time.Duration] =
+    ConfigWriter.stringConfigWriter.contramap[java.time.Duration] { duration =>
+      duration.toScala.toString()
+    }
+
+  implicit val javaDurationReader: ConfigReader[java.time.Duration] =
+    ConfigReader.fromString[java.time.Duration] { str =>
+      Some(Duration.apply(str))
+        .collect { case d: FiniteDuration =>
+          d
+        }
+        .map(_.toJava)
+        .toRight(CannotConvert(str, "java.time.Duration", s"Could not convert $str"))
+    }
 
   implicit val versionRangeReader: ConfigReader[VersionRange[language.LanguageVersion]] =
     ConfigReader.fromString[VersionRange[LanguageVersion]] {
@@ -47,6 +64,7 @@ object FileBasedConfig {
       case "legacy" => Right(LanguageVersion.LegacyVersions)
       case value => Left(CannotConvert(value, "VersionRange", s"$value does not exists."))
     }
+
   implicit val versionRangeWriter: ConfigWriter[VersionRange[language.LanguageVersion]] =
     ConfigWriter.toString {
       case LanguageVersion.DevVersions => "daml-lf-dev-mode-unsafe"
