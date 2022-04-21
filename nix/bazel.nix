@@ -55,6 +55,7 @@ let shared = rec {
         ]
         else []
       );
+      ignoreCollisions = true;
     };
 
     postgresql_10 = if pkgs.buildPlatform.libc == "glibc"
