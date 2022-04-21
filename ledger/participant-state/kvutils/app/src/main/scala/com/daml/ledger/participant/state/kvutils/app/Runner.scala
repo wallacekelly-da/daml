@@ -89,7 +89,8 @@ final class Runner[T <: ReadWriteService, Extra](
   private def logInitializationHeader(config: Config): Unit = {
     val participantsInitializationText = config.participants
       .map { participantConfig =>
-        val authentication = participantConfig.apiServer.authentication match {
+        val apiServerConfig = participantConfig.apiServer
+        val authentication = apiServerConfig.authentication.create() match {
           case _: AuthServiceJWT => "JWT-based authentication"
           case AuthServiceNone => "none authenticated"
           case _: AuthServiceStatic => "static authentication"
@@ -99,8 +100,8 @@ final class Runner[T <: ReadWriteService, Extra](
         s"{participant-id = ${participantConfig.participantId}, " +
           s"shared-name = ${participantConfig.shardName}, " +
           s"run-mode = ${participantConfig.mode}, " +
-          s"port = ${participantConfig.apiServer.port.toString}, " +
-          s"contract ids seeding = ${participantConfig.apiServer.seeding}, " +
+          s"port = ${apiServerConfig.port.toString}, " +
+          s"contract ids seeding = ${apiServerConfig.seeding}, " +
           s"authentication = $authentication"
       }
       .mkString("[", ", ", "]")

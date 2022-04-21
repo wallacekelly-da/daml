@@ -115,7 +115,7 @@ object StandaloneApiServer {
         config.address,
         config.tls,
         AuthorizationInterceptor(
-          config.authentication,
+          config.authentication.create(),
           Option.when(config.userManagement.enabled)(userManagementStore),
           servicesExecutionContext,
         ) :: otherInterceptors,

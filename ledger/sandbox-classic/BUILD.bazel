@@ -15,7 +15,6 @@ sandbox_classic_deps = [
     "//daml-lf/data",
     "//language-support/scala/bindings",
     "//ledger/caching",
-    "//ledger/ledger-api-auth",
     "//ledger/ledger-api-common",
     "//ledger/ledger-configuration",
     "//ledger/ledger-resources",

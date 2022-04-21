@@ -5,14 +5,12 @@ package com.daml.platform.sandbox.cli
 
 import java.io.File
 import java.time.Duration
-
 import com.daml.buildinfo.BuildInfo
-import com.daml.jwt.JwtVerifierConfigurationCli
-import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.lf.data.Ref
+import com.daml.platform.apiserver.AuthServiceConfigCli
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.CommandConfiguration
@@ -232,9 +230,7 @@ class CommonCliBase(name: LedgerName) {
 
       com.daml.cliopts.Logging.logLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
 
-      JwtVerifierConfigurationCli.parse(this)((v, c) =>
-        c.copy(authService = Some(AuthServiceJWT(v)))
-      )
+      AuthServiceConfigCli.parse(this)((v,c) => c.copy(authService = Some(v)))
 
       opt[Int]("events-page-size")
         .optional()

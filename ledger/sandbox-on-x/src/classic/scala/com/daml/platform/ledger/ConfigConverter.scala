@@ -3,10 +3,10 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.runner.common._
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
+import com.daml.platform.apiserver.AuthServiceConfig
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.sandbox.config.SandboxConfig.{DefaultTimeProviderType, EngineMode}
@@ -66,7 +66,7 @@ object ConfigConverter {
         stackTraceMode = sandboxConfig.stackTraces,
         forbidV0ContractId = true,
       ),
-      authService = sandboxConfig.authService.getOrElse(AuthServiceWildcard),
+      authService = sandboxConfig.authService.getOrElse(AuthServiceConfig.Wildcard),
       acsContractFetchingParallelism = sandboxConfig.acsContractFetchingParallelism,
       acsGlobalParallelism = sandboxConfig.acsGlobalParallelism,
       acsIdFetchingParallelism = sandboxConfig.acsIdFetchingParallelism,

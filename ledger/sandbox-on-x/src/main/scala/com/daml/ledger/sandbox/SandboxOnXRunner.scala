@@ -74,6 +74,7 @@ object SandboxOnXRunner {
             sys.exit(0)
           case Mode.Run =>
             val config = configProvider.toInternalConfig(originalConfig)
+            println(ConfigWriter.render(config))
             run(config, originalConfig.extra)
         }
       }
@@ -357,7 +358,8 @@ object SandboxOnXRunner {
       participantConfig: ParticipantConfig,
       extra: BridgeConfig,
   ): Unit = {
-    val authentication = participantConfig.apiServer.authentication match {
+    val apiServerConfig = participantConfig.apiServer
+    val authentication = apiServerConfig.authentication.create() match {
       case _: AuthServiceJWT => "JWT-based authentication"
       case AuthServiceNone => "none authenticated"
       case _: AuthServiceStatic => "static authentication"
@@ -369,15 +371,15 @@ object SandboxOnXRunner {
       Seq[(String, String)](
         "run-mode" -> s"${participantConfig.mode} participant",
         "index DB backend" -> DbType
-          .jdbcType(participantConfig.apiServer.database.jdbcUrl)
+          .jdbcType(apiServerConfig.database.jdbcUrl)
           .name,
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,
-        "port" -> participantConfig.apiServer.port.toString,
-        "time mode" -> participantConfig.apiServer.timeProviderType.description,
+        "port" -> apiServerConfig.port.toString,
+        "time mode" -> apiServerConfig.timeProviderType.description,
         "allowed language versions" -> s"[min = ${config.engine.allowedLanguageVersions.min}, max = ${config.engine.allowedLanguageVersions.max}]",
         "authentication" -> authentication,
-        "contract ids seeding" -> participantConfig.apiServer.seeding.toString,
+        "contract ids seeding" -> apiServerConfig.seeding.toString,
       ).map { case (key, value) =>
         s"$key = $value"
       }.mkString(", ")

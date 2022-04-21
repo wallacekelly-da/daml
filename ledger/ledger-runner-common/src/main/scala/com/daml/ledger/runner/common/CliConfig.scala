@@ -4,8 +4,6 @@
 package com.daml.ledger.runner.common
 
 import com.daml.caching
-import com.daml.jwt.JwtVerifierConfigurationCli
-import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.resources.ResourceOwner
@@ -13,6 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
+import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
@@ -22,15 +21,15 @@ import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
-import scala.jdk.DurationConverters.JavaDurationOps
 
 import java.io.File
 import java.time.Duration
 import java.util.UUID
+import scala.jdk.DurationConverters.JavaDurationOps
 
 final case class CliConfig[Extra](
     engineConfig: EngineConfig,
-    authService: AuthService,
+    authService: AuthServiceConfig,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
     acsIdFetchingParallelism: Int,
@@ -77,7 +76,7 @@ object CliConfig {
         stackTraceMode = false,
         forbidV0ContractId = true,
       ),
-      authService = AuthServiceWildcard,
+      authService = AuthServiceConfig.Wildcard,
       acsContractFetchingParallelism = IndexConfiguration.DefaultAcsContractFetchingParallelism,
       acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
       acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
@@ -687,7 +686,7 @@ object CliConfig {
               "Enabling stack traces may have a significant performance impact."
           )
 
-        JwtVerifierConfigurationCli.parse(this)((v, c) => c.copy(authService = AuthServiceJWT(v)))
+        AuthServiceConfigCli.parse(this)((v,c)=> c.copy(authService = v))
       }
     extraOptions(parser)
     parser

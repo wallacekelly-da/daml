@@ -71,7 +71,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
       seeding = Seeding.Weak,
       engineMode = SandboxConfig.EngineMode.Dev,
-      authService = authService,
+      //TODO we ignore here authService which we need to set
     )
 
   protected def packageFiles: List[File] = List(darFile)

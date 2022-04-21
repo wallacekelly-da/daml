@@ -54,9 +54,7 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
       maxDeduplicationDuration: Option[Duration]
   ): InitialLedgerConfiguration = {
     val superConfig = super.initialLedgerConfig(maxDeduplicationDuration)
-    superConfig.copy(configuration =
-      superConfig.configuration.copy(maxDeduplicationDuration = DefaultMaximumDeduplicationDuration)
-    )
+    superConfig.copy(maxDeduplicationDuration = DefaultMaximumDeduplicationDuration)
   }
 
   override val defaultExtraConfig: BridgeConfig = BridgeConfig(

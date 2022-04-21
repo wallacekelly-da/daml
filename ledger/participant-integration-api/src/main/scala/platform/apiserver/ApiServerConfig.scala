@@ -3,14 +3,9 @@
 
 package com.daml.platform.apiserver
 
-import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.DbConfig
 import com.daml.platform.usermanagement.UserManagementConfig
@@ -30,7 +25,7 @@ case class ApiServerConfig(
     seeding: Seeding,
     managementServiceTimeout: FiniteDuration,
     userManagement: UserManagementConfig,
-    authentication: AuthService,
+    authentication: AuthServiceConfig,
     party: PartyConfiguration,
     command: CommandConfiguration,
     timeProviderType: TimeProviderType,

@@ -104,12 +104,16 @@ trait ConfigProvider[ExtraConfig] {
   def initialLedgerConfig(
       maxDeduplicationDuration: Option[Duration]
   ): InitialLedgerConfiguration = {
+    val conf = Configuration.reasonableInitialConfiguration
     InitialLedgerConfiguration(
-      configuration = Configuration.reasonableInitialConfiguration.copy(maxDeduplicationDuration =
-        maxDeduplicationDuration.getOrElse(
-          Configuration.reasonableInitialConfiguration.maxDeduplicationDuration
-        )
+      maxDeduplicationDuration = maxDeduplicationDuration.getOrElse(
+        conf.maxDeduplicationDuration
       ),
+      avgTransactionLatency =
+        conf.timeModel.avgTransactionLatency,
+      minSkew = conf.timeModel.minSkew,
+      maxSkew = conf.timeModel.maxSkew,
+      generation = conf.generation,
       // If a new index database is added to an already existing ledger,
       // a zero delay will likely produce a "configuration rejected" ledger entry,
       // because at startup the indexer hasn't ingested any configuration change yet.
