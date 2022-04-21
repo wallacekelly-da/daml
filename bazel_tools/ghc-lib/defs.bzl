@@ -65,7 +65,6 @@ def ghc():
                 "@//bazel_tools/ghc-lib:sh-lib",
             ],
             toolchains = [
-                "@rules_cc//cc:current_cc_toolchain",
                 "@//bazel_tools/ghc-lib:libs",
                 "@//bazel_tools/ghc-lib:tools",
             ],
@@ -91,28 +90,7 @@ cp -rLt $$TMP $$GHC/.
 export HOME="$$TMP"
 export STACK_ROOT="$$TMP/.stack"
 mkdir -p $$STACK_ROOT
-CC=$$(make_absolute $(CC))
-LD=$$(make_absolute $(LD))
-cat >$$STACK_ROOT/config.yaml <<EOF
-system-ghc: true
-install-ghc: false
-configure-options:
-  \\$$everything:
-  - --with-gcc=$$CC
-  - --with-ld=$$LD
-  - --enable-deterministic
-  - --ghc-option=-pgma
-  - --ghc-option=$$CC
-  - --ghc-option=-pgmc
-  - --ghc-option=$$CC
-  - --ghc-option=-pgml
-  - --ghc-option=$$CC
-  - --ghc-option=-pgmP
-  - --ghc-option=$$CC -E -undef -traditional
-  - --ghc-option=-optc-fno-stack-protector
-  - --hsc2hs-option=-c$$CC
-  - --hsc2hs-option=-l$$CC
-EOF
+echo -e "system-ghc: true\\ninstall-ghc: false" > $$STACK_ROOT/config.yaml
 
 $(execpath @ghc-lib-gen) $$TMP --ghc-lib{component} --ghc-flavor={ghc_flavor}
 sed -i.bak \\
