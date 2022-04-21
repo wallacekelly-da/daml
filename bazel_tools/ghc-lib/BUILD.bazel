@@ -32,7 +32,7 @@ binary_bundle(
         "@stackage-exe//happy",
     ],
     visibility = ["@da-ghc//:__pkg__"],
-    deps = [":cc-tools"] +
+    deps = #[":cc-tools"] +
            ([":tools-windows"] if is_windows else ["@nix_ghc_lib_deps//:tools"]),
 )
 
