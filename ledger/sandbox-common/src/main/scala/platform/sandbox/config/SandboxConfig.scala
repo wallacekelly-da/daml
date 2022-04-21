@@ -5,11 +5,11 @@ package com.daml.platform.sandbox.config
 
 import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
+import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
-import com.daml.platform.apiserver.AuthServiceConfig
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.CommandConfiguration
@@ -44,7 +44,7 @@ final case class SandboxConfig(
     jdbcUrl: Option[String],
     databaseConnectionPoolSize: Int,
     logLevel: Option[Level],
-    authService: Option[AuthServiceConfig],
+    authService: Option[AuthService],
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: FiniteDuration,

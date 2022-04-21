@@ -13,13 +13,14 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.runner.common.ParticipantConfig
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider}
+import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.logging.LoggingContext
 import com.google.common.primitives.Longs
 
+import java.time.Duration
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 
@@ -35,6 +36,7 @@ object LedgerBridge {
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      maxDeduplicationDuration: Duration,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -47,6 +49,7 @@ object LedgerBridge {
         bridgeMetrics,
         servicesThreadPoolSize,
         timeProvider,
+        maxDeduplicationDuration,
       )
     else
       ResourceOwner.forValue(() =>
@@ -60,6 +63,7 @@ object LedgerBridge {
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      maxDeduplicationDuration: Duration,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -85,11 +89,7 @@ object LedgerBridge {
       servicesThreadPoolSize = servicesThreadPoolSize,
       maxDeduplicationDuration = initialLedgerConfiguration
         .map(_.maxDeduplicationDuration)
-        .getOrElse(
-          BridgeConfigProvider
-            .initialLedgerConfig(participantConfig.maxDeduplicationDuration)
-            .maxDeduplicationDuration
-        ),
+        .getOrElse(maxDeduplicationDuration),
     )
 
   private[bridge] def packageUploadSuccess(

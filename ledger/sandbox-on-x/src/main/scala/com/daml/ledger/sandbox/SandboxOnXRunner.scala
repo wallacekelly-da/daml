@@ -41,6 +41,7 @@ import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
+import java.time.Duration
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
@@ -49,11 +50,10 @@ object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
 
-  val configProvider: ConfigProvider[BridgeConfig] = BridgeConfigProvider
-
   def owner(
       args: collection.Seq[String],
       manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
+      configProvider: ConfigProvider[BridgeConfig] = new BridgeConfigProvider,
   ): ResourceOwner[Unit] =
     CliConfig
       .owner(
@@ -63,9 +63,11 @@ object SandboxOnXRunner {
         args,
       )
       .map(manipulateConfig)
-      .flatMap(owner)
+      .flatMap(owner(configProvider))
 
-  def owner(originalConfig: CliConfig[BridgeConfig]): ResourceOwner[Unit] =
+  def owner(
+      configProvider: ConfigProvider[BridgeConfig]
+  )(originalConfig: CliConfig[BridgeConfig]): ResourceOwner[Unit] =
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
         originalConfig.mode match {
@@ -74,13 +76,13 @@ object SandboxOnXRunner {
             sys.exit(0)
           case Mode.Run =>
             val config = configProvider.toInternalConfig(originalConfig)
-            println(ConfigWriter.render(config))
-            run(config, originalConfig.extra)
+            run(configProvider, config, originalConfig.extra)
         }
       }
     }
 
   private def run(
+      configProvider: ConfigProvider[BridgeConfig],
       config: Config,
       extra: BridgeConfig,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
@@ -101,6 +103,7 @@ object SandboxOnXRunner {
         extra,
         materializer,
         actorSystem,
+        configProvider,
       ).acquire()
     } yield logInitializationHeader(config, participantConfig, extra)
   }
@@ -125,6 +128,7 @@ object SandboxOnXRunner {
       extra: BridgeConfig,
       materializer: Materializer,
       actorSystem: ActorSystem,
+      configProvider: ConfigProvider[BridgeConfig],
       metrics: Option[Metrics] = None,
   ): ResourceOwner[(ApiServer, WriteService, IndexService)] = {
     val apiServerConfig: ApiServerConfig = participantConfig.apiServer
@@ -191,6 +195,9 @@ object SandboxOnXRunner {
             timeServiceBackend,
             participantConfig,
             extra,
+            configProvider
+              .initialLedgerConfig(participantConfig.maxDeduplicationDuration)
+              .maxDeduplicationDuration,
           )
 
           apiServer <- buildStandaloneApiServer(
@@ -205,6 +212,7 @@ object SandboxOnXRunner {
             config,
             apiServerConfig,
             participantConfig.participantId,
+            configProvider,
           )
         } yield (apiServer, writeService, indexService)
     }
@@ -222,6 +230,7 @@ object SandboxOnXRunner {
       config: Config,
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
+      configProvider: ConfigProvider[BridgeConfig],
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -263,6 +272,7 @@ object SandboxOnXRunner {
         ),
       ),
       participantId = participantId,
+      authService = configProvider.authService(apiServerConfig),
     )
 
   private def buildIndexerServer(
@@ -327,6 +337,7 @@ object SandboxOnXRunner {
       timeServiceBackend: Option[TimeServiceBackend],
       participantConfig: ParticipantConfig,
       extra: BridgeConfig,
+      maxDeduplicationDuration: Duration,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -341,6 +352,7 @@ object SandboxOnXRunner {
         bridgeMetrics,
         servicesThreadPoolSize,
         timeServiceBackend.getOrElse(TimeProvider.UTC),
+        maxDeduplicationDuration,
       )
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(

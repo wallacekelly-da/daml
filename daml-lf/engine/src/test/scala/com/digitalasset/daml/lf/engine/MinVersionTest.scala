@@ -140,23 +140,22 @@ final class MinVersionTest
       ),
     ),
   )
+  private val configProvider = new BridgeConfigProvider()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
     val defaultConfig = CliConfig
-      .createDefault[BridgeConfig](BridgeConfigProvider.defaultExtraConfig)
+      .createDefault[BridgeConfig](configProvider.defaultExtraConfig)
+    val config = defaultConfig.copy(
+      participants = Seq(participant),
+      // Bump min version to 1.14 and check that older stable packages are still accepted.
+      engineConfig = defaultConfig.engineConfig.copy(
+        allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)
+      ),
+    )
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- SandboxOnXRunner.owner(
-          defaultConfig
-            .copy(
-              participants = Seq(participant),
-              // Bump min version to 1.14 and check that older stable packages are still accepted.
-              engineConfig = defaultConfig.engineConfig.copy(
-                allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)
-              ),
-            )
-        )
+        _ <- SandboxOnXRunner.owner(configProvider)(config)
       } yield readPortfile(portfile)
     )
   }

@@ -66,7 +66,7 @@ object ConfigConverter {
         stackTraceMode = sandboxConfig.stackTraces,
         forbidV0ContractId = true,
       ),
-      authService = sandboxConfig.authService.getOrElse(AuthServiceConfig.Wildcard),
+      authService = AuthServiceConfig.Wildcard, //TODO how to pass sandboxConfig.authService?
       acsContractFetchingParallelism = sandboxConfig.acsContractFetchingParallelism,
       acsGlobalParallelism = sandboxConfig.acsGlobalParallelism,
       acsIdFetchingParallelism = sandboxConfig.acsIdFetchingParallelism,

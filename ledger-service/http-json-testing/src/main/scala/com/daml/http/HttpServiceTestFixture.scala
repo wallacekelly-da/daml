@@ -25,6 +25,7 @@ import com.daml.http.util.{FutureUtil, NewBoolean}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.{
+  AuthService,
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,
   CustomDamlJWTPayload,
@@ -45,7 +46,6 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.sandbox.SandboxServer
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.AuthServiceConfig
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
@@ -156,7 +156,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       testName: String,
       token: Option[String] = None,
       useTls: UseTls = UseTls.NoTls,
-      authService: Option[AuthServiceConfig] = None,
+      authService: Option[AuthService] = None,
   )(testFn: (Port, DamlLedgerClient, LedgerId) => Future[A])(implicit
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
@@ -217,7 +217,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ledgerPort: Port,
       dars: List[File],
       ledgerId: LedgerId,
-      authService: Option[AuthServiceConfig],
+      authService: Option[AuthService],
       useTls: UseTls,
       jdbcUrl: Option[String],
   ): SandboxConfig =

@@ -9,18 +9,19 @@ import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.{Config, ParticipantConfig}
+import com.daml.ledger.runner.common.{Config, ConfigProvider, ParticipantConfig}
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
-import com.daml.platform.apiserver.ApiServer
+import com.daml.platform.apiserver.{ApiServer, ApiServerConfig}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.logging
@@ -55,7 +56,11 @@ final class SandboxServer(
   def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
     val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
     val genericCliConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
-    val genericConfig = BridgeConfigProvider.toInternalConfig(genericCliConfig)
+    val configProvider: ConfigProvider[BridgeConfig] = new BridgeConfigProvider {
+      override def authService(apiServerConfig: ApiServerConfig): AuthService =
+        config.authService.getOrElse(AuthServiceWildcard)
+    }
+    val genericConfig = configProvider.toInternalConfig(genericCliConfig)
     for {
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
@@ -67,6 +72,7 @@ final class SandboxServer(
             genericCliConfig.extra,
             materializer,
             materializer.system,
+            configProvider,
             Some(metrics),
           )
           .acquire()

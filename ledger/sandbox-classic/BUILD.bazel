@@ -16,6 +16,7 @@ sandbox_classic_deps = [
     "//language-support/scala/bindings",
     "//ledger/caching",
     "//ledger/ledger-api-common",
+    "//ledger/ledger-api-auth",
     "//ledger/ledger-configuration",
     "//ledger/ledger-resources",
     "//ledger/metrics",

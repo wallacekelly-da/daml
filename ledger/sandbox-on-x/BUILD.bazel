@@ -69,6 +69,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
     ],
     tags = ["maven_coordinates=com.daml:sandbox-classic-server:__VERSION__"],
     visibility = [
@@ -88,6 +89,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/caching",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
@@ -312,7 +314,6 @@ da_scala_library(
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
-        "//ledger/ledger-runner-common",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",

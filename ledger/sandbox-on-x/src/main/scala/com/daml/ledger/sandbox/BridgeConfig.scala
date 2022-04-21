@@ -4,6 +4,7 @@
 package com.daml.ledger.sandbox
 
 import com.daml.ledger.runner.common.{CliConfig, ConfigProvider}
+import com.daml.ledger.sandbox.BridgeConfigProvider.DefaultMaximumDeduplicationDuration
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import scopt.OptionParser
 
@@ -15,7 +16,7 @@ case class BridgeConfig(
     implicitPartyAllocation: Boolean,
 )
 
-object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
+class BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override def partyConfig(extra: BridgeConfig): PartyConfiguration =
     PartyConfiguration(implicitPartyAllocation = extra.implicitPartyAllocation)
 
@@ -63,5 +64,8 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     implicitPartyAllocation = false,
   )
 
+}
+
+object BridgeConfigProvider {
   val DefaultMaximumDeduplicationDuration: Duration = Duration.ofMinutes(30L)
 }
