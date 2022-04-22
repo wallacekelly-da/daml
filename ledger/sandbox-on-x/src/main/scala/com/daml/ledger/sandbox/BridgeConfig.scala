@@ -3,7 +3,7 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.runner.common.{CliConfig, ConfigProvider}
+import com.daml.ledger.runner.common.{LegacyCliConfig, ConfigProvider}
 import com.daml.ledger.sandbox.BridgeConfigProvider.DefaultMaximumDeduplicationDuration
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import scopt.OptionParser
@@ -20,7 +20,7 @@ class BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override def partyConfig(extra: BridgeConfig): PartyConfiguration =
     PartyConfiguration(implicitPartyAllocation = extra.implicitPartyAllocation)
 
-  override def extraConfigParser(parser: OptionParser[CliConfig[BridgeConfig]]): Unit = {
+  override def extraConfigParser(parser: OptionParser[LegacyCliConfig[BridgeConfig]]): Unit = {
     parser
       .opt[Int]("bridge-submission-buffer-size")
       .text("Submission buffer size. Defaults to 500.")

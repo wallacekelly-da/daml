@@ -26,11 +26,11 @@ import scala.jdk.DurationConverters.JavaDurationOps
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
-  def extraConfigParser(parser: OptionParser[CliConfig[ExtraConfig]]): Unit
+  def extraConfigParser(parser: OptionParser[LegacyCliConfig[ExtraConfig]]): Unit
 
   private def toParticipantConfig(
-      cliConfig: CliConfig[ExtraConfig],
-      config: CliParticipantConfig,
+      cliConfig: LegacyCliConfig[ExtraConfig],
+      config: LegacyCliParticipantConfig,
   ): ParticipantConfig = ParticipantConfig(
     mode = config.mode,
     participantId = config.participantId,
@@ -89,9 +89,7 @@ trait ConfigProvider[ExtraConfig] {
     ),
   )
 
-  def partyConfig(@unused extra: ExtraConfig): PartyConfiguration = PartyConfiguration.default
-
-  def toInternalConfig(config: CliConfig[ExtraConfig]): Config = {
+  def fromLegacyCliConfig(config: LegacyCliConfig[ExtraConfig]): Config = {
     Config(
       engine = config.engineConfig,
       ledgerId = config.ledgerId,
@@ -107,6 +105,8 @@ trait ConfigProvider[ExtraConfig] {
       }.toMap,
     )
   }
+
+  def partyConfig(@unused extra: ExtraConfig): PartyConfiguration = PartyConfiguration.default
 
   def initialLedgerConfig(
       maxDeduplicationDuration: Option[Duration]
@@ -144,7 +144,7 @@ object ConfigProvider {
   class ForUnit extends ConfigProvider[Unit] {
     override val defaultExtraConfig: Unit = ()
 
-    override def extraConfigParser(parser: OptionParser[CliConfig[Unit]]): Unit = ()
+    override def extraConfigParser(parser: OptionParser[LegacyCliConfig[Unit]]): Unit = ()
   }
 
   object ForUnit extends ForUnit

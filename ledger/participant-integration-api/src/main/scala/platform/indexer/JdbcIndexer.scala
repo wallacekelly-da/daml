@@ -9,7 +9,11 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.indexer.parallel.{InitializeParallelIngestion, ParallelIndexerFactory, ParallelIndexerSubscription}
+import com.daml.platform.indexer.parallel.{
+  InitializeParallelIngestion,
+  ParallelIndexerFactory,
+  ParallelIndexerSubscription,
+}
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.{DbType, LfValueTranslationCache}

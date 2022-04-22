@@ -50,42 +50,10 @@ object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
 
-  def owner(
-      args: collection.Seq[String],
-      manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
-      configProvider: ConfigProvider[BridgeConfig] = new BridgeConfigProvider,
-  ): ResourceOwner[Unit] =
-    CliConfig
-      .owner(
-        RunnerName,
-        configProvider.extraConfigParser,
-        configProvider.defaultExtraConfig,
-        args,
-      )
-      .map(manipulateConfig)
-      .flatMap(owner(configProvider))
-
-  def owner(
-      configProvider: ConfigProvider[BridgeConfig]
-  )(originalConfig: CliConfig[BridgeConfig]): ResourceOwner[Unit] =
-    new ResourceOwner[Unit] {
-      override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
-        originalConfig.mode match {
-          case Mode.DumpIndexMetadata(jdbcUrls) =>
-            DumpIndexMetadata(jdbcUrls, RunnerName)
-            sys.exit(0)
-          case Mode.Run =>
-            val config = configProvider.toInternalConfig(originalConfig)
-            println(ConfigRenderer.render(config))
-            run(configProvider, config, originalConfig.extra)
-        }
-      }
-    }
-
-  private def run(
+  def run(
       configProvider: ConfigProvider[BridgeConfig],
       config: Config,
-      extra: BridgeConfig,
+      bridgeConfig: BridgeConfig,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
@@ -101,12 +69,12 @@ object SandboxOnXRunner {
       _ <- buildLedger(
         config,
         participantConfig,
-        extra,
+        bridgeConfig,
         materializer,
         actorSystem,
         configProvider,
       ).acquire()
-    } yield logInitializationHeader(config, participantConfig, extra)
+    } yield logInitializationHeader(config, participantConfig, bridgeConfig)
   }
 
   def validateCombinedParticipantMode(

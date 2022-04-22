@@ -14,7 +14,12 @@ import com.daml.lf.{VersionRange, interpretation, language}
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, InitialLedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  IndexConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+}
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType

@@ -11,7 +11,7 @@ import com.daml.ports.Port
 import java.nio.file.Path
 import scala.concurrent.duration._
 
-final case class CliParticipantConfig(
+final case class LegacyCliParticipantConfig(
     mode: ParticipantRunMode,
     participantId: Ref.ParticipantId,
     // A name of the participant shard in a horizontally scaled participant.
@@ -20,19 +20,19 @@ final case class CliParticipantConfig(
     port: Port,
     portFile: Option[Path],
     serverJdbcUrl: String,
-    managementServiceTimeout: Duration = CliParticipantConfig.DefaultManagementServiceTimeout,
+    managementServiceTimeout: Duration = LegacyCliParticipantConfig.DefaultManagementServiceTimeout,
     indexerConfig: IndexerConfig,
     apiServerDatabaseConnectionPoolSize: Int =
-      CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
+      LegacyCliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
     apiServerDatabaseConnectionTimeout: Duration =
-      CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout,
+      LegacyCliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout,
     maxContractStateCacheSize: Long = IndexConfiguration.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = IndexConfiguration.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Long =
       IndexConfiguration.DefaultMaxTransactionsInMemoryFanOutBufferSize,
 )
 
-object CliParticipantConfig {
+object LegacyCliParticipantConfig {
   def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 

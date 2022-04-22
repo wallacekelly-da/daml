@@ -147,7 +147,9 @@ object RunnerSpec {
   private val Name = classOf[RunnerSpec].getSimpleName
   private val LedgerId = s"$Name-Ledger"
   private val config =
-    TestConfigProvider.toInternalConfig(CliConfig.createDefault(()).copy(ledgerId = LedgerId))
+    TestConfigProvider.fromLegacyCliConfig(
+      LegacyCliConfig.createDefault(()).copy(ledgerId = LedgerId)
+    )
 
   private val engine = Engine.StableEngine()
 
@@ -168,7 +170,7 @@ object RunnerSpec {
       indexer = IndexerConfig(
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
         database = IndexerConfig.createDefaultDatabaseConfig(
-          CliParticipantConfig.defaultIndexJdbcUrl(participantId)
+          LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId)
         ),
       ),
       index = IndexConfiguration(),
@@ -182,24 +184,24 @@ object RunnerSpec {
         port = Port.Dynamic,
         address = None,
         tls = None,
-        maxInboundMessageSize = CliConfig.DefaultMaxInboundMessageSize,
+        maxInboundMessageSize = LegacyCliConfig.DefaultMaxInboundMessageSize,
         initialLedgerConfiguration = None,
         configurationLoadTimeout = 10.seconds,
         portFile = None,
         seeding = Seeding.Strong,
-        managementServiceTimeout = CliParticipantConfig.DefaultManagementServiceTimeout,
+        managementServiceTimeout = LegacyCliParticipantConfig.DefaultManagementServiceTimeout,
         userManagement = UserManagementConfig.default(enabled = false),
         authentication = AuthServiceConfig.Wildcard,
         party = PartyConfiguration.default,
         command = CommandConfiguration.default,
         timeProviderType = TimeProviderType.WallClock,
         database = DbConfig(
-          jdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
+          jdbcUrl = LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId),
           connectionPool = ConnectionPoolConfig(
-            minimumIdle = CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
-            maxPoolSize = CliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
+            minimumIdle = LegacyCliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
+            maxPoolSize = LegacyCliParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
             connectionTimeout = FiniteDuration(
-              CliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout.toMillis,
+              LegacyCliParticipantConfig.DefaultApiServerDatabaseConnectionTimeout.toMillis,
               TimeUnit.MILLISECONDS,
             ),
           ),

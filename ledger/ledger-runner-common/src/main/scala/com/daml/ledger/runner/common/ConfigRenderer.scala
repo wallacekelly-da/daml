@@ -17,7 +17,12 @@ object ConfigRenderer {
     import FileBasedConfig._
 
     val defaultConfigRenderer =
-      ConfigRenderOptions.defaults().setOriginComments(false).setComments(false).setJson(false).setFormatted(true)
+      ConfigRenderOptions
+        .defaults()
+        .setOriginComments(false)
+        .setComments(false)
+        .setJson(false)
+        .setFormatted(true)
 
     val configValue = toConfig(config)
     configValue.render(defaultConfigRenderer)

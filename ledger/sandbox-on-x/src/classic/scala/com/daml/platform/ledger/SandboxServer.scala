@@ -60,7 +60,7 @@ final class SandboxServer(
       override def authService(apiServerConfig: ApiServerConfig): AuthService =
         config.authService.getOrElse(AuthServiceWildcard)
     }
-    val genericConfig = configProvider.toInternalConfig(genericCliConfig)
+    val genericConfig = configProvider.fromLegacyCliConfig(genericCliConfig)
     for {
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)

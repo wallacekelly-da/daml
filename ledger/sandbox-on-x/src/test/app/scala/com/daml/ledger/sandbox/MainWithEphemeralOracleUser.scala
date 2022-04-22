@@ -13,7 +13,7 @@ object MainWithEphemeralOracleUser {
     val user = OracleAround.createNewUniqueRandomUser()
     sys.addShutdownHook(user.drop())
     new ProgramResource(
-      owner = SandboxOnXRunner.owner(
+      owner = LegacySandboxOnXRunner.owner(
         args = args,
         manipulateConfig = originalConfig =>
           originalConfig.copy(

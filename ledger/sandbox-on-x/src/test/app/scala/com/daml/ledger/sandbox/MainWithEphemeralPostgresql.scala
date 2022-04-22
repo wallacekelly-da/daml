@@ -4,7 +4,6 @@
 package com.daml.ledger.sandbox
 
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.sandbox.SandboxOnXRunner
 import com.daml.platform.indexer.IndexerConfig
 import com.daml.resources.ProgramResource
 import com.daml.testing.postgresql.PostgresAround
@@ -15,7 +14,7 @@ object MainWithEphemeralPostgresql extends PostgresAround {
     val database = createNewRandomDatabase()
     sys.addShutdownHook(disconnectFromPostgresqlServer())
     new ProgramResource(
-      owner = SandboxOnXRunner.owner(
+      owner = LegacySandboxOnXRunner.owner(
         args = args,
         manipulateConfig = originalConfig =>
           originalConfig.copy(

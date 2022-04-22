@@ -20,8 +20,12 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.runner.common.{CliConfig, CliParticipantConfig, ParticipantRunMode}
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, SandboxOnXRunner}
+import com.daml.ledger.runner.common.{
+  LegacyCliConfig,
+  LegacyCliParticipantConfig,
+  ParticipantRunMode,
+}
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, LegacySandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
@@ -124,25 +128,25 @@ final class MinVersionTest
   }
 
   private val participantId = Ref.ParticipantId.assertFromString("participant1")
-  private val participant = CliParticipantConfig(
+  private val participant = LegacyCliParticipantConfig(
     mode = ParticipantRunMode.Combined,
     participantId = participantId,
     shardName = None,
     address = Some("localhost"),
     port = Port.Dynamic,
     portFile = Some(portfile),
-    serverJdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
+    serverJdbcUrl = LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId),
     indexerConfig = IndexerConfig(
       startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
       database = IndexerConfig.createDefaultDatabaseConfig(
-        CliParticipantConfig.defaultIndexJdbcUrl(participantId)
+        LegacyCliParticipantConfig.defaultIndexJdbcUrl(participantId)
       ),
     ),
   )
   private val configProvider = new BridgeConfigProvider()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
-    val defaultConfig = CliConfig
+    val defaultConfig = LegacyCliConfig
       .createDefault[BridgeConfig](configProvider.defaultExtraConfig)
     val config = defaultConfig.copy(
       participants = Seq(participant),
@@ -154,7 +158,7 @@ final class MinVersionTest
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- SandboxOnXRunner.owner(configProvider)(config)
+        _ <- LegacySandboxOnXRunner.owner(configProvider)(config)
       } yield readPortfile(portfile)
     )
   }

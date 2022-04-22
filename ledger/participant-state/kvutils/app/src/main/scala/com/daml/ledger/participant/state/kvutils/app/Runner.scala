@@ -42,18 +42,18 @@ final class Runner[T <: ReadWriteService, Extra](
   private val logger = ContextualizedLogger.get(getClass)
 
   def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
-    CliConfig
+    LegacyCliConfig
       .owner(name, configProvider.extraConfigParser, configProvider.defaultExtraConfig, args)
       .flatMap(owner)
 
-  def owner(cliConfig: CliConfig[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
+  def owner(cliConfig: LegacyCliConfig[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
     override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
       cliConfig.mode match {
         case Mode.DumpIndexMetadata(jdbcUrls) =>
           DumpIndexMetadata(jdbcUrls, name)
           sys.exit(0)
         case Mode.Run =>
-          val config = configProvider.toInternalConfig(cliConfig)
+          val config = configProvider.fromLegacyCliConfig(cliConfig)
           println(ConfigRenderer.render(config))
           run(config, cliConfig.extra, ledgerFeatures)
       }
