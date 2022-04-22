@@ -166,7 +166,6 @@ object RunnerSpec {
       participantId = participantId,
       shardName = Some(UUID.randomUUID().toString),
       indexer = IndexerConfig(
-        participantId = participantId,
         startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
         database = IndexerConfig.createDefaultDatabaseConfig(
           CliParticipantConfig.defaultIndexJdbcUrl(participantId)

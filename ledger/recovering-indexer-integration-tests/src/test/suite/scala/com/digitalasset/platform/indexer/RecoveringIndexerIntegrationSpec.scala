@@ -200,8 +200,8 @@ class RecoveringIndexerIntegrationSpec
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
         readService = participantState._1,
+        participantId = participantId,
         config = IndexerConfig(
-          participantId = participantId,
           startupMode = IndexerStartupMode.MigrateAndStart(),
           restartDelay = restartDelay,
           database = IndexerConfig.createDefaultDatabaseConfig(jdbcUrl),

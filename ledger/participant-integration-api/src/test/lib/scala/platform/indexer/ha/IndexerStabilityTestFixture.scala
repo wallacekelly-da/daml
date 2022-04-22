@@ -59,7 +59,6 @@ object IndexerStabilityTestFixture {
       lockIdSeed: Int,
   )(implicit resourceContext: ResourceContext, materializer: Materializer): Resource[Indexers] = {
     val indexerConfig = IndexerConfig(
-      participantId = EndlessReadService.participantId,
       startupMode = IndexerStartupMode.MigrateAndStart(),
       highAvailability = HaConfig(
         indexerLockId = lockIdSeed,
@@ -96,6 +95,7 @@ object IndexerStabilityTestFixture {
                   metrics = new Metrics(metricRegistry)
                   // Create an indexer and immediately start it
                   indexing <- new StandaloneIndexerServer(
+                    participantId = EndlessReadService.participantId,
                     readService = readService,
                     config = indexerConfig,
                     metrics = metrics,

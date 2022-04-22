@@ -79,9 +79,9 @@ final class Runner[T <: ReadWriteService, Extra](
 
         // initialize all configured participants
         _ <- Resource.sequenceIgnoringValues(
-          config.participants.map(participantConfig =>
+          config.participants.map { case (_, participantConfig) =>
             runParticipant(config, participantConfig, extra, sharedEngine, ledgerFeatures)
-          )
+          }
         )
       } yield logInitializationHeader(config)
     }
@@ -89,7 +89,7 @@ final class Runner[T <: ReadWriteService, Extra](
 
   private def logInitializationHeader(config: Config): Unit = {
     val participantsInitializationText = config.participants
-      .map { participantConfig =>
+      .map { case (_, participantConfig) =>
         val apiServerConfig = participantConfig.apiServer
         val authentication = apiServerConfig.authentication.create() match {
           case _: AuthServiceJWT => "JWT-based authentication"
@@ -169,6 +169,7 @@ final class Runner[T <: ReadWriteService, Extra](
               val readService = new TimedReadService(ledgerFactory.readService(), metrics)
               for {
                 indexerHealth <- new StandaloneIndexerServer(
+                  participantId = participantConfig.participantId,
                   readService = readService,
                   config = participantConfig.indexer,
                   metrics = metrics,

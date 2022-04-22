@@ -133,7 +133,6 @@ final class MinVersionTest
     portFile = Some(portfile),
     serverJdbcUrl = CliParticipantConfig.defaultIndexJdbcUrl(participantId),
     indexerConfig = IndexerConfig(
-      participantId = participantId,
       startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
       database = IndexerConfig.createDefaultDatabaseConfig(
         CliParticipantConfig.defaultIndexJdbcUrl(participantId)
