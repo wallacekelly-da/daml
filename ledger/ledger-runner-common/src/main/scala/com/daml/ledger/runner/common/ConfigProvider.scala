@@ -32,7 +32,7 @@ trait ConfigProvider[ExtraConfig] {
       cliConfig: LegacyCliConfig[ExtraConfig],
       config: LegacyCliParticipantConfig,
   ): ParticipantConfig = ParticipantConfig(
-    mode = config.mode,
+    runMode = config.mode,
     participantId = config.participantId,
     shardName = config.shardName,
     indexer = config.indexerConfig,

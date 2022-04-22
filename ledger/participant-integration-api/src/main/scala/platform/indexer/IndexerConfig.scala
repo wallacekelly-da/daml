@@ -11,7 +11,7 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
-    startupMode: IndexerStartupMode,
+    startupMode: IndexerStartupMode = DefaultIndexerStartupMode,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,
@@ -21,8 +21,8 @@ case class IndexerConfig(
     tailingRateLimitPerSecond: Int = DefaultTailingRateLimitPerSecond,
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
-    highAvailability: HaConfig = HaConfig(),
-    database: DbConfig,
+    highAvailability: HaConfig = DefaultHaConfig,
+    database: DbConfig = DefaultDatabase,
 )
 
 object IndexerConfig {
@@ -49,6 +49,9 @@ object IndexerConfig {
     ),
   )
 
+  val DefaultIndexerStartupMode: IndexerStartupMode.MigrateAndStart =
+    IndexerStartupMode.MigrateAndStart(allowExistingSchema = false)
+  val DefaultHaConfig: HaConfig = HaConfig()
   val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds
   val DefaultMaxInputBufferSize: Int = 50
@@ -59,5 +62,12 @@ object IndexerConfig {
   val DefaultTailingRateLimitPerSecond: Int = 20
   val DefaultBatchWithinMillis: Long = 50L
   val DefaultEnableCompression: Boolean = false
-
+  val DefaultDatabase: DbConfig = DbConfig(
+    jdbcUrl = "default-jdbc-url",
+    connectionPool = ConnectionPoolConfig(
+      minimumIdle = 16,
+      maxPoolSize = 16,
+      connectionTimeout = 250.millis,
+    ),
+  )
 }

@@ -3,11 +3,24 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.ledger.runner.common.Config.{DefaultEngineConfig, DefaultLedgerId}
+import com.daml.ledger.runner.common.MetricsConfig.DefaultMetricsConfig
 import com.daml.lf.engine.EngineConfig
+import com.daml.lf.language.LanguageVersion
 
 final case class Config(
-    ledgerId: String,
-    engine: EngineConfig,
-    metrics: MetricsConfig,
+    ledgerId: String = DefaultLedgerId,
+    engine: EngineConfig = DefaultEngineConfig,
+    metrics: MetricsConfig = DefaultMetricsConfig,
     participants: Map[ParticipantName, ParticipantConfig],
 )
+
+object Config {
+  val DefaultLedgerId: String = "default-ledger-id"
+  val DefaultEngineConfig: EngineConfig = EngineConfig(
+    allowedLanguageVersions = LanguageVersion.StableVersions,
+    profileDir = None,
+    stackTraceMode = false,
+    forbidV0ContractId = true,
+  )
+}

@@ -164,7 +164,7 @@ object RunnerSpec {
   private def newTestParticipantConfig() = {
     val participantId = Ref.ParticipantId.assertFromString("participant")
     ParticipantConfig(
-      mode = ParticipantRunMode.Combined,
+      runMode = ParticipantRunMode.Combined,
       participantId = participantId,
       shardName = Some(UUID.randomUUID().toString),
       indexer = IndexerConfig(

@@ -3,6 +3,8 @@
 
 package com.daml.ledger.runner.common
 
+import com.daml.caching
+import com.daml.ledger.runner.common.ParticipantConfig._
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.configuration.IndexConfiguration
@@ -12,15 +14,32 @@ import com.daml.platform.store.LfValueTranslationCache
 import java.time.Duration
 
 final case class ParticipantConfig(
-    participantId: Ref.ParticipantId,
-    shardName: Option[String],
-    mode: ParticipantRunMode,
+    participantId: Ref.ParticipantId = DefaultParticipantId,
     // A name of the participant shard in a horizontally scaled participant.
-    indexer: IndexerConfig,
-    index: IndexConfiguration,
-    lfValueTranslationCache: LfValueTranslationCache.Config,
-    maxDeduplicationDuration: Option[Duration],
-    apiServer: ApiServerConfig,
+    shardName: Option[String] = DefaultShardName,
+    runMode: ParticipantRunMode = DefaultRunMode,
+    indexer: IndexerConfig = DefaultIndexerConfig,
+    index: IndexConfiguration = DefaultIndexConfig,
+    lfValueTranslationCache: LfValueTranslationCache.Config = DefaultLfValueTranslationCache,
+    maxDeduplicationDuration: Option[Duration] = DefaultMaxDeduplicationDuration,
+    apiServer: ApiServerConfig = DefaultApiServer,
 ) {
   def metricsRegistryName: String = participantId + shardName.map("-" + _).getOrElse("")
+}
+
+object ParticipantConfig {
+  val DefaultParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("participantId")
+  val DefaultShardName: Option[String] = None
+  val DefaultRunMode: ParticipantRunMode = ParticipantRunMode.Combined
+  val DefaultIndexerConfig: IndexerConfig = IndexerConfig(
+    database = IndexerConfig.createDefaultDatabaseConfig("default-jdbc-url")
+  )
+  val DefaultIndexConfig: IndexConfiguration = IndexConfiguration()
+  val DefaultLfValueTranslationCache: LfValueTranslationCache.Config =
+    LfValueTranslationCache.Config(
+      eventsMaximumSize = caching.SizedCache.Configuration.none,
+      contractsMaximumSize = caching.SizedCache.Configuration.none,
+    )
+  val DefaultMaxDeduplicationDuration: Option[Duration] = None
+  val DefaultApiServer: ApiServerConfig = ApiServerConfig()
 }

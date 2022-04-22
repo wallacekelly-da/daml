@@ -100,7 +100,7 @@ final class Runner[T <: ReadWriteService, Extra](
         }
         s"{participant-id = ${participantConfig.participantId}, " +
           s"shared-name = ${participantConfig.shardName}, " +
-          s"run-mode = ${participantConfig.mode}, " +
+          s"run-mode = ${participantConfig.runMode}, " +
           s"port = ${apiServerConfig.port.toString}, " +
           s"contract ids seeding = ${apiServerConfig.seeding}, " +
           s"authentication = $authentication"
@@ -164,7 +164,7 @@ final class Runner[T <: ReadWriteService, Extra](
               metrics,
             )(materializer, servicesExecutionContext, loggingContext)
             .acquire()
-          healthChecksWithIndexer <- participantConfig.mode match {
+          healthChecksWithIndexer <- participantConfig.runMode match {
             case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
               val readService = new TimedReadService(ledgerFactory.readService(), metrics)
               for {
@@ -185,7 +185,7 @@ final class Runner[T <: ReadWriteService, Extra](
               Resource.successful(new HealthChecks())
           }
           apiServerConfig = participantConfig.apiServer
-          port <- participantConfig.mode match {
+          port <- participantConfig.runMode match {
             case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
               for {
                 dbSupport <- DbSupport

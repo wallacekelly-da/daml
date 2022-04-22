@@ -81,7 +81,8 @@ object SandboxOnXRunner {
       config: Config
   ): Resource[ParticipantConfig] =
     config.participants.toList match {
-      case (_, participantConfig) :: Nil if participantConfig.mode == ParticipantRunMode.Combined =>
+      case (_, participantConfig) :: Nil
+          if participantConfig.runMode == ParticipantRunMode.Combined =>
         Resource.successful(participantConfig)
       case _ =>
         Resource.failed {
@@ -351,7 +352,7 @@ object SandboxOnXRunner {
 
     val ledgerDetails =
       Seq[(String, String)](
-        "run-mode" -> s"${participantConfig.mode} participant",
+        "run-mode" -> s"${participantConfig.runMode} participant",
         "index DB backend" -> DbType
           .jdbcType(apiServerConfig.database.jdbcUrl)
           .name,
