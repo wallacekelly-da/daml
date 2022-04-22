@@ -28,8 +28,9 @@ trait ConfigProvider[ExtraConfig] {
 
   def extraConfigParser(parser: OptionParser[CliConfig[ExtraConfig]]): Unit
 
-  def toParticipantConfig(cliConfig: CliConfig[ExtraConfig])(
-      config: CliParticipantConfig
+  private def toParticipantConfig(
+      cliConfig: CliConfig[ExtraConfig],
+      config: CliParticipantConfig,
   ): ParticipantConfig = ParticipantConfig(
     mode = config.mode,
     participantId = config.participantId,
@@ -98,7 +99,12 @@ trait ConfigProvider[ExtraConfig] {
         reporter = config.metricsReporter,
         reportingInterval = config.metricsReportingInterval.toScala,
       ),
-      participants = config.participants.map(toParticipantConfig(config)),
+      participants = config.participants.map { participantConfig =>
+        ParticipantName.fromParticipantId(
+          participantConfig.participantId,
+          participantConfig.shardName,
+        ) -> toParticipantConfig(config, participantConfig)
+      }.toMap,
     )
   }
 

@@ -24,6 +24,7 @@ case class Config(
     indexerConfig: IndexerConfig,
     waitForUserInput: Boolean,
     minUpdateRate: Option[Long],
+    participantId: Ref.ParticipantId,
 )
 
 object Config {
@@ -33,12 +34,12 @@ object Config {
     metricsReporter = None,
     metricsReportingInterval = Duration.ofSeconds(1),
     indexerConfig = IndexerConfig(
-      participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
       startupMode = IndexerStartupMode.MigrateAndStart(),
       database = IndexerConfig.createDefaultDatabaseConfig(""),
     ),
     waitForUserInput = false,
     minUpdateRate = None,
+    participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
   )
 
   private[this] val Parser: OptionParser[Config] =

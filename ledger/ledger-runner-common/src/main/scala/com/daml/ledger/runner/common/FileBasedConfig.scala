@@ -14,12 +14,7 @@ import com.daml.lf.{VersionRange, interpretation, language}
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  IndexConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.services.time.TimeProviderType
@@ -30,6 +25,7 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.Synch
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
+import pureconfig.configurable.{genericMapReader, genericMapWriter}
 import pureconfig.error.CannotConvert
 import pureconfig.generic.semiauto._
 import pureconfig.{ConfigReader, ConfigWriter, ConvertHelpers}
@@ -284,10 +280,12 @@ object FileBasedConfig {
   implicit val haConfigReader: ConfigReader[HaConfig] = deriveReader[HaConfig]
   implicit val haConfigWriter: ConfigWriter[HaConfig] = deriveWriter[HaConfig]
 
+  private def createParticipantId(s: String) =
+    Ref.ParticipantId.fromString(s).left.map(err => CannotConvert(s, "Ref.ParticipantId", err))
+
   implicit val participantIdReader: ConfigReader[Ref.ParticipantId] = ConfigReader
-    .fromString[Ref.ParticipantId](s =>
-      Ref.ParticipantId.fromString(s).left.map(err => CannotConvert(s, "Ref.ParticipantId", err))
-    )
+    .fromString[Ref.ParticipantId](createParticipantId)
+
   implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
     ConfigWriter.toString[Ref.ParticipantId](_.toString)
 
@@ -313,6 +311,13 @@ object FileBasedConfig {
     deriveReader[ParticipantConfig]
   implicit val participantConfigWriter: ConfigWriter[ParticipantConfig] =
     deriveWriter[ParticipantConfig]
+
+  private def createParticipantName(s: String) = Right(ParticipantName(s))
+
+  implicit def participantNameKeyReader: ConfigReader[Map[ParticipantName, ParticipantConfig]] =
+    genericMapReader[ParticipantName, ParticipantConfig](createParticipantName)
+  implicit def participantNameKeyWriter: ConfigWriter[Map[ParticipantName, ParticipantConfig]] =
+    genericMapWriter[ParticipantName, ParticipantConfig](_.value)
 
   implicit val reader: ConfigReader[Config] = deriveReader[Config]
   implicit val writer: ConfigWriter[Config] = deriveWriter[Config]

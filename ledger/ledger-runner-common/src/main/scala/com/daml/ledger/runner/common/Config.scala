@@ -9,5 +9,5 @@ final case class Config(
     ledgerId: String,
     engine: EngineConfig,
     metrics: MetricsConfig,
-    participants: Seq[ParticipantConfig],
+    participants: Map[ParticipantName, ParticipantConfig],
 )

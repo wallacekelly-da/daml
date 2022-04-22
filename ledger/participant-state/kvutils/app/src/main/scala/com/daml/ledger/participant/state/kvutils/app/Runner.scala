@@ -54,7 +54,7 @@ final class Runner[T <: ReadWriteService, Extra](
           sys.exit(0)
         case Mode.Run =>
           val config = configProvider.toInternalConfig(cliConfig)
-          println(ConfigWriter.render(config))
+          println(ConfigRenderer.render(config))
           run(config, cliConfig.extra, ledgerFeatures)
       }
     }

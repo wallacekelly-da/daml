@@ -5,7 +5,7 @@ package com.daml.ledger.runner.common
 
 import com.typesafe.config.{ConfigRenderOptions, ConfigValue}
 
-object ConfigWriter {
+object ConfigRenderer {
 
   private def toConfig(
       config: Config

@@ -3,7 +3,6 @@
 
 package com.daml.platform.indexer
 
-import com.daml.lf.data.Ref
 import com.daml.platform.indexer.IndexerConfig._
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
@@ -12,7 +11,6 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
-    participantId: Ref.ParticipantId,
     startupMode: IndexerStartupMode,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,

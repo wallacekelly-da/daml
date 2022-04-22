@@ -76,7 +76,7 @@ object SandboxOnXRunner {
             sys.exit(0)
           case Mode.Run =>
             val config = configProvider.toInternalConfig(originalConfig)
-            println(ConfigWriter.render(config))
+            println(ConfigRenderer.render(config))
             run(configProvider, config, originalConfig.extra)
         }
       }
@@ -113,7 +113,7 @@ object SandboxOnXRunner {
       config: Config
   ): Resource[ParticipantConfig] =
     config.participants.toList match {
-      case participantConfig :: Nil if participantConfig.mode == ParticipantRunMode.Combined =>
+      case (_, participantConfig) :: Nil if participantConfig.mode == ParticipantRunMode.Combined =>
         Resource.successful(participantConfig)
       case _ =>
         Resource.failed {
@@ -287,6 +287,7 @@ object SandboxOnXRunner {
   ): ResourceOwner[HealthChecks] =
     for {
       indexerHealth <- new StandaloneIndexerServer(
+        participantId = participantConfig.participantId,
         readService = readService,
         config = participantConfig.indexer,
         metrics = metrics,

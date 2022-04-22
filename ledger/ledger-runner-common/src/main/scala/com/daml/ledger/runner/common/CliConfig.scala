@@ -283,7 +283,6 @@ object CliConfig {
               portFile = portFile,
               serverJdbcUrl = jdbcUrl,
               indexerConfig = IndexerConfig(
-                participantId = participantId,
                 startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
                 maxInputBufferSize = indexerMaxInputBufferSize,
                 inputMappingParallelism = indexerInputMappingParallelism,

@@ -6,13 +6,10 @@ package com.daml.platform.indexer
 import akka.stream._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.indexer.parallel.{
-  InitializeParallelIngestion,
-  ParallelIndexerFactory,
-  ParallelIndexerSubscription,
-}
+import com.daml.platform.indexer.parallel.{InitializeParallelIngestion, ParallelIndexerFactory, ParallelIndexerSubscription}
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
@@ -21,6 +18,7 @@ import scala.concurrent.Future
 
 object JdbcIndexer {
   private[daml] final class Factory(
+      participantId: Ref.ParticipantId,
       config: IndexerConfig,
       readService: state.ReadService,
       metrics: Metrics,
@@ -45,7 +43,7 @@ object JdbcIndexer {
         dbLockStorageBackend = DBLockStorageBackend,
         dataSourceStorageBackend = dataSourceStorageBackend,
         initializeParallelIngestion = InitializeParallelIngestion(
-          providedParticipantId = config.participantId,
+          providedParticipantId = participantId,
           parameterStorageBackend = parameterStorageBackend,
           ingestionStorageBackend = ingestionStorageBackend,
           metrics = metrics,
@@ -53,7 +51,7 @@ object JdbcIndexer {
         parallelIndexerSubscription = ParallelIndexerSubscription(
           parameterStorageBackend = parameterStorageBackend,
           ingestionStorageBackend = ingestionStorageBackend,
-          participantId = config.participantId,
+          participantId = participantId,
           translation = new LfValueTranslation(
             cache = lfValueTranslationCache,
             metrics = metrics,

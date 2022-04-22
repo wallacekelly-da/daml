@@ -72,6 +72,7 @@ class IndexerBenchmark() {
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
       val indexerFactory: JdbcIndexer.Factory = new JdbcIndexer.Factory(
+        config.participantId,
         config.indexerConfig,
         readService,
         metrics,

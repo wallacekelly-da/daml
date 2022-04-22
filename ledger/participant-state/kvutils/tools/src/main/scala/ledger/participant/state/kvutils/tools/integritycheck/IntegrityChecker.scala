@@ -137,6 +137,7 @@ class IntegrityChecker[LogResult](
     newLoggingContext { implicit loggingContext =>
       val feedHandleResourceOwner = for {
         indexer <- migrateAndStartIndexer(
+          Ref.ParticipantId.assertFromString("IntegrityCheckerParticipant"),
           createIndexerConfig(config),
           replayingReadService,
           metrics,
@@ -243,6 +244,7 @@ class IntegrityChecker[LogResult](
   }
 
   private def migrateAndStartIndexer(
+      participantId: Ref.ParticipantId,
       config: IndexerConfig,
       readService: ReadService,
       metrics: Metrics,
@@ -253,6 +255,7 @@ class IntegrityChecker[LogResult](
       loggingContext: LoggingContext,
   ): ResourceOwner[Indexer] = {
     val indexerFactory = new JdbcIndexer.Factory(
+      participantId,
       config,
       readService,
       metrics,
@@ -324,7 +327,6 @@ object IntegrityChecker {
 
   private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
     IndexerConfig(
-      participantId = Ref.ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       startupMode = IndexerStartupMode.MigrateAndStart(),
       database = IndexerConfig.createDefaultDatabaseConfig(jdbcUrl(config)),
     )

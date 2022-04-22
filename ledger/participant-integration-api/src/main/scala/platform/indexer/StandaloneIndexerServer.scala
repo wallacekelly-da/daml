@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import com.daml.ledger.api.health.{Healthy, ReportsHealth}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.backend.DataSourceStorageBackend
@@ -15,6 +16,7 @@ import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 import scala.concurrent.Future
 
 final class StandaloneIndexerServer(
+    participantId: Ref.ParticipantId,
     readService: state.ReadService,
     config: IndexerConfig,
     metrics: Metrics,
@@ -32,6 +34,7 @@ final class StandaloneIndexerServer(
         additionalMigrationPaths,
       )
     val indexerFactory = new JdbcIndexer.Factory(
+      participantId,
       config,
       readService,
       metrics,
