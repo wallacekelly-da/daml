@@ -49,8 +49,8 @@ trait ConfigProvider[ExtraConfig] {
       archiveFiles = IndexConfiguration.DefaultArchiveFiles,
     ),
     lfValueTranslationCache = LfValueTranslationCache.Config(
-      contract = cliConfig.lfValueTranslationContractCache,
-      event = cliConfig.lfValueTranslationEventCache,
+      contractsMaximumSize = cliConfig.lfValueTranslationContractCache,
+      eventsMaximumSize = cliConfig.lfValueTranslationEventCache,
     ),
     maxDeduplicationDuration = cliConfig.maxDeduplicationDuration,
     apiServer = ApiServerConfig(

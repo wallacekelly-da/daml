@@ -17,9 +17,10 @@ object ConfigWriter {
     import FileBasedConfig._
 
     val defaultConfigRenderer =
-      ConfigRenderOptions.defaults().setOriginComments(false).setComments(false).setJson(false)
+      ConfigRenderOptions.defaults().setOriginComments(false).setComments(false).setJson(false).setFormatted(true)
 
-    toConfig(config).render(defaultConfigRenderer)
+    val configValue = toConfig(config)
+    configValue.render(defaultConfigRenderer)
   }
 
 }

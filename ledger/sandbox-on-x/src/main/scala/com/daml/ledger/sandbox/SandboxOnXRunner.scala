@@ -76,6 +76,7 @@ object SandboxOnXRunner {
             sys.exit(0)
           case Mode.Run =>
             val config = configProvider.toInternalConfig(originalConfig)
+            println(ConfigWriter.render(config))
             run(configProvider, config, originalConfig.extra)
         }
       }
