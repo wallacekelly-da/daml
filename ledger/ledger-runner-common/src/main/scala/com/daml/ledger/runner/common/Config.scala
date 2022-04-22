@@ -3,7 +3,11 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.ledger.runner.common.Config.{DefaultEngineConfig, DefaultLedgerId}
+import com.daml.ledger.runner.common.Config.{
+  DefaultEngineConfig,
+  DefaultLedgerId,
+  DefaultParticipants,
+}
 import com.daml.ledger.runner.common.MetricsConfig.DefaultMetricsConfig
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
@@ -12,7 +16,7 @@ final case class Config(
     ledgerId: String = DefaultLedgerId,
     engine: EngineConfig = DefaultEngineConfig,
     metrics: MetricsConfig = DefaultMetricsConfig,
-    participants: Map[ParticipantName, ParticipantConfig],
+    participants: Map[ParticipantName, ParticipantConfig] = DefaultParticipants,
 )
 
 object Config {
@@ -22,5 +26,11 @@ object Config {
     profileDir = None,
     stackTraceMode = false,
     forbidV0ContractId = true,
+  )
+  val DefaultParticipants = Map(
+    ParticipantName.fromParticipantId(
+      ParticipantConfig.DefaultParticipantId,
+      ParticipantConfig.DefaultShardName,
+    ) -> ParticipantConfig()
   )
 }

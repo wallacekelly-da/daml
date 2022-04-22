@@ -31,9 +31,7 @@ object ParticipantConfig {
   val DefaultParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("participantId")
   val DefaultShardName: Option[String] = None
   val DefaultRunMode: ParticipantRunMode = ParticipantRunMode.Combined
-  val DefaultIndexerConfig: IndexerConfig = IndexerConfig(
-    database = IndexerConfig.createDefaultDatabaseConfig("default-jdbc-url")
-  )
+  val DefaultIndexerConfig: IndexerConfig = IndexerConfig()
   val DefaultIndexConfig: IndexConfiguration = IndexConfiguration()
   val DefaultLfValueTranslationCache: LfValueTranslationCache.Config =
     LfValueTranslationCache.Config(
