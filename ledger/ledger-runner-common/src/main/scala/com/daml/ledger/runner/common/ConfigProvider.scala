@@ -72,7 +72,7 @@ trait ConfigProvider[ExtraConfig] {
       userManagement = cliConfig.userManagementConfig,
       authentication = cliConfig.authService,
       command = cliConfig.commandConfig,
-      party = PartyConfiguration.default,
+      party = partyConfig(cliConfig.extra),
       timeProviderType = cliConfig.timeProviderType,
       database = DbConfig(
         jdbcUrl = config.serverJdbcUrl,

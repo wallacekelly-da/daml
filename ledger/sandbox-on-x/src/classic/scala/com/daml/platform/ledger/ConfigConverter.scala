@@ -39,7 +39,7 @@ object ConfigConverter {
       managementServiceTimeout = sandboxConfig.managementServiceTimeout.toScala,
       indexerConfig = IndexerConfig(
         participantId = sandboxConfig.participantId,
-        startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = false),
+        startupMode = IndexerStartupMode.MigrateAndStart(allowExistingSchema = true),
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
         enableCompression = sandboxConfig.enableCompression,
         database = IndexerConfig.createDefaultDatabaseConfig(serverJdbcUrl),
@@ -66,7 +66,7 @@ object ConfigConverter {
         stackTraceMode = sandboxConfig.stackTraces,
         forbidV0ContractId = true,
       ),
-      authService = AuthServiceConfig.Wildcard, //TODO how to pass sandboxConfig.authService?
+      authService = AuthServiceConfig.Wildcard,
       acsContractFetchingParallelism = sandboxConfig.acsContractFetchingParallelism,
       acsGlobalParallelism = sandboxConfig.acsGlobalParallelism,
       acsIdFetchingParallelism = sandboxConfig.acsIdFetchingParallelism,
