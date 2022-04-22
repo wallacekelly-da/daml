@@ -40,6 +40,7 @@ trait SandboxTestLedger extends SandboxFixture {
     timeProviderType = Some(TimeProviderType.WallClock),
     tlsConfig = if (useTls) Some(serverTlsConfig) else None,
     ledgerIdMode = LedgerIdMode.Static(ledgerId),
+    authService = authService,
     engineMode = SandboxConfig.EngineMode.Dev,
     seeding = Seeding.Weak,
   )
