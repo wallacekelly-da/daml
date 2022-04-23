@@ -95,7 +95,7 @@ object SandboxOnXRunner {
   def buildLedger(implicit
       config: Config,
       participantConfig: ParticipantConfig,
-      extra: BridgeConfig,
+      bridgeConfig: BridgeConfig,
       materializer: Materializer,
       actorSystem: ActorSystem,
       configProvider: ConfigProvider[BridgeConfig],
@@ -164,7 +164,7 @@ object SandboxOnXRunner {
             servicesThreadPoolSize,
             timeServiceBackend,
             participantConfig,
-            extra,
+            bridgeConfig,
             configProvider
               .initialLedgerConfig(participantConfig.maxDeduplicationDuration)
               .maxDeduplicationDuration,
@@ -307,7 +307,7 @@ object SandboxOnXRunner {
       servicesThreadPoolSize: Int,
       timeServiceBackend: Option[TimeServiceBackend],
       participantConfig: ParticipantConfig,
-      extra: BridgeConfig,
+      bridgeConfig: BridgeConfig,
       maxDeduplicationDuration: Duration,
   )(implicit
       materializer: Materializer,
@@ -318,7 +318,7 @@ object SandboxOnXRunner {
     for {
       ledgerBridge <- LedgerBridge.owner(
         participantConfig,
-        extra,
+        bridgeConfig,
         indexService,
         bridgeMetrics,
         servicesThreadPoolSize,
@@ -328,7 +328,7 @@ object SandboxOnXRunner {
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(
           feedSink = feedSink,
-          submissionBufferSize = extra.submissionBufferSize,
+          submissionBufferSize = bridgeConfig.submissionBufferSize,
           ledgerBridge = ledgerBridge,
           bridgeMetrics = bridgeMetrics,
         )

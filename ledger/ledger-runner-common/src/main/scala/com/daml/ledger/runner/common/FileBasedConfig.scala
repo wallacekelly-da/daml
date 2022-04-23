@@ -50,9 +50,7 @@ object FileBasedConfig {
   implicit val javaDurationReader: ConfigReader[java.time.Duration] =
     ConfigReader.fromString[java.time.Duration] { str =>
       Some(Duration.apply(str))
-        .collect { case d: FiniteDuration =>
-          d
-        }
+        .collect { case d: FiniteDuration => d }
         .map(_.toJava)
         .toRight(CannotConvert(str, "java.time.Duration", s"Could not convert $str"))
     }
