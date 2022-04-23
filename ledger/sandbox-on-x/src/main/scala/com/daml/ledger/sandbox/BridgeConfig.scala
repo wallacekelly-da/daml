@@ -3,9 +3,11 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.runner.common.{LegacyCliConfig, ConfigProvider}
+import com.daml.ledger.runner.common.{ConfigProvider, LegacyCliConfig}
 import com.daml.ledger.sandbox.BridgeConfigProvider.DefaultMaximumDeduplicationDuration
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
+import pureconfig.{ConfigReader, ConfigWriter}
+import pureconfig.generic.semiauto.{deriveReader, deriveWriter}
 import scopt.OptionParser
 
 import java.time.Duration
@@ -15,6 +17,11 @@ case class BridgeConfig(
     submissionBufferSize: Int,
     implicitPartyAllocation: Boolean,
 )
+
+object BridgeConfig {
+  implicit val bridgeConfigReader: ConfigReader[BridgeConfig] = deriveReader[BridgeConfig]
+  implicit val bridgeConfigWriter: ConfigWriter[BridgeConfig] = deriveWriter[BridgeConfig]
+}
 
 class BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override def partyConfig(extra: BridgeConfig): PartyConfiguration =

@@ -40,15 +40,41 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
+import com.daml.resources.{AbstractResourceOwner, ProgramResource}
+import com.typesafe.config.ConfigFactory
 
 import java.time.Duration
 import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
+import FileBasedConfig._
 
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
+
+  def run(): Unit = {
+    val configObject: com.typesafe.config.Config = ConfigFactory.load()
+    val config = ConfigLoader.loadConfigUnsafe[Config]("ledger", configObject)
+    val bridge = ConfigLoader.loadConfigUnsafe[BridgeConfig]("bridge", configObject)
+    val configProvider: BridgeConfigProvider = new BridgeConfigProvider
+
+    new ProgramResource(
+      owner = SandboxOnXRunner.owner(configProvider, config, bridge)
+    ).run(ResourceContext.apply)
+  }
+
+  def owner(
+      configProvider: BridgeConfigProvider,
+      config: Config,
+      bridgeConfig: BridgeConfig,
+  ): AbstractResourceOwner[ResourceContext, Unit] = {
+    new ResourceOwner[Unit] {
+      override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
+        SandboxOnXRunner.run(configProvider, config, bridgeConfig)
+      }
+    }
+  }
 
   def run(
       configProvider: ConfigProvider[BridgeConfig],
