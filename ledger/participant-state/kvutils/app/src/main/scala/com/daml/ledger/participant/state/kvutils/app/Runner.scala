@@ -54,7 +54,6 @@ final class Runner[T <: ReadWriteService, Extra](
           sys.exit(0)
         case Mode.Run =>
           val config = configProvider.fromLegacyCliConfig(cliConfig)
-          println(ConfigRenderer.render(config))
           run(config, cliConfig.extra, ledgerFeatures)
       }
     }

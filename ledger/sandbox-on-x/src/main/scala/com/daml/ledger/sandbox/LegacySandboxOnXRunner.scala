@@ -36,7 +36,6 @@ object LegacySandboxOnXRunner {
             sys.exit(0)
           case Mode.Run =>
             val config = configProvider.fromLegacyCliConfig(originalConfig)
-            println(ConfigRenderer.render(config))
             run(configProvider, config, originalConfig.extra)
         }
       }
