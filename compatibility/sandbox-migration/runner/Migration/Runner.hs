@@ -144,9 +144,12 @@ withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
     -- we spin it up directly.
     withSandboxOnX portFile f = do
           let args =
-                  [ "--contract-id-seeding=testing-weak", "--mutable-contract-state-cache"
-                  , "--ledger-id=" <> ledgerid
-                  , "--participant=participant-id=sandbox-participant,port=0,port-file=" <> portFile <> ",server-jdbc-url=" <> T.unpack jdbcUrl <> ",ledgerid=" <> ledgerid
+                  [ "-C ledger.participants.default.api-server.seeding=testing-weak",
+                    "-C ledger.ledger-id=" <> ledgerid,
+                    "-C ledger.participants.default.api-server.port=0",
+                    "-C ledger.participants.default.api-server.port-file=" <> portFile,
+                    "-C ledger.participants.default.api-server.database.jdbc-url=" <> T.unpack jdbcUrl,
+                    "-C ledger.participants.default.indexer.database.jdbc-url=" <> T.unpack jdbcUrl
                   ]
           -- Locating sandbox on x relative to the assistant is easier than making
           -- the bash script make the decision on whether it needs to pass in
