@@ -28,7 +28,7 @@ final case class ParticipantConfig(
 }
 
 object ParticipantConfig {
-  val DefaultParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("participantId")
+  val DefaultParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("default")
   val DefaultShardName: Option[String] = None
   val DefaultRunMode: ParticipantRunMode = ParticipantRunMode.Combined
   val DefaultIndexerConfig: IndexerConfig = IndexerConfig()

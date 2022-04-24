@@ -53,12 +53,11 @@ object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
 
-  def run(): Unit = {
-    val configObject: com.typesafe.config.Config = ConfigFactory.load()
+  def run(configObject: com.typesafe.config.Config = ConfigFactory.load()): Unit = {
     val config = ConfigLoader.loadConfigUnsafe[Config]("ledger", configObject)
     val bridge = ConfigLoader.loadConfigUnsafe[BridgeConfig]("bridge", configObject)
     val configProvider: BridgeConfigProvider = new BridgeConfigProvider
-
+    println(s"Running with \n${ConfigRenderer.render(config)}")
     new ProgramResource(
       owner = SandboxOnXRunner.owner(configProvider, config, bridge)
     ).run(ResourceContext.apply)

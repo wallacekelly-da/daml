@@ -3,6 +3,7 @@
 
 package com.daml.ledger.sandbox
 
+import com.daml.ledger.runner.common.HoconCli
 import com.daml.testing.postgresql.PostgresAround
 
 object NewMainWithEphemeralPostgresql extends PostgresAround {
@@ -13,6 +14,6 @@ object NewMainWithEphemeralPostgresql extends PostgresAround {
     sys.addShutdownHook(disconnectFromPostgresqlServer())
     System.setProperty("API_SERVER_DATABASE_JDBC_URL", database.url)
     System.setProperty("INDEXER_DATABASE_JDBC_URL", database.url)
-    SandboxOnXRunner.run()
+    SandboxOnXRunner.run(HoconCli.loadConfigWithOverrides(SandboxOnXRunner.RunnerName, args))
   }
 }

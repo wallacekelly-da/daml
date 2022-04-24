@@ -356,6 +356,7 @@ da_scala_library(
         "//ledger/ledger-runner-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
+        "@maven//:com_typesafe_config",
     ],
 )
 
@@ -381,12 +382,13 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "@maven//:com_typesafe_config",
     ],
 )
 
 da_scala_binary(
     name = "app",
-    main_class = "com.daml.ledger.sandbox.Main",
+    main_class = "com.daml.ledger.sandbox.NewMain",
     tags = [
         "fat_jar",
         "maven_coordinates=com.daml:sandbox-on-x-app-jar:__VERSION__",
@@ -405,7 +407,8 @@ da_scala_binary(
 
 da_scala_binary(
     name = "conformance-test-oracle-bin",
-    main_class = "com.daml.ledger.sandbox.MainWithEphemeralOracleUser",
+    #main_class = "com.daml.ledger.sandbox.MainWithEphemeralOracleUser",
+    main_class = "com.daml.ledger.sandbox.NewMainWithEphemeralOracleUser",
     visibility = ["//visibility:public"],
     runtime_deps = [],
     deps = [
@@ -415,8 +418,8 @@ da_scala_binary(
 
 da_scala_binary(
     name = "conformance-test-postgres-bin",
-    main_class = "com.daml.ledger.sandbox.MainWithEphemeralPostgresql",
-    #main_class = "com.daml.ledger.sandbox.NewMainWithEphemeralPostgresql",
+    #main_class = "com.daml.ledger.sandbox.MainWithEphemeralPostgresql",
+    main_class = "com.daml.ledger.sandbox.NewMainWithEphemeralPostgresql",
     visibility = ["//visibility:public"],
     runtime_deps = [],
     deps = [
@@ -442,9 +445,8 @@ conformance_test(
     ports = [6865],
     server = ":app",
     server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--disable-conflict-checking",
+        "-C ledger.participants.default.api-server.seeding=testing-weak",
+        "-C bridge.conflict-checking-enabled=false",
     ],
     test_tool_args = [
         "--verbose",
@@ -465,9 +467,8 @@ conformance_test(
 server_conformance_test(
     name = "conformance-test",
     server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--enable-user-management=true",
+        "-C ledger.participants.default.api-server.seeding=testing-weak",
+        "-C ledger.participants.default.api-server.user-management.enabled=true",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -480,9 +481,8 @@ conformance_test(
     ports = [6865],
     server = ":app",
     server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865",
-        "--static-time",
+        "-C ledger.participants.default.api-server.seeding=testing-weak",
+        "-C ledger.participants.default.api-server.time-provider-type=static",
     ],
     test_tool_args = [
         "--verbose",
@@ -494,9 +494,9 @@ conformance_test(
     ports = [6865],
     server = ":app",
     server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=example,port=6865,ledger-api-transactions-buffer-max-size=10",
-        "--buffered-ledger-api-streams",
+        "-C ledger.participants.default.api-server.seeding=testing-weak",
+        "-C ledger.participants.default.index.max-transactions-in-memory-fan-out-buffer-size=10",
+        "-C ledger.participants.default.index.enable-in-memory-fan-out-for-ledger-api=true",
     ],
     test_tool_args = [
         "--verbose",

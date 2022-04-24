@@ -6,26 +6,25 @@ package com.daml.ledger.runner.common
 import com.typesafe.config.{ConfigRenderOptions, ConfigValue}
 
 object ConfigRenderer {
+  val renderOptions: ConfigRenderOptions = ConfigRenderOptions
+    .defaults()
+    .setOriginComments(false)
+    .setComments(false)
+    .setJson(false)
+    .setFormatted(true)
 
   private def toConfig(
       config: Config
-  )(implicit writer: pureconfig.ConfigWriter[Config]): ConfigValue = {
+  )(implicit writer: pureconfig.ConfigWriter[Config]): ConfigValue =
     writer.to(config)
-  }
+
+  def render(configValue: ConfigValue): String =
+    configValue.render(renderOptions)
 
   def render(config: Config): String = {
     import FileBasedConfig._
-
-    val defaultConfigRenderer =
-      ConfigRenderOptions
-        .defaults()
-        .setOriginComments(false)
-        .setComments(false)
-        .setJson(false)
-        .setFormatted(true)
-
     val configValue = toConfig(config)
-    configValue.render(defaultConfigRenderer)
+    render(configValue)
   }
 
 }
