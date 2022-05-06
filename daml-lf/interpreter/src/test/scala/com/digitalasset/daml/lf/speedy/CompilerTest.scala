@@ -41,7 +41,7 @@ class CompilerTest extends AnyWordSpec with Matchers {
 
       val cmds = ImmArray.ImmArraySeq
         .fill(10 * 1000)(
-          Command.Create(
+          Command.CreateTemplate(
             recordCon,
             SValue.SRecord(recordCon, ImmArray.Empty, ArrayList.empty),
           )

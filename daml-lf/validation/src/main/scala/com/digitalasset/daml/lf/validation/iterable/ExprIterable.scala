@@ -93,7 +93,7 @@ private[validation] object ExprIterable {
         Iterator(expr)
       case UpdateBlock(bindings, body) =>
         bindings.iterator.map(_.bound) ++ Iterator(body)
-      case UpdateCreate(templateId @ _, arg) =>
+      case UpdateCreateTemplate(templateId @ _, arg) =>
         Iterator(arg)
       case UpdateCreateInterface(interface @ _, arg) =>
         Iterator(arg)

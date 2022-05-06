@@ -361,7 +361,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setBlock(
             PLF.Block.newBuilder().accumulateLeft(binding)(_ addBindings _).setBody(body)
           )
-        case UpdateCreate(templateId, arg) =>
+        case UpdateCreateTemplate(templateId, arg) =>
           builder.setCreate(PLF.Update.Create.newBuilder().setTemplate(templateId).setExpr(arg))
         case UpdateCreateInterface(interface, arg) =>
           builder.setCreateInterface(

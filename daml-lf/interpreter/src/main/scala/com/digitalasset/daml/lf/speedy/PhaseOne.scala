@@ -704,7 +704,7 @@ private[lf] final class PhaseOne(
         }
       case UpdateEmbedExpr(_, exp) =>
         compileEmbedExpr(env, exp)
-      case UpdateCreate(tmplId, arg) =>
+      case UpdateCreateTemplate(tmplId, arg) =>
         compileExp(env, arg) { arg =>
           Return(t.CreateDefRef(tmplId)(arg))
         }

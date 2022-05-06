@@ -175,8 +175,8 @@ private[daml] class AstRewriter(
         UpdatePure(apply(typ), apply(expr))
       case UpdateBlock(bindings, body) =>
         UpdateBlock(bindings.map(apply), apply(body))
-      case UpdateCreate(templateId, arg) =>
-        UpdateCreate(apply(templateId), apply(arg))
+      case UpdateCreateTemplate(templateId, arg) =>
+        UpdateCreateTemplate(apply(templateId), apply(arg))
       case UpdateCreateInterface(interface, arg) =>
         UpdateCreateInterface(apply(interface), apply(arg))
       case UpdateFetch(templateId, contractId) =>

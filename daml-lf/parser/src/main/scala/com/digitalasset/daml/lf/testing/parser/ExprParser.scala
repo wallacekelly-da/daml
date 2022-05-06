@@ -450,7 +450,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val updateCreate =
     Id("create") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case t ~ e =>
-      UpdateCreate(t, e)
+      UpdateCreateTemplate(t, e)
     }
 
   private lazy val updateCreateInterface =

@@ -29,10 +29,10 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessCreate(
       templateId: Ref.Identifier,
       argument: Value,
-  ): speedy.Command.Create = {
+  ): speedy.Command.CreateTemplate = {
     discard(handleLookup(interface.lookupTemplate(templateId)))
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
-    speedy.Command.Create(templateId, arg)
+    speedy.Command.CreateTemplate(templateId, arg)
   }
 
   def unsafePreprocessExercise(

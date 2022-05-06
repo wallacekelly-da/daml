@@ -1330,7 +1330,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
         case PLF.Update.SumCase.CREATE =>
           val create = lfUpdate.getCreate
-          UpdateCreate(
+          UpdateCreateTemplate(
             templateId = decodeTypeConName(create.getTemplate),
             arg = decodeExpr(create.getExpr, definition),
           )

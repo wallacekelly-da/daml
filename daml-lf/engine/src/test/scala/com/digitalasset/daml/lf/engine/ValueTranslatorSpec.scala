@@ -172,6 +172,12 @@ class ValueTranslatorSpec
       forEvery(testCases)(value => Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue))
     }
 
+    "handle different representation of the same TextMap" in {
+      val typ = t"TextMap Int"
+      val testCases = Table("enum", ValueTextMap(), ValueEnum("", "green"))
+
+    }
+
     "return proper mismatch error" in {
       val res = Try(
         unsafeTranslateValue(

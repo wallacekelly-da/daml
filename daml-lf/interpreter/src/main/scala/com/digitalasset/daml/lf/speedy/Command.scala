@@ -14,7 +14,7 @@ private[lf] sealed abstract class Command extends Product with Serializable
 private[lf] object Command {
 
   /** Create a template, not by interface */
-  final case class Create(
+  final case class CreateTemplate(
       templateId: Identifier,
       argument: SValue,
   ) extends Command

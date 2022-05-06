@@ -113,7 +113,7 @@ private[validation] object TypeIterable {
       case UpdateBlock(bindings, body) =>
         bindings.iterator.flatMap(iterator(_)) ++
           iterator(body)
-      case UpdateCreate(templateId, arg) =>
+      case UpdateCreateTemplate(templateId, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(arg)
       case UpdateCreateInterface(interface, arg) =>

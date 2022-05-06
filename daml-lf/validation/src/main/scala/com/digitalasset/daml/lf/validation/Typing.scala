@@ -976,7 +976,7 @@ private[validation] object Typing {
         TUpdate(typ)
       case UpdateBlock(bindings, body) =>
         typeOfUpdateBlock(bindings, body)
-      case UpdateCreate(tpl, arg) =>
+      case UpdateCreateTemplate(tpl, arg) =>
         typeOfCreate(tpl, arg)
       case UpdateCreateInterface(iface, arg) =>
         typeOfCreateInterface(iface, arg)
