@@ -109,7 +109,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     Source(List.fill(1000)("element"))
       .throttle(producerMaxSpeed, FiniteDuration(10, "millis"))
       .pipe(original =>
-        InstrumentedSource.bufferedSource(
+        InstrumentedSource.buffered(
           original = original,
           counter = counter,
           size = 100,

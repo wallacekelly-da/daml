@@ -77,7 +77,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
           ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(
         InstrumentedSource
-          .bufferedSource(
+          .buffered(
             original = initialized.readServiceSource,
             counter = metrics.daml.parallelIndexer.inputBufferLength,
             size = maxInputBufferSize,

@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.daml.error.DamlContextualizedErrorLogger
@@ -128,19 +127,12 @@ private[dao] final class TransactionsReader(
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    val flatTransactionsStream = TransactionsReader
+    TransactionsReader
       .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
         val response = TransactionConversions.toGetTransactionsResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
-
-    InstrumentedSource
-      .bufferedSource(
-        flatTransactionsStream,
-        metrics.daml.index.flatTransactionsBufferSize,
-        outputStreamBufferSize,
-      )
       .wireTap(_ match {
         case (_, response) =>
           response.transactions.foreach(txn =>
@@ -229,19 +221,12 @@ private[dao] final class TransactionsReader(
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    val transactionTreesStream = TransactionsReader
+    TransactionsReader
       .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
         val response = TransactionConversions.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
-
-    InstrumentedSource
-      .bufferedSource(
-        transactionTreesStream,
-        metrics.daml.index.transactionTreesBufferSize,
-        outputStreamBufferSize,
-      )
       .wireTap(_ match {
         case (_, response) =>
           response.transactions.foreach(txn =>
@@ -320,15 +305,17 @@ private[dao] final class TransactionsReader(
           )
         }
       }
-      .mapConcat(identity)
       .async
       // Decode transaction log updates in parallel
       .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeTransactionLogUpdate,
-          Future(TransactionLogUpdatesReader.toTransactionEvent(raw)),
+          Future.traverse(raw)(event =>
+            Future(TransactionLogUpdatesReader.toTransactionEvent(event))
+          ),
         )
       }
+      .mapConcat(identity)
 
     val transactionLogUpdatesSource = TransactionsReader
       .groupContiguous(eventsSource)(by = _.transactionId)
@@ -339,7 +326,7 @@ private[dao] final class TransactionsReader(
       .mapMaterializedValue(_ => NotUsed)
 
     InstrumentedSource
-      .bufferedSource(
+      .buffered(
         original = transactionLogUpdatesSource,
         counter = metrics.daml.index.transactionLogUpdatesBufferSize,
         size = outputStreamBufferSize,
@@ -386,7 +373,6 @@ private[dao] final class TransactionsReader(
         )
       }
       .mapConcat(TransactionConversions.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
       .wireTap(response => {
         Spans.addEventToSpan(
           telemetry.Event("contract", Map((SpanAttribute.Offset, response.offset))),
@@ -457,7 +443,7 @@ private[dao] final class TransactionsReader(
       }
 
     InstrumentedSource
-      .bufferedSource(
+      .buffered(
         original = groupedByOffset,
         counter = metrics.daml.index.contractStateEventsBufferSize,
         size = outputStreamBufferSize,
