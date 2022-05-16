@@ -99,7 +99,7 @@ object InstrumentedSource {
     * @tparam U
     * @return the instrumentes source
     */
-  def bufferedSource[T, U](
+  def buffered[T, U](
       original: Source[T, U],
       counter: com.codahale.metrics.Counter,
       size: Int,

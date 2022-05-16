@@ -64,7 +64,9 @@ private[events] object TransactionLogUpdatesConversions {
       val nonTransient = removeTransient(transaction.events)
       val requestingParties = filter.keySet
       Future
-        .traverse(nonTransient)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
+        .traverse(nonTransient)(event =>
+          Future.delegate(toFlatEvent(event, requestingParties, verbose, lfValueTranslation))
+        )
         .map(flatEvents =>
           GetTransactionsResponse(
             Seq(
@@ -217,8 +219,10 @@ private[events] object TransactionLogUpdatesConversions {
     ): ToApi[GetTransactionTreesResponse] =
       transaction =>
         Future
-          .traverse(transaction.events)(
-            toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)
+          .traverse(transaction.events)(event =>
+            Future.delegate(
+              toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)(event)
+            )
           )
           .map { treeEvents =>
             val visible = treeEvents.map(_.eventId)

@@ -109,6 +109,7 @@ private[platform] case class IndexServiceBuilder(
       contractStore,
       pruneBuffers,
       generalDispatcher,
+      metrics,
     )
   }
 
@@ -204,6 +205,7 @@ private[platform] case class IndexServiceBuilder(
             (packageId, loggingContext) => ledgerReadDao.getLfArchive(packageId)(loggingContext),
         ),
         metrics = metrics,
+        eventProcessingParallelism = eventsProcessingParallelism,
       )(servicesExecutionContext)
 
       for {
@@ -226,6 +228,7 @@ private[platform] case class IndexServiceBuilder(
             updateTransactionsBuffer = transactionsBuffer.push,
             updateMutableCache = contractStore.push,
             executionContext = servicesExecutionContext,
+            metrics = metrics,
           )
         )
       } yield (bufferedTransactionsReader, transactionsBuffer.prune _)

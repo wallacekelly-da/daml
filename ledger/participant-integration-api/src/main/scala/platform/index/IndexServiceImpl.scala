@@ -43,6 +43,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -62,7 +63,9 @@ private[index] class IndexServiceImpl(
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
+    metrics: Metrics,
 ) extends IndexService {
+  private val OutputStreamBufferSize = 128
   private val logger = ContextualizedLogger.get(getClass)
 
   override def getParticipantId()(implicit
@@ -82,7 +85,7 @@ private[index] class IndexServiceImpl(
       endInclusive: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] = {
     between(startExclusive, endInclusive)((from, to) => {
       from.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
@@ -90,13 +93,20 @@ private[index] class IndexServiceImpl(
       to.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
       )
-      dispatcher
+      val flatTransactionsStream = dispatcher
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource(transactionsReader.getFlatTransactions(_, _, convertFilter(filter), verbose)),
           to,
         )
         .map(_._2)
+
+      InstrumentedSource
+        .buffered(
+          flatTransactionsStream,
+          metrics.daml.index.flatTransactionsBufferSize,
+          OutputStreamBufferSize,
+        )
     }).wireTap(
       _.transactions.view
         .map(transaction =>
@@ -104,6 +114,7 @@ private[index] class IndexServiceImpl(
         )
         .foreach(Spans.addEventToCurrentSpan)
     )
+  }
 
   override def transactionTrees(
       startExclusive: LedgerOffset,
@@ -118,7 +129,7 @@ private[index] class IndexServiceImpl(
       to.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
       )
-      dispatcher
+      val transactionTreesStream = dispatcher
         .startingAt(
           from.getOrElse(Offset.beforeBegin),
           RangeSource(
@@ -127,6 +138,13 @@ private[index] class IndexServiceImpl(
           to,
         )
         .map(_._2)
+
+      InstrumentedSource
+        .buffered(
+          transactionTreesStream,
+          metrics.daml.index.transactionTreesBufferSize,
+          OutputStreamBufferSize,
+        )
     }).wireTap(
       _.transactions.view
         .map(transaction =>
@@ -172,15 +190,22 @@ private[index] class IndexServiceImpl(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val currentLedgerEnd = ledgerEnd()
-    val acs =
-      ledgerDao.transactionsReader.getActiveContracts(
+    val activeContractsStream = ledgerDao.transactionsReader
+      .getActiveContracts(
         currentLedgerEnd,
         convertFilter(filter),
         verbose,
       )
-    acs.concat(
-      Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
-    )
+      .concat(
+        Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd)))
+      )
+
+    InstrumentedSource
+      .buffered(
+        activeContractsStream,
+        metrics.daml.index.activeContractsBufferSize,
+        OutputStreamBufferSize,
+      )
   }
 
   override def lookupActiveContract(

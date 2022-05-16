@@ -117,6 +117,7 @@ class MemorySafeBufferedTransactionsReaderSpec
             GetTransactionTreesResponse(Seq(TransactionTree(transactionId = tx.transactionId)))
           ),
       metrics = metrics,
+      eventProcessingParallelism = 2,
     )
 
     Future
