@@ -194,17 +194,20 @@ private[platform] object BufferedTransactionsReader {
 
     def bufferSource(
         bufferSlice: Vector[(Offset, TransactionLogUpdate.Transaction)]
-    ) =
+    ) = {
+      val _ = eventProcessingParallelism
       if (bufferSlice.isEmpty) Source.empty
-      else
+      else {
         Source(bufferSlice)
-          .mapAsync(eventProcessingParallelism) { case (offset, payload) =>
+          .mapAsync(1) { case (offset, payload) =>
             bufferReaderMetrics.fetchedBuffered.inc()
             Timed.future(
               bufferReaderMetrics.conversion,
               toApiTx(payload).map(offset -> _)(ExecutionContext.parasitic),
             )
           }
+      }
+    }
 
     val source = Source
       .unfoldAsync(startExclusive) {
