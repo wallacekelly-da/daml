@@ -60,29 +60,28 @@ private[events] object TransactionLogUpdatesConversions {
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): ToApi[GetTransactionsResponse] = { transaction =>
-      val nonTransient = removeTransient(transaction.events)
-      val requestingParties = filter.keySet
+    ): ToApi[GetTransactionsResponse] = transaction =>
+      Future.delegate {
+        val nonTransient = removeTransient(transaction.events)
+        val requestingParties = filter.keySet
 
-      Future
-        .traverse(nonTransient)(event =>
-          toFlatEvent(event, requestingParties, verbose, lfValueTranslation)
-        )
-        .map(flatEvents =>
-          GetTransactionsResponse(
-            Seq(
-              FlatTransaction(
-                transactionId = transaction.transactionId,
-                commandId = getCommandId(transaction.events, requestingParties),
-                workflowId = transaction.workflowId,
-                effectiveAt = Some(timestampToTimestamp(transaction.effectiveAt)),
-                events = flatEvents,
-                offset = ApiOffset.toApiString(transaction.offset),
+        Future
+          .traverse(nonTransient)(toFlatEvent(_, requestingParties, verbose, lfValueTranslation))
+          .map(flatEvents =>
+            GetTransactionsResponse(
+              Seq(
+                FlatTransaction(
+                  transactionId = transaction.transactionId,
+                  commandId = getCommandId(transaction.events, requestingParties),
+                  workflowId = transaction.workflowId,
+                  effectiveAt = Some(timestampToTimestamp(transaction.effectiveAt)),
+                  events = flatEvents,
+                  offset = ApiOffset.toApiString(transaction.offset),
+                )
               )
             )
           )
-        )
-    }
+      }
 
     private def removeTransient(aux: Vector[TransactionLogUpdate.Event]) = {
       val permanent = aux.foldLeft(Set.empty[ContractId]) {
@@ -220,43 +219,46 @@ private[events] object TransactionLogUpdatesConversions {
     ): ToApi[GetTransactionTreesResponse] =
       transaction =>
         Future
-          .traverse(transaction.events)(event =>
-            toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)(event)
-          )
-          .map { treeEvents =>
-            val visible = treeEvents.map(_.eventId)
-            val visibleOrder = visible.view.zipWithIndex.toMap
-            val eventsById = treeEvents.iterator
-              .map(e =>
-                e.eventId -> e
-                  .filterChildEventIds(visibleOrder.contains)
-//                  // childEventIds need to be returned in the event order in the original transaction.
-//                  // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
-//                  // The order is determined by the order of the events, which follows the event order of the original transaction.
-//                  .sortChildEventIdsBy(visibleOrder)
+          .delegate {
+            Future
+              .traverse(transaction.events)(
+                toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)
               )
-              .toMap
+              .map { treeEvents =>
+                val visible = treeEvents.map(_.eventId)
+                val visibleOrder = visible.view.zipWithIndex.toMap
+                val eventsById = treeEvents.iterator
+                  .map(e =>
+                    e.eventId -> e
+                      .filterChildEventIds(visibleOrder.contains)
+                      // childEventIds need to be returned in the event order in the original transaction.
+                      // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
+                      // The order is determined by the order of the events, which follows the event order of the original transaction.
+                      .sortChildEventIdsBy(visibleOrder)
+                  )
+                  .toMap
 
-            // All event identifiers that appear as a child of another item in this response
-            val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+                // All event identifiers that appear as a child of another item in this response
+                val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
 
-            // The roots for this request are all visible items
-            // that are not a child of some other visible item
-            val rootEventIds = visible.filterNot(children)
+                // The roots for this request are all visible items
+                // that are not a child of some other visible item
+                val rootEventIds = visible.filterNot(children)
 
-            GetTransactionTreesResponse(
-              Seq(
-                TransactionTree(
-                  transactionId = transaction.transactionId,
-                  commandId = getCommandId(transaction.events, requestingParties),
-                  workflowId = transaction.workflowId,
-                  effectiveAt = Some(timestampToTimestamp(transaction.effectiveAt)),
-                  offset = ApiOffset.toApiString(transaction.offset),
-                  eventsById = eventsById,
-                  rootEventIds = rootEventIds,
+                GetTransactionTreesResponse(
+                  Seq(
+                    TransactionTree(
+                      transactionId = transaction.transactionId,
+                      commandId = getCommandId(transaction.events, requestingParties),
+                      workflowId = transaction.workflowId,
+                      effectiveAt = Some(timestampToTimestamp(transaction.effectiveAt)),
+                      offset = ApiOffset.toApiString(transaction.offset),
+                      eventsById = eventsById,
+                      rootEventIds = rootEventIds,
+                    )
+                  )
                 )
-              )
-            )
+              }
           }
 
     private def toTransactionTreeEvent(
