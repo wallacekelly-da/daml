@@ -31,7 +31,8 @@ import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.{FilterRelation, Identifier, Party}
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.util.concurrent.Executors
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 private[events] class BufferedTransactionsReader(
     protected val delegate: LedgerDaoTransactionsReader,
@@ -55,13 +56,14 @@ private[events] class BufferedTransactionsReader(
         LoggingContext,
     ) => ToApi[GetTransactionTreesResponse],
     metrics: Metrics,
-)(implicit executionContext: ExecutionContext)
-    extends LedgerDaoTransactionsReader {
-
+) extends LedgerDaoTransactionsReader {
   private val flatTransactionsBufferMetrics =
     metrics.daml.services.index.BufferedReader("flat_transactions")
   private val transactionTreesBufferMetrics =
     metrics.daml.services.index.BufferedReader("transaction_trees")
+
+  private implicit val executionContext: ExecutionContextExecutor =
+    ExecutionContext.fromExecutor(Executors.newWorkStealingPool(eventProcessingParallelism))
 
   override def getFlatTransactions(
       startExclusive: Offset,
