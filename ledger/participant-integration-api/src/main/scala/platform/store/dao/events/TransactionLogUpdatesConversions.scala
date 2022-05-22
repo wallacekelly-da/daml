@@ -63,9 +63,10 @@ private[events] object TransactionLogUpdatesConversions {
     ): ToApi[GetTransactionsResponse] = { transaction =>
       val nonTransient = removeTransient(transaction.events)
       val requestingParties = filter.keySet
+
       Future
         .traverse(nonTransient)(event =>
-          Future.delegate(toFlatEvent(event, requestingParties, verbose, lfValueTranslation))
+          toFlatEvent(event, requestingParties, verbose, lfValueTranslation)
         )
         .map(flatEvents =>
           GetTransactionsResponse(
@@ -220,9 +221,7 @@ private[events] object TransactionLogUpdatesConversions {
       transaction =>
         Future
           .traverse(transaction.events)(event =>
-            Future.delegate(
-              toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)(event)
-            )
+            toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)(event)
           )
           .map { treeEvents =>
             val visible = treeEvents.map(_.eventId)
@@ -231,10 +230,10 @@ private[events] object TransactionLogUpdatesConversions {
               .map(e =>
                 e.eventId -> e
                   .filterChildEventIds(visibleOrder.contains)
-                  // childEventIds need to be returned in the event order in the original transaction.
-                  // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
-                  // The order is determined by the order of the events, which follows the event order of the original transaction.
-                  .sortChildEventIdsBy(visibleOrder)
+//                  // childEventIds need to be returned in the event order in the original transaction.
+//                  // Unfortunately, we did not store them ordered in the past so we have to sort it to recover this order.
+//                  // The order is determined by the order of the events, which follows the event order of the original transaction.
+//                  .sortChildEventIdsBy(visibleOrder)
               )
               .toMap
 
