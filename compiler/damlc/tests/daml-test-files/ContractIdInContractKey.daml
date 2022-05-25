@@ -1,4 +1,7 @@
--- @ERROR range=9:10-11:29; contract key type should not contain ContractId
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR range=12:10-14:29; contract key type should not contain ContractId
 module ContractIdInContractKey where
 
 template Contract with
