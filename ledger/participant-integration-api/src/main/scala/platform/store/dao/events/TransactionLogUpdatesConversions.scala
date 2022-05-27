@@ -26,6 +26,9 @@ import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, Ex
 import com.daml.platform.{ApiOffset, FilterRelation, Value}
 import com.google.protobuf.timestamp.Timestamp
 
+import scala.annotation.tailrec
+import scala.collection.mutable
+import scala.util.chaining._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] object TransactionLogUpdatesConversions {
@@ -64,10 +67,11 @@ private[events] object TransactionLogUpdatesConversions {
       Future.delegate {
         val nonTransient = removeTransient(transaction.events)
         val requestingParties = filter.keySet
-        Future
-          .traverse(nonTransient)(event =>
-            toFlatEvent(event, requestingParties, verbose, lfValueTranslation)
-          )
+
+        seqVecF[TransactionLogUpdate.Event, Event](
+          nonTransient,
+          toFlatEvent(_, requestingParties, verbose, lfValueTranslation),
+        )
           .map(flatEvents =>
             GetTransactionsResponse(
               Seq(
@@ -220,10 +224,10 @@ private[events] object TransactionLogUpdatesConversions {
     ): ToApi[GetTransactionTreesResponse] =
       transaction =>
         Future.delegate {
-          Future
-            .traverse(transaction.events)(event =>
-              toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation)(event)
-            )
+          seqVecF[TransactionLogUpdate.Event, TreeEvent](
+            transaction.events,
+            toTransactionTreeEvent(requestingParties, verbose, lfValueTranslation),
+          )
             .map { treeEvents =>
               val visible = treeEvents.map(_.eventId)
               val visibleOrder = visible.view.zipWithIndex.toMap
@@ -434,4 +438,29 @@ private[events] object TransactionLogUpdatesConversions {
           event.commandId
       }
       .getOrElse("")
+
+  private def seqVecF[I, O](in: Vector[I], process: I => Future[O])(implicit
+      ec: ExecutionContext
+  ): Future[Vector[O]] = {
+    val vecBuilderF: Future[mutable.ReusableBuilder[O, Vector[O]]] =
+      Future.successful(Vector.newBuilder[O].tap(_.sizeHint(in.size)))
+
+    @tailrec
+    def rec(
+        remaining: Vector[I],
+        current: Future[mutable.ReusableBuilder[O, Vector[O]]],
+    ): Future[mutable.ReusableBuilder[O, Vector[O]]] =
+      if (remaining.isEmpty) current
+      else {
+        val next = remaining.head
+        val newRemaining = remaining.tail
+
+        rec(
+          remaining = newRemaining,
+          current = current.flatMap(builder => process(next).map(builder.addOne)),
+        )
+      }
+
+    rec(in, vecBuilderF).map(_.result())
+  }
 }
