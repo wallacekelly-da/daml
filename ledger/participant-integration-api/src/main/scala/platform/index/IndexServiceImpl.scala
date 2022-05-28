@@ -8,7 +8,6 @@ import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
   LedgerId,
@@ -27,29 +26,26 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.daml.ledger.participant.state.index.v2.{
-  ContractStore,
-  IndexService,
-  MaximumLedgerTime,
-  _,
-}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
-import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.PartyLedgerEntry
+import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
@@ -88,7 +84,8 @@ private[index] class IndexServiceImpl(
       endInclusive: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] = {
+    val correlationId = loggingContext.entries.contents("submissionId")
     between(startExclusive, endInclusive)((from, to) => {
       from.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
@@ -107,7 +104,7 @@ private[index] class IndexServiceImpl(
       InstrumentedSource
         .bufferedSource(
           flatTransactionsSource,
-          metrics.daml.index.flatTransactionsBufferSize,
+          metrics.daml.index.flatTransactionsBufferSize(correlationId.asInstanceOf[OfString].value),
           LedgerApiStreamsBufferSize,
         )
     }).wireTap(
@@ -117,13 +114,16 @@ private[index] class IndexServiceImpl(
         )
         .foreach(Spans.addEventToCurrentSpan)
     )
+  }
 
   override def transactionTrees(
       startExclusive: LedgerOffset,
       endInclusive: Option[LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] = {
+    val correlationId = loggingContext.entries.contents("submissionId")
+
     between(startExclusive, endInclusive)((from, to) => {
       from.foreach(offset =>
         Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
@@ -144,7 +144,7 @@ private[index] class IndexServiceImpl(
       InstrumentedSource
         .bufferedSource(
           transactionTreesSource,
-          metrics.daml.index.transactionTreesBufferSize,
+          metrics.daml.index.transactionTreesBufferSize(correlationId.asInstanceOf[OfString].value),
           LedgerApiStreamsBufferSize,
         )
     }).wireTap(
@@ -154,6 +154,7 @@ private[index] class IndexServiceImpl(
         )
         .foreach(Spans.addEventToCurrentSpan)
     )
+  }
 
   override def getCompletions(
       startExclusive: LedgerOffset,

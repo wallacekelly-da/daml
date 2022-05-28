@@ -15,6 +15,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
+import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
@@ -62,11 +63,6 @@ private[events] class BufferedTransactionsReader(
     extends LedgerDaoTransactionsReader {
   private val logger = ContextualizedLogger.get(getClass)
 
-  private val flatTransactionsBufferMetrics =
-    metrics.daml.services.index.BufferedReader("flat_transactions")
-  private val transactionTreesBufferMetrics =
-    metrics.daml.services.index.BufferedReader("transaction_trees")
-
   override def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -80,6 +76,12 @@ private[events] class BufferedTransactionsReader(
     val wildcardParties = parties.keySet
 
     val templatesParties = invertMapping(partiesTemplates)
+
+    val correlationId = loggingContext.entries.contents("submissionId")
+
+    val flatTransactionsBufferMetrics =
+      metrics.daml.services.index
+        .BufferedReader(s"flat_transactions_${correlationId.asInstanceOf[OfString].value.take(6)}")
 
     getTransactions(transactionsBuffer)(
       startExclusive = startExclusive,
@@ -107,6 +109,12 @@ private[events] class BufferedTransactionsReader(
     logger.debug(
       s"getTransactionTrees from $startExclusive to $endInclusive (diff: ${scalarOffsetDiff(startExclusive, endInclusive)}) for $requestingParties"
     )
+    val correlationId = loggingContext.entries.contents("submissionId")
+
+    val transactionTreesBufferMetrics =
+      metrics.daml.services.index
+        .BufferedReader(s"transaction_trees_${correlationId.asInstanceOf[OfString].value.take(6)}")
+
     getTransactions(transactionsBuffer)(
       startExclusive = startExclusive,
       endInclusive = endInclusive,

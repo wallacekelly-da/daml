@@ -366,10 +366,10 @@ final class Metrics(val registry: MetricRegistry) {
       val transactionLogUpdatesBufferSize: Counter =
         registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
 
-      val transactionTreesBufferSize: Counter =
-        registry.counter(Prefix :+ "transaction_trees_buffer_size")
-      val flatTransactionsBufferSize: Counter =
-        registry.counter(Prefix :+ "flat_transactions_buffer_size")
+      def transactionTreesBufferSize(disc: String): Counter =
+        registry.counter(Prefix :+ "transaction_trees_buffer_size" :+ disc.take(6))
+      def flatTransactionsBufferSize(disc: String): Counter =
+        registry.counter(Prefix :+ "flat_transactions_buffer_size" :+ disc.take(6))
       val activeContractsBufferSize: Counter =
         registry.counter(Prefix :+ "active_contracts_buffer_size")
       val completionsBufferSize: Counter =

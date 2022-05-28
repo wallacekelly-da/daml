@@ -8,7 +8,6 @@ import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOff
 import com.codahale.metrics.{Counter, Timer}
 
 object InstrumentedSource {
-
   final class InstrumentedBoundedSourceQueue[T](
       delegate: BoundedSourceQueue[(Timer.Context, T)],
       bufferSize: Int,
