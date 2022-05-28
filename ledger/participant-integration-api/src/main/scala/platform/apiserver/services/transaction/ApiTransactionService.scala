@@ -38,6 +38,7 @@ import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import io.grpc._
 import scalaz.syntax.tag._
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object ApiTransactionService {
@@ -72,19 +73,29 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactions(
       request: GetTransactionsRequest
   ): Source[GetTransactionsResponse, NotUsed] = {
+    val correlationId = UUID.randomUUID().toString
+
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.filters(request.filter),
       logging.verbose(request.verbose),
+      logging.submissionId(correlationId),
+      "type" -> "flat-transactions-type",
     ) { implicit loggingContext =>
       logger.info("Received request for transactions.")
     }
     logger.trace(s"Transaction request: $request")
-    transactionsService
-      .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
-      .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
+    withEnrichedLoggingContext(
+      logging.startExclusive(request.startExclusive),
+      logging.endInclusive(request.endInclusive),
+      logging.submissionId(correlationId),
+      "type" -> "flat-transactions-type",
+    ) { implicit loggingContext =>
+      transactionsService
+        .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
+    }.via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
   }
@@ -92,23 +103,34 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
   ): Source[GetTransactionTreesResponse, NotUsed] = {
+    val correlationId = UUID.randomUUID().toString
+
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.parties(request.parties),
       logging.verbose(request.verbose),
+      logging.submissionId(correlationId),
+      "type" -> "transaction-trees-type",
     ) { implicit loggingContext =>
       logger.info("Received request for transaction trees.")
     }
     logger.trace(s"Transaction tree request: $request")
-    transactionsService
-      .transactionTrees(
-        request.startExclusive,
-        request.endInclusive,
-        TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
-        request.verbose,
-      )
+    withEnrichedLoggingContext(
+      logging.startExclusive(request.startExclusive),
+      logging.endInclusive(request.endInclusive),
+      logging.submissionId(correlationId),
+      "type" -> "transaction-trees-type",
+    ) { implicit loggingContext =>
+      transactionsService
+        .transactionTrees(
+          request.startExclusive,
+          request.endInclusive,
+          TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
+          request.verbose,
+        )
+    }
       .via(
         logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
       )

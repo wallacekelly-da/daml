@@ -3,13 +3,12 @@
 
 package com.daml.metrics
 
-import java.util.concurrent.CompletionStage
-
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
 import com.codahale.metrics.{Counter, Meter, Timer}
 import com.daml.concurrent
 
+import java.util.concurrent.CompletionStage
 import scala.concurrent.{ExecutionContext, Future}
 
 object Timed {
@@ -84,12 +83,18 @@ object Timed {
     Timed.future(timer, trackedFuture(meter, future))
   }
 
-  def source[Out, Mat](timer: Timer, source: => Source[Out, Mat]): Source[Out, Mat] = {
+  def source[Out, Mat](
+      timer: Timer,
+      source: => Source[Out, Mat],
+      log: Long => Unit = _ => (),
+  ): Source[Out, Mat] = {
     val ctx = timer.time()
     source
       .watchTermination()(Keep.both[Mat, Future[Done]])
       .mapMaterializedValue { case (mat, done) =>
-        done.onComplete(_ => ctx.stop())(ExecutionContext.parasitic)
+        done.onComplete(_ => {
+          log(ctx.stop())
+        })(ExecutionContext.parasitic)
         mat
       }
   }

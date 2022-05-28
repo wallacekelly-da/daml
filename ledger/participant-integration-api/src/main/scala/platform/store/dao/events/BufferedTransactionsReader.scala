@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
@@ -23,6 +23,7 @@ import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.BufferedTransactionsReader.{
   getTransactions,
   invertMapping,
+  scalarOffsetDiff,
 }
 import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
   ToApi,
@@ -59,6 +60,7 @@ private[events] class BufferedTransactionsReader(
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
+  private val logger = ContextualizedLogger.get(getClass)
 
   private val flatTransactionsBufferMetrics =
     metrics.daml.services.index.BufferedReader("flat_transactions")
@@ -71,6 +73,9 @@ private[events] class BufferedTransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+    logger.debug(
+      s"getFlatTransactions from $startExclusive to $endInclusive (diff: ${scalarOffsetDiff(startExclusive, endInclusive)}) for $filter"
+    )
     val (parties, partiesTemplates) = filter.partition(_._2.isEmpty)
     val wildcardParties = parties.keySet
 
@@ -98,7 +103,10 @@ private[events] class BufferedTransactionsReader(
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+    logger.debug(
+      s"getTransactionTrees from $startExclusive to $endInclusive (diff: ${scalarOffsetDiff(startExclusive, endInclusive)}) for $requestingParties"
+    )
     getTransactions(transactionsBuffer)(
       startExclusive = startExclusive,
       endInclusive = endInclusive,
@@ -112,6 +120,7 @@ private[events] class BufferedTransactionsReader(
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
       bufferReaderMetrics = transactionTreesBufferMetrics,
     )
+  }
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -149,6 +158,8 @@ private[events] class BufferedTransactionsReader(
 }
 
 private[platform] object BufferedTransactionsReader {
+  private val logger = ContextualizedLogger.get(getClass)
+
   type FetchTransactions[FILTER, API_RESPONSE] =
     (Offset, Offset, FILTER, Boolean) => Source[(Offset, API_RESPONSE), NotUsed]
 
@@ -200,7 +211,10 @@ private[platform] object BufferedTransactionsReader {
       toApiTx: ToApi[API_RESPONSE],
       fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
       bufferReaderMetrics: metrics.daml.services.index.BufferedReader,
-  )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Source[(Offset, API_RESPONSE), NotUsed] = {
     val sliceFilter: TransactionLogUpdate => Option[TransactionLogUpdate.Transaction] = {
       case tx: TransactionLogUpdate.Transaction => filterEvents(tx)
       case _ => None
@@ -226,11 +240,18 @@ private[platform] object BufferedTransactionsReader {
           Future {
             transactionsBuffer.slice(scannedToInclusive, endInclusive, sliceFilter) match {
               case BufferSlice.Inclusive(slice) =>
+                logger.debug(
+                  s"Inclusive slice from $scannedToInclusive to $endInclusive (diff ${scalarOffsetDiff(scannedToInclusive, endInclusive)})"
+                )
                 val sourceFromBuffer = bufferSource(slice)
                 val nextChunkStartExclusive = slice.lastOption.map(_._1).getOrElse(endInclusive)
                 Some(nextChunkStartExclusive -> sourceFromBuffer)
 
               case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
+                logger.debug(
+                  s"LastBufferChunkSuffix slice with bufferedStartExclusive: $bufferedStartExclusive from $scannedToInclusive to $endInclusive (diff ${scalarOffsetDiff(scannedToInclusive, endInclusive)})"
+                )
+
                 val sourceFromBuffer =
                   fetchTransactions(startExclusive, bufferedStartExclusive, filter, verbose)
                     .concat(bufferSource(slice))
@@ -242,7 +263,13 @@ private[platform] object BufferedTransactionsReader {
       .flatMapConcat(identity)
 
     Timed
-      .source(bufferReaderMetrics.fetchTimer, source)
+      .source(
+        bufferReaderMetrics.fetchTimer,
+        source,
+        { durationNanos =>
+          logger.debug(s"Took ${durationNanos / 1000000.0} millis to finish source")
+        },
+      )
       .map { tx =>
         bufferReaderMetrics.fetchedTotal.inc()
         tx
@@ -262,4 +289,13 @@ private[platform] object BufferedTransactionsReader {
             }
           }
       }
+
+  private def scalarOffsetDiff(start: Offset, end: Offset): BigInt = {
+    val startBytes = start.toByteArray
+    val endBytes = end.toByteArray
+
+    val startBigInt = if (startBytes.isEmpty) BigInt(0L) else BigInt(start.toByteArray)
+    val endBigInt = if (endBytes.isEmpty) BigInt(0L) else BigInt(end.toByteArray)
+    endBigInt - startBigInt
+  }
 }
