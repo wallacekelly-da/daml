@@ -5,6 +5,7 @@ package com.daml.platform.store.dao.events
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -31,6 +32,7 @@ import com.daml.platform.store.dao.events.TransactionLogUpdatesConversions.{
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.{FilterRelation, Identifier, Party}
 
+import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] class BufferedTransactionsReader(
@@ -156,21 +158,33 @@ private[platform] object BufferedTransactionsReader {
       eventProcessingParallelism: Int,
       lfValueTranslation: LfValueTranslation,
       metrics: Metrics,
-  )(implicit
-      executionContext: ExecutionContext
-  ): BufferedTransactionsReader =
+  ): BufferedTransactionsReader = {
+    val executor = Executors.newWorkStealingPool(eventProcessingParallelism * 2)
+    val bufferedTransactionsReaderEC =
+      ExecutionContext.fromExecutor(
+        new InstrumentedExecutorService(
+          executor,
+          metrics.registry,
+          "daml_buffered_transactions_reader",
+        )
+      )
     new BufferedTransactionsReader(
       delegate = delegate,
       transactionsBuffer = transactionsBuffer,
       metrics = metrics,
       filterFlatTransactions = ToFlatTransaction.filter,
-      flatToApiTransactions =
-        ToFlatTransaction.toApiTransaction(_, _, lfValueTranslation)(_, executionContext),
+      flatToApiTransactions = ToFlatTransaction.toApiTransaction(_, _, lfValueTranslation)(
+        _,
+        bufferedTransactionsReaderEC,
+      ),
       filterTransactionTrees = ToTransactionTree.filter,
-      treesToApiTransactions =
-        ToTransactionTree.toApiTransaction(_, _, lfValueTranslation)(_, executionContext),
+      treesToApiTransactions = ToTransactionTree.toApiTransaction(_, _, lfValueTranslation)(
+        _,
+        bufferedTransactionsReaderEC,
+      ),
       eventProcessingParallelism = eventProcessingParallelism,
-    )
+    )(bufferedTransactionsReaderEC)
+  }
 
   private[events] def getTransactions[FILTER, API_RESPONSE](
       transactionsBuffer: EventsBuffer[TransactionLogUpdate]

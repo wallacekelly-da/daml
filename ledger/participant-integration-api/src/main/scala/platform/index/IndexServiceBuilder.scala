@@ -207,7 +207,7 @@ private[platform] case class IndexServiceBuilder(
         ),
         metrics = metrics,
         eventProcessingParallelism = eventsProcessingParallelism,
-      )(servicesExecutionContext)
+      )
 
       for {
         _ <- BuffersUpdater.owner(
