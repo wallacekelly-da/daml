@@ -155,7 +155,10 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): Option[ParameterStorageBackend.IdentityParams] =
       throw new UnsupportedOperationException
 
-    override def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(
+    override def updatePrunedUptoInclusive(
+        prunedUpToInclusive: Offset,
+        maxEventSeqIdOfPruning: Option[Long],
+    )(
         connection: Connection
     ): Unit =
       throw new UnsupportedOperationException

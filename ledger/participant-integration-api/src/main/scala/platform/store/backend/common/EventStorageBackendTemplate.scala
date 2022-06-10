@@ -762,10 +762,13 @@ abstract class EventStorageBackendTemplate(
       .flatMap(_.iterator)
       .toSet
     // TODO pbatko: Consider implementing support for `fetchSizeHint` and `limit`.
-    // TODO pbatko: Note that we are checking against fetching data from the pruned offset
+    // NOTE: Note that we are checking against fetching data from the pruned offset
     //              even though the same check has been done when fetching event seq ids from transaction_meta table.
     //              Both checks are needed as fetching from transaction_meta and fetching events here
     //              happens in two different transactions which can be interleaved by a pruning transaction.
+    // TODO pbatko: "e.event_offset > p.participant_pruned_up_to_inclusive" becomes inefficient once we drop event_offset indexes
+    //              from create tables.
+    //              We could replace it by checking against "participant_pruned_up_to_inclusive_event_sequential_id"
     def selectFrom(tableName: String, selectColumns: String) = cSQL"""
         (
           SELECT
@@ -782,9 +785,9 @@ abstract class EventStorageBackendTemplate(
                 #$tableName e
               JOIN parameters p
               ON
-                p.participant_pruned_up_to_inclusive IS NULL 
+                p.participant_pruned_up_to_inclusive_event_sequential_id IS NULL
                 OR
-                e.event_offset > p.participant_pruned_up_to_inclusive                                                              
+                e.event_sequential_id > p.participant_pruned_up_to_inclusive_event_sequential_id
               WHERE
                 e.event_sequential_id >= $firstEventSequentialId
                 AND
@@ -811,12 +814,29 @@ abstract class EventStorageBackendTemplate(
     parsedRows
   }
 
+  private def maxEventSequentialIdOfPruningOffset(
+      pruningOffset: Offset
+  )(connection: Connection): Option[Long] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+         SELECT
+            event_sequential_id_to
+         FROM
+            participant_transaction_meta
+         WHERE
+            event_offset = (SELECT MAX(event_offset) FROM participant_transaction_meta WHERE event_offset <= $pruningOffset)
+       """.as(get[Long](1).singleOpt)(connection)
+  }
+
   // This method is too complex for StorageBackend.
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-  )(connection: Connection, loggingContext: LoggingContext): Unit = {
+  )(connection: Connection, loggingContext: LoggingContext): Option[Long] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
+
+    val maxEventSeqIdOfPruningO =
+      maxEventSequentialIdOfPruningOffset(pruningOffset = pruneUpToInclusive)(connection)
 
     if (pruneAllDivulgedContracts) {
       pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
@@ -829,9 +849,10 @@ abstract class EventStorageBackendTemplate(
           """
       }(connection, loggingContext)
     } else {
-      pruneWithLogging(queryDescription = "Archived retroactive divulgence events pruning") {
-        // Note: do not use `QueryStrategy.offsetIsSmallerOrEqual` because divulgence events have a nullable offset
-        SQL"""
+      maxEventSeqIdOfPruningO.foreach { maxEventSeqIdOfPruning =>
+        pruneWithLogging(queryDescription = "Archived retroactive divulgence events pruning") {
+          // Note: do not use `QueryStrategy.offsetIsSmallerOrEqual` because divulgence events have a nullable offset
+          SQL"""
           -- Retroactive divulgence events (only for contracts archived before the specified offset)
           delete from participant_events_divulgence delete_events
           where
@@ -839,65 +860,68 @@ abstract class EventStorageBackendTemplate(
             and exists (
               select 1 from participant_events_consuming_exercise archive_events
               where
-                archive_events.event_offset <= $pruneUpToInclusive and
+                archive_events.event_sequential_id <= $maxEventSeqIdOfPruning and
                 archive_events.contract_id = delete_events.contract_id
             )"""
-      }(connection, loggingContext)
+        }(connection, loggingContext)
+      }
     }
 
-    pruneWithLogging(queryDescription = "Create events stakeholders filter table pruning") {
-      eventStrategy.pruneCreateFilters_stakeholders(pruneUpToInclusive)
-    }(connection, loggingContext)
+    maxEventSeqIdOfPruningO.foreach { maxEventSeqIdOfPruning =>
+      pruneWithLogging(queryDescription = "Create events stakeholders filter table pruning") {
+        eventStrategy.pruneCreateFilters_stakeholders(maxEventSeqIdOfPruning)
+      }(connection, loggingContext)
 
-    pruneWithLogging(queryDescription =
-      "Create events non stakeholder informees filter table pruning"
-    ) {
-      eventStrategy.pruneCreateFilters_nonStakeholderInformees(pruneUpToInclusive)
-    }(connection, loggingContext)
+      pruneWithLogging(queryDescription =
+        "Create events non stakeholder informees filter table pruning"
+      ) {
+        eventStrategy.pruneCreateFilters_nonStakeholderInformees(maxEventSeqIdOfPruning)
+      }(connection, loggingContext)
 
-    pruneWithLogging(queryDescription = "Consuming events stakeholders filter table pruning") {
-      eventStrategy.pruneConsumingFilters_stakeholders(pruneUpToInclusive)
-    }(connection, loggingContext)
+      pruneWithLogging(queryDescription = "Consuming events stakeholders filter table pruning") {
+        eventStrategy.pruneConsumingFilters_stakeholders(maxEventSeqIdOfPruning)
+      }(connection, loggingContext)
 
-    pruneWithLogging(queryDescription =
-      "Consuming events non stakeholder informees filter table pruning"
-    ) {
-      eventStrategy.pruneConsumingFilters_nonStakeholderInformees(pruneUpToInclusive)
-    }(connection, loggingContext)
+      pruneWithLogging(queryDescription =
+        "Consuming events non stakeholder informees filter table pruning"
+      ) {
+        eventStrategy.pruneConsumingFilters_nonStakeholderInformees(maxEventSeqIdOfPruning)
+      }(connection, loggingContext)
 
-    pruneWithLogging(queryDescription = "Non-consuming events informees filter table pruning") {
-      eventStrategy.pruneNonConsumingFilters_informees(pruneUpToInclusive)
-    }(connection, loggingContext)
+      pruneWithLogging(queryDescription = "Non-consuming events informees filter table pruning") {
+        eventStrategy.pruneNonConsumingFilters_informees(maxEventSeqIdOfPruning)
+      }(connection, loggingContext)
 
-    pruneWithLogging(queryDescription = "Create events pruning") {
-      SQL"""
+      pruneWithLogging(queryDescription = "Create events pruning") {
+        SQL"""
           -- Create events (only for contracts archived before the specified offset)
           delete from participant_events_create delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive and
+            delete_events.event_sequential_id <= $maxEventSeqIdOfPruning and
             exists (
               SELECT 1 FROM participant_events_consuming_exercise archive_events
               WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
+                archive_events.event_sequential_id <= $maxEventSeqIdOfPruning AND
                 archive_events.contract_id = delete_events.contract_id
             )"""
-    }(connection, loggingContext)
+      }(connection, loggingContext)
 
-    if (pruneAllDivulgedContracts) {
-      val pruneAfterClause = {
-        // We need to distinguish between the two cases since lexicographical comparison
-        // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
-        participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
-          case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
-          case None => cSQL""
+      if (pruneAllDivulgedContracts) {
+        val pruneAfterClause = {
+          // We need to distinguish between the two cases since lexicographical comparison
+          // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
+          // TODO pbatko: Change it to event_sequential_id
+          participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
+            case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
+            case None => cSQL""
+          }
         }
-      }
 
-      pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
-        SQL"""
+        pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
+          SQL"""
             -- Immediate divulgence pruning
             delete from participant_events_create c
-            where event_offset <= $pruneUpToInclusive
+            where event_sequential_id <= $maxEventSeqIdOfPruning
             -- Only prune create events which did not have a locally hosted party before their creation offset
             and not exists (
               select 1
@@ -909,29 +933,32 @@ abstract class EventStorageBackendTemplate(
             )
             $pruneAfterClause
          """
-      }(connection, loggingContext)
-    }
+        }(connection, loggingContext)
+      }
 
-    pruneWithLogging(queryDescription = "Exercise (consuming) events pruning") {
-      SQL"""
+      pruneWithLogging(queryDescription = "Exercise (consuming) events pruning") {
+        SQL"""
           -- Exercise events (consuming)
           delete from participant_events_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive"""
-    }(connection, loggingContext)
+            delete_events.event_sequential_id <= $maxEventSeqIdOfPruning"""
+      }(connection, loggingContext)
 
-    pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
-      SQL"""
+      pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
+        SQL"""
           -- Exercise events (non-consuming)
           delete from participant_events_non_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive"""
-    }(connection, loggingContext)
+            delete_events.event_sequential_id <= $maxEventSeqIdOfPruning"""
+      }(connection, loggingContext)
 
-    // NOTE: This must be done after pruning create events
-    pruneWithLogging(queryDescription = "transaction meta pruning") {
-      eventStrategy.pruneTransactionMeta(pruneUpToInclusive = pruneUpToInclusive)
-    }(connection, loggingContext)
+      // NOTE: This must be done after pruning create events
+      pruneWithLogging(queryDescription = "transaction meta pruning") {
+        eventStrategy.pruneTransactionMeta(pruneUpToInclusive = pruneUpToInclusive)
+      }(connection, loggingContext)
+    }
+
+    maxEventSeqIdOfPruningO
   }
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
@@ -1131,18 +1158,14 @@ abstract class EventStorageBackendTemplate(
       offset: Offset
   )(connection: Connection): Option[Long] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
-    def selectFrom(table: String) = cSQL"""
-      SELECT max(event_sequential_id) AS max_esi FROM #$table
-      WHERE event_offset = (select max(event_offset) from #$table where event_offset <= $offset)
-    """
-    SQL"""SELECT max(max_esi) FROM (
-      (${selectFrom("participant_events_consuming_exercise")})
-      UNION ALL
-      (${selectFrom("participant_events_create")})
-      UNION ALL
-      (${selectFrom("participant_events_non_consuming_exercise")})
-    ) participant_events"""
-      .as(get[Long](1).?.single)(connection)
+    SQL"""
+         SELECT
+            event_sequential_id_to
+         FROM
+            participant_transaction_meta
+         WHERE
+            event_offset = (SELECT MAX(event_offset) FROM participant_transaction_meta WHERE event_offset <= $offset)
+       """.as(get[Long](1).?.single)(connection)
   }
 
 }
@@ -1182,13 +1205,13 @@ trait EventStrategy {
     * @param pruneUpToInclusive create and archive events must be earlier or equal to this offset
     * @return the executable anorm query
     */
-  def pruneCreateFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
-  def pruneCreateFilters_nonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneCreateFilters_stakeholders(pruneUpToInclusive: Long): SimpleSql[Row]
+  def pruneCreateFilters_nonStakeholderInformees(pruneUpToInclusive: Long): SimpleSql[Row]
 
-  def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
-  def pruneConsumingFilters_nonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Long): SimpleSql[Row]
+  def pruneConsumingFilters_nonStakeholderInformees(pruneUpToInclusive: Long): SimpleSql[Row]
 
-  def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneNonConsumingFilters_informees(pruneUpToInclusive: Long): SimpleSql[Row]
 
   def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row]
 }

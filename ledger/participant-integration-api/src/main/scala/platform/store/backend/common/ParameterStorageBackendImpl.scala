@@ -112,13 +112,15 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
               #$ParticipantIdColumnName,
               #$LedgerEndColumnName,
               #$LedgerEndSequentialIdColumnName,
-              #$LedgerEndStringInterningIdColumnName
+              #$LedgerEndStringInterningIdColumnName,
+              participant_pruned_up_to_inclusive_event_sequential_id
             ) values(
               ${ledgerId.unwrap},
               ${participantId.unwrap: String},
               ${ledgerEnd.lastOffset},
               ${ledgerEnd.lastEventSeqId},
-              ${ledgerEnd.lastStringInterningId}
+              ${ledgerEnd.lastStringInterningId},
+              NULL
             )"""
             .execute()(connection)
         )
@@ -152,10 +154,14 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
     SQL"select #$LedgerIdColumnName, #$ParticipantIdColumnName from #$TableName"
       .as(LedgerIdentityParser.singleOpt)(connection)
 
-  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
+  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset, maxEventSeqIdOfPruning: Option[Long])(
+      connection: Connection
+  ): Unit = {
     import Conversions.OffsetToStatement
     SQL"""
-      update parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
+      update parameters set
+        participant_pruned_up_to_inclusive=$prunedUpToInclusive,
+        participant_pruned_up_to_inclusive_event_sequential_id=$maxEventSeqIdOfPruning
       where participant_pruned_up_to_inclusive < $prunedUpToInclusive or participant_pruned_up_to_inclusive is null
       """
       .execute()(connection)

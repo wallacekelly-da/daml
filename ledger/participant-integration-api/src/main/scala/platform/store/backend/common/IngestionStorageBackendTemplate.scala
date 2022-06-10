@@ -29,11 +29,9 @@ private[backend] class IngestionStorageBackendTemplate(
           .offsetIsGreater("completion_offset", ledgerOffset)}",
       SQL"DELETE FROM participant_events_divulgence WHERE ${queryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",
-      SQL"DELETE FROM participant_events_create WHERE ${queryStrategy.offsetIsGreater("event_offset", ledgerOffset)}",
-      SQL"DELETE FROM participant_events_consuming_exercise WHERE ${queryStrategy
-          .offsetIsGreater("event_offset", ledgerOffset)}",
-      SQL"DELETE FROM participant_events_non_consuming_exercise WHERE ${queryStrategy
-          .offsetIsGreater("event_offset", ledgerOffset)}",
+      SQL"DELETE FROM participant_events_create WHERE event_sequential_id > $lastEventSequentialId",
+      SQL"DELETE FROM participant_events_consuming_exercise WHERE event_sequential_id > $lastEventSequentialId",
+      SQL"DELETE FROM participant_events_non_consuming_exercise WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM party_entries WHERE ${queryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
       SQL"DELETE FROM string_interning WHERE internal_id > $lastStringInterningId",
       SQL"DELETE FROM participant_events_create_filter WHERE event_sequential_id > $lastEventSequentialId",

@@ -30,8 +30,7 @@ object OracleEventStrategy extends EventStrategy {
     cSQL"( ($clause) AND (template_id IN ($internedTemplates)) )"
   }
 
-  override def pruneCreateFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
-    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+  override def pruneCreateFilters_stakeholders(pruneUpToInclusive: Long): SimpleSql[Row] = {
     SQL"""
           -- Create events filter table (only for contracts archived before the specified offset)
           delete from participant_events_create_filter
@@ -50,16 +49,16 @@ object OracleEventStrategy extends EventStrategy {
   }
 
   override def pruneCreateFilters_nonStakeholderInformees(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: Long
   ): SimpleSql[Row] = ???
 
-  override def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
+  override def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Long): SimpleSql[Row] = ???
 
   override def pruneConsumingFilters_nonStakeholderInformees(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: Long
   ): SimpleSql[Row] = ???
 
-  override def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
+  override def pruneNonConsumingFilters_informees(pruneUpToInclusive: Long): SimpleSql[Row] = ???
 
   override def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
 }

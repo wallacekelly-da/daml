@@ -52,8 +52,15 @@ CREATE TABLE participant_transaction_meta(
     event_sequential_id_to BIGINT NOT NULL
 );
 CREATE INDEX participant_transaction_meta_tid_idx ON participant_transaction_meta(transaction_id);
---CREATE INDEX participant_transaction_meta_eventoffset_idx ON participant_transaction_meta(event_offset);
+CREATE INDEX participant_transaction_meta_eventoffset_idx ON participant_transaction_meta(event_offset);
 
 DROP INDEX participant_events_create_transaction_id_idx;
 DROP INDEX participant_events_consuming_exercise_transaction_id_idx;
 DROP INDEX participant_events_non_consuming_exercise_transaction_id_idx;
+
+DROP INDEX participant_events_create_event_offset;
+DROP INDEX participant_events_consuming_exercise_event_offset;
+DROP INDEX participant_events_non_consuming_exercise_event_offset;
+
+ALTER TABLE parameters
+  ADD COLUMN participant_pruned_up_to_inclusive_event_sequential_id BIGINT;

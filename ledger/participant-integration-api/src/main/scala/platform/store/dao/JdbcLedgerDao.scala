@@ -417,7 +417,7 @@ private class JdbcLedgerDao(
             .asGrpcError
         }
 
-        readStorageBackend.eventStorageBackend.pruneEvents(
+        val maxEventSeqIdOfPruning = readStorageBackend.eventStorageBackend.pruneEvents(
           pruneUpToInclusive,
           pruneAllDivulgedContracts,
         )(
@@ -429,7 +429,10 @@ private class JdbcLedgerDao(
           conn,
           loggingContext,
         )
-        parameterStorageBackend.updatePrunedUptoInclusive(pruneUpToInclusive)(conn)
+        parameterStorageBackend.updatePrunedUptoInclusive(
+          pruneUpToInclusive,
+          maxEventSeqIdOfPruning = maxEventSeqIdOfPruning,
+        )(conn)
 
         if (pruneAllDivulgedContracts) {
           parameterStorageBackend.updatePrunedAllDivulgedContractsUpToInclusive(pruneUpToInclusive)(

@@ -23,13 +23,13 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
     val initialPruningOffset = executeSql(backend.parameter.prunedUpToInclusive)
 
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset_1))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset_1, Some(1)))
     val updatedPruningOffset_1 = executeSql(backend.parameter.prunedUpToInclusive)
 
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset_2))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset_2, Some(2)))
     val updatedPruningOffset_2 = executeSql(backend.parameter.prunedUpToInclusive)
 
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset_3))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset_3, Some(3)))
     val updatedPruningOffset_3 = executeSql(backend.parameter.prunedUpToInclusive)
 
     initialPruningOffset shouldBe empty
@@ -190,13 +190,13 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     )
 
     // Prune
-    executeSql(
+    val maxPrunedEvSeqId: Option[Long] = executeSql(
       backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
         _,
         loggingContext,
       )
     )
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2), maxPrunedEvSeqId))
 
     // Make sure the events are not visible anymore
     val after1_ids = executeSql(
@@ -353,13 +353,13 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     )
 
     // Prune
-    executeSql(
+    val maxPrunedEvSeqId: Option[Long] = executeSql(
       backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
         _,
         loggingContext,
       )
     )
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2), maxPrunedEvSeqId))
 
     // Make sure the events are still visible - active contracts should not be pruned
 //    val after1 = executeSql(backend.event.transactionEvents(range, filter))
@@ -422,6 +422,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val contract1_id = hashCid("#1")
     val contract2_id = hashCid("#2")
 
+    // TODO pbatko: How does this represent immediate divulgence?
     val contract1_immediateDivulgence = dtoCreate(
       offset = offset(1),
       eventSequentialId = 1L,
@@ -442,6 +443,18 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         contractId = contract1_id,
         divulgee = partyName,
       )
+    val transactionMeta1 = DbDto.TransactionMeta(
+      transaction_id = contract1_immediateDivulgence.transaction_id.get,
+      event_offset = contract1_immediateDivulgence.event_offset.get,
+      event_sequential_id_from = contract1_immediateDivulgence.event_sequential_id,
+      event_sequential_id_to = contract1_immediateDivulgence.event_sequential_id,
+    )
+    val transactionMeta2 = DbDto.TransactionMeta(
+      transaction_id = contract2_createWithLocalStakeholder.transaction_id.get,
+      event_offset = contract2_createWithLocalStakeholder.event_offset.get,
+      event_sequential_id_from = contract2_createWithLocalStakeholder.event_sequential_id,
+      event_sequential_id_to = contract2_createWithLocalStakeholder.event_sequential_id,
+    )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
@@ -450,8 +463,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       ingest(
         Vector(
           contract1_immediateDivulgence,
+          transactionMeta1,
           partyEntry,
           contract1_retroactiveDivulgence,
+          transactionMeta2,
           contract2_createWithLocalStakeholder,
         ),
         _,
@@ -530,6 +545,18 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = contract2_id,
       divulgee = divulgee,
     )
+    val transactionMeta1 = DbDto.TransactionMeta(
+      transaction_id = contract1_create.transaction_id.get,
+      event_offset = contract1_create.event_offset.get,
+      event_sequential_id_from = contract1_create.event_sequential_id,
+      event_sequential_id_to = contract1_create.event_sequential_id,
+    )
+    val transactionMeta2 = DbDto.TransactionMeta(
+      transaction_id = contract1_consumingExercise.transaction_id.get,
+      event_offset = contract1_consumingExercise.event_offset.get,
+      event_sequential_id_from = contract1_consumingExercise.event_sequential_id,
+      event_sequential_id_to = contract1_consumingExercise.event_sequential_id,
+    )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
@@ -538,8 +565,10 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       ingest(
         Vector(
           contract1_create,
+          transactionMeta1,
           contract1_divulgence,
           contract1_consumingExercise,
+          transactionMeta2,
           contract2_divulgence,
         ),
         _,
@@ -619,7 +648,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
 
     // Prune
     executeSql(backend.completion.pruneCompletions(offset(1))(_, loggingContext))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(1)))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(1), None))
 
     // Make sure the completion is not visible anymore
     val after = executeSql(

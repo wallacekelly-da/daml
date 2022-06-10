@@ -92,7 +92,10 @@ trait ParameterStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
-  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
+  def updatePrunedUptoInclusive(
+      prunedUpToInclusive: Offset,
+      maxEventSeqIdOfPruning: Option[Long],
+  )(connection: Connection): Unit
 
   def prunedUpToInclusive(connection: Connection): Option[Offset]
 
@@ -262,7 +265,7 @@ trait EventStorageBackend {
   def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(
       connection: Connection,
       loggingContext: LoggingContext,
-  ): Unit
+  ): Option[Long]
   def isPruningOffsetValidAgainstMigration(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
