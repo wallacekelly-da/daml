@@ -23,17 +23,29 @@ import com.daml.lf.value.Value.ContractId
   * since the beginning of the interpretation or iteration.
   * The interpretation or iteration must signal every node (to be)
   * to the [[ContractStateMachine.State]] using its methods.
+  * MS: Please clarify the meaning of "signal every node". Ideally, provide a public method `State.next(node): State`
+  * that yields the next state.
+  * (Currently, a client has to choose between visitCreate / handleCreate, handleLookup / handleLookupWith and that
+  * bears the risk of calling the wrong method.)
   *
+  * MS: This comes a bit early for my taste. When I read this, I do not yet know about `ActiveLedgerState`, but you
+  *     already talk about modes. I would remove it and possibly expand the Scaladocs of
+  *     [[ContractStateMachine.ActiveLedgerState.keys]] and [[ContractStateMachine.State.keyInputs]].
   * If [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]] is not set,
   * the [[ContractStateMachine.ActiveLedgerState.keys]] and [[ContractStateMachine.State.keyInputs]]
   * keeps track of all keys that appear in any of the nodes, and errors on any internal key inconsistencies.
+  *
+  * MS: I would remove this sentence and leave it to `State.next` to do that correctly.
   * [[com.daml.lf.transaction.Node.LookupByKey]] can be handled with [[ContractStateMachine.State.handleLookup]].
   *
+  * MS: Same here, explain that in the ScalaDoc of [[ContractStateMachine.ActiveLedgerState.keys]] and [[ContractStateMachine.State.keyInputs]].
   * If [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]] is set,
   * the contract state machine does not detect inconsistent key lookups
   * and the [[ContractStateMachine.ActiveLedgerState.keys]] and [[ContractStateMachine.State.keyInputs]]
   * keep track only of keys that have been brought into scope using a by-key node
   * or a [[com.daml.lf.transaction.Node.Create]] node.
+  *
+  * MS: I would remove these explanations and leave it to `State.next` to do that correctly.
   * In this mode, [[com.daml.lf.transaction.Node.LookupByKey]] nodes must be
   * handled with [[ContractStateMachine.State.handleLookupWith]],
   * whose second argument takes the contract key resolution to be given to the Daml interpreter instead of
@@ -70,6 +82,11 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     *   and similarly for all [[ActiveLedgerState]]s in [[rollbackStack]].
     *
     * @param globalKeyInputs
+    *   MS: Here I would like to see statements about:
+    *    - `State.globalKeyInputs` contains all keys that the engine has looked up during interpretation.
+    *    - `State.globalKeyInputs` is suitable for resolving keys during re-interpretation.
+    *    Ideally, the statements are verified by appropriate unit tests.
+    *
     *   In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]],
     *   a store of key lookups (including fetch-by-key and exercise-by-key,
     *   represented by [[com.daml.lf.transaction.Transaction.NegativeKeyLookup]]
@@ -340,9 +357,16 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     private def withinRollbackScope: Boolean = rollbackStack.nonEmpty
 
-    /** Let `resolver` be a [[KeyResolver]] that can be used during interpretation to obtain a transaction `tx`
+    /** MS: I struggle with the meaning of "can be used".
+      *  In particular, I can't tell the difference between `resolver(k) == None` and `resolver(k) == Some(None)`.
+      *  I also can't make up a resolver, that cannot be used during interpretation.
+      *  Could you please clarify what the `resolver` needs to contain here?
+      * Let `resolver` be a [[KeyResolver]] that can be used during interpretation to obtain a transaction `tx`
       * in modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.ContractByKeyUniquenessMode]],
       * or `Map.empty` in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]].
+      *
+      * MS: I think this comment would be much more intuitive, if you could refer to the method `State.next` instead of appealing to
+      *  some way of "iterating" over a transaction.
       * Let `this` state be the result of iterating over `tx` up to a node `n` exclusive using `resolver`.
       * Let `substate` be the state obtained after fully iterating over the subtree rooted at `n` starting from [[State.empty]],
       * using the resolver [[projectKeyResolver]](`resolver`)
@@ -464,12 +488,15 @@ object ContractStateMachine {
     * @param consumedBy [[com.daml.lf.value.Value.ContractId]]s of all contracts
     *                   that have been consumed by nodes up to now.
     * @param keys
+    *   MS: This is interesting to know, but not related to the Canton use case.
     *   A local store of the contract keys used for lookups and fetches by keys
     *   (including exercise by key). Each of those operations will be resolved
     *   against this map first. Only if there is no entry in here
     *   (but not if there is an entry mapped to [[KeyInactive]]), will we ask the ledger.
     *
     *   How this map is mutated depends on the [[com.daml.lf.transaction.ContractKeyUniquenessMode]]:
+    *   MS: For mode Off, maybe just say that the contents are undefined?
+   *        Or, make sure the description matches the current behavior and add a disclaimer saying that this may change very soon.
     *   - In modes [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]]
     *     and [[com.daml.lf.transaction.ContractKeyUniquenessMode.On]], i.e., [[com.daml.lf.transaction.ContractKeyUniquenessMode.byKeyOnly]],
     *     the following operations mutate this map:
@@ -479,12 +506,20 @@ object ContractStateMachine {
     *        2.1. A create will set the corresponding map entry to KeyActive(cid) if the contract has a key.
     *        2.2. A consuming choice on cid will set the corresponding map entry to KeyInactive
     *             iff we had a KeyActive(cid) entry for the same key before. If not, keys
-    *             will not be modified. Later lookups have an activeness check
+    *             will not be modified.
+    *             MS: Not sure why you mention lookups under ACS mutating operations.
+    *                 My assumption was that lookups don't mutate the ACS.
+    *             Later lookups have an activeness check
     *             that can then set this to KeyInactive if the result of the
     *             lookup was already archived.
     *
+    *  MS: Could you please be a bit more specific how the various operations update this map in Strict mode.
+    *      You made a good suggestion during the meeting, but I don't recall what it was.
     *  - In mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
     *    all operations involving a contract with a key update this map.
+    *
+    * MS: About testing: I'm worried that the test coverage is currently a bit low. The statements about `State` are quite important for Canton, so it would be valuable if you could exhaustively test them.
+    *     (E.g. run the state machine on every sequence of two actions and verify the error or final state.)
     */
   final case class ActiveLedgerState[+Nid](
       consumedBy: Map[ContractId, Nid],
