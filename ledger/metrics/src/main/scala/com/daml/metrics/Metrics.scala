@@ -658,6 +658,7 @@ final class Metrics(val registry: MetricRegistry) {
           val push: Timer = registry.timer(Prefix :+ "push")
           val slice: Timer = registry.timer(Prefix :+ "slice")
           val prune: Timer = registry.timer(Prefix :+ "prune")
+          val bufferSize: Histogram = registry.histogram(Prefix :+ "size")
 
           val sliceSize: Histogram = registry.histogram(Prefix :+ "slice_size")
         }

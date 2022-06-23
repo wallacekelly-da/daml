@@ -74,7 +74,9 @@ final class EventsBuffer[ENTRY](
 
         // The range end markers are not appended to the buffer
         if (!isRangeEndMarker(entry)) {
-          if (bufferVectorSnapshot.size.toLong == maxBufferSize) {
+          val bufferSize = bufferVectorSnapshot.size.toLong
+          bufferMetrics.bufferSize.update(bufferSize)
+          if (bufferSize == maxBufferSize) {
             bufferVectorSnapshot = bufferVectorSnapshot.drop(1)
           }
           bufferVectorSnapshot = bufferVectorSnapshot :+ offset -> entry
