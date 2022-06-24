@@ -4,11 +4,11 @@
 package com.daml.metrics
 
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.QueueOfferResult
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.logging.LoggingContext
 import com.daml.metrics.InstrumentedGraphSpec.SamplingCounter
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -108,7 +108,7 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
     val counter = new SamplingCounter(10.millis)
     Source(List.fill(1000)("element"))
       .throttle(producerMaxSpeed, FiniteDuration(10, "millis"))
-      .buffered(counter, 100)
+      .buffered(counter, 100)(LoggingContext.empty)
       .throttle(consumerMaxSpeed, FiniteDuration(10, "millis"))
       .run()
       .map(_ => counter.finishSampling())

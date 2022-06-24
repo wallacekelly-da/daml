@@ -6,7 +6,9 @@ package com.daml.metrics
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
 import com.codahale.metrics.{Counter, Timer}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import scala.util.chaining._
 
 object InstrumentedGraph {
@@ -88,7 +90,8 @@ object InstrumentedGraph {
     }
   }
 
-  implicit class BufferedFlow[In, Out, Mat](val original: Flow[In, Out, Mat]) extends AnyVal {
+  implicit class BufferedFlow[In, Out, Mat](val original: Flow[In, Out, Mat]) {
+    private val logger = ContextualizedLogger.get(getClass)
 
     /** Adds a buffer to the output of the [[original]] flow, and adds a Counter metric for buffer size.
       *
@@ -102,16 +105,39 @@ object InstrumentedGraph {
       *             so careful estimation is needed to prevent excessive memory pressure.
       * @return the instrumented flow
       */
-    def buffered(counter: com.codahale.metrics.Counter, size: Int): Flow[In, Out, Mat] =
+    def buffered(counter: com.codahale.metrics.Counter, size: Int)(implicit
+        loggingContext: LoggingContext
+    ): Flow[In, Out, Mat] = {
+      val bufferSize = new AtomicInteger(0)
+      val backPressured = new AtomicBoolean(false)
       original
         // since wireTap is not guaranteed to be executed always, we need map to prevent counter skew over time.
-        .map(_.tap(_ => counter.inc()))
+        .map(_.tap { _ =>
+          if (
+            bufferSize.incrementAndGet() == size &&
+            backPressured.compareAndSet(false, true)
+          ) {
+            logger.warn(s"Back-pressured stream due to max size reached of $size")
+          }
+          counter.inc()
+        })
         .buffer(size, OverflowStrategy.backpressure)
-        .map(_.tap(_ => counter.dec()))
+        .map(_.tap { _ =>
+          if (
+            bufferSize.decrementAndGet() == 0 &&
+            backPressured.compareAndSet(true, false)
+          ) {
+            logger.warn(s"Stream backpressure eased")
+          }
+          counter.dec()
+        })
+    }
   }
 
-  implicit class BufferedSource[Out, Mat](val original: Source[Out, Mat]) extends AnyVal {
-    def buffered(counter: com.codahale.metrics.Counter, size: Int): Source[Out, Mat] =
+  implicit class BufferedSource[Out, Mat](val original: Source[Out, Mat]) {
+    def buffered(counter: com.codahale.metrics.Counter, size: Int)(implicit
+        loggingContext: LoggingContext
+    ): Source[Out, Mat] =
       original.via(Flow[Out].buffered(counter, size))
   }
 }

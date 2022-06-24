@@ -25,6 +25,7 @@ da_scala_library(
     deps = [
         "//ledger/ledger-resources",
         "//libs-scala/concurrent",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",

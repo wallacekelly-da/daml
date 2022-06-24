@@ -15,6 +15,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.LoggingContext
+import com.daml.logging.entries.LoggingValue
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
@@ -58,11 +59,6 @@ private[events] class BufferedTransactionsReader(
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
-  private val flatTransactionsBufferMetrics =
-    metrics.daml.services.index.BufferedReader("flat_transactions")
-  private val transactionTreesBufferMetrics =
-    metrics.daml.services.index.BufferedReader("transaction_trees")
-
   override def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -74,6 +70,10 @@ private[events] class BufferedTransactionsReader(
 
     val templatesParties = invertMapping(partiesTemplates)
 
+    val flatTransactionsBufferMetrics =
+      metrics.daml.services.index.BufferedReader(
+        s"flat_transactions_${loggingContext.entries.contents("submissionId").asInstanceOf[LoggingValue.OfString].value.take(6)}"
+      )
     getTransactions(transactionsBuffer)(
       startExclusive = startExclusive,
       endInclusive = endInclusive,
@@ -96,7 +96,12 @@ private[events] class BufferedTransactionsReader(
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+    val transactionTreesBufferMetrics =
+      metrics.daml.services.index.BufferedReader(
+        s"transaction_trees_${loggingContext.entries.contents("submissionId").asInstanceOf[LoggingValue.OfString].value.take(6)}"
+      )
+
     getTransactions(transactionsBuffer)(
       startExclusive = startExclusive,
       endInclusive = endInclusive,
@@ -110,6 +115,7 @@ private[events] class BufferedTransactionsReader(
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
       bufferReaderMetrics = transactionTreesBufferMetrics,
     )
+  }
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,

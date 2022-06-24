@@ -33,6 +33,8 @@ private[validate] class ConflictCheckingLedgerBridge(
 ) extends LedgerBridge {
   private val StageBufferSize = 128
 
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
       .buffered(bridgeMetrics.Stages.PrepareSubmission.bufferBefore, StageBufferSize)

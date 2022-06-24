@@ -38,6 +38,7 @@ import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import io.grpc._
 import scalaz.syntax.tag._
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object ApiTransactionService {
@@ -78,15 +79,18 @@ private[apiserver] final class ApiTransactionService private (
       logging.endInclusive(request.endInclusive),
       logging.filters(request.filter),
       logging.verbose(request.verbose),
+      logging.submissionId(UUID.randomUUID().toString),
+      "stream-type" -> "flat-transactions",
     ) { implicit loggingContext =>
       logger.info("Received request for transactions.")
+
+      logger.trace(s"Transaction request: $request")
+      transactionsService
+        .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
+        .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
+        .via(logger.logErrorsOnStream)
+        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
     }
-    logger.trace(s"Transaction request: $request")
-    transactionsService
-      .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
-      .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
-      .via(logger.logErrorsOnStream)
-      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
   }
 
   override def getTransactionTrees(
@@ -98,22 +102,25 @@ private[apiserver] final class ApiTransactionService private (
       logging.endInclusive(request.endInclusive),
       logging.parties(request.parties),
       logging.verbose(request.verbose),
+      logging.submissionId(UUID.randomUUID().toString),
+      "stream-type" -> "transaction-trees",
     ) { implicit loggingContext =>
       logger.info("Received request for transaction trees.")
+
+      logger.trace(s"Transaction tree request: $request")
+      transactionsService
+        .transactionTrees(
+          request.startExclusive,
+          request.endInclusive,
+          TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
+          request.verbose,
+        )
+        .via(
+          logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
+        )
+        .via(logger.logErrorsOnStream)
+        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
     }
-    logger.trace(s"Transaction tree request: $request")
-    transactionsService
-      .transactionTrees(
-        request.startExclusive,
-        request.endInclusive,
-        TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
-        request.verbose,
-      )
-      .via(
-        logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
-      )
-      .via(logger.logErrorsOnStream)
-      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
   }
 
   override def getTransactionByEventId(
