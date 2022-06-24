@@ -69,7 +69,7 @@ private[index] class IndexServiceImpl(
   // An Akka stream buffer is added at the end of all streaming queries,
   // allowing to absorb temporary downstream backpressure.
   // (e.g. when the client is temporarily slower than upstream delivery throughput)
-  private val LedgerApiStreamsBufferSize = 128
+  private val LedgerApiStreamsBufferSize = 1024
   private val logger = ContextualizedLogger.get(getClass)
 
   override def getParticipantId()(implicit
