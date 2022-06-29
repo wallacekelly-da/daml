@@ -35,7 +35,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.metrics.{JvmMetricSet, MetricName, Metrics}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -43,7 +43,7 @@ import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.resources.AbstractResourceOwner
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.{Executor, Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 import com.daml.ledger.configuration.LedgerId
@@ -172,10 +172,31 @@ object SandboxOnXRunner {
 
         (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
-        servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
-        servicesExecutionContext <- buildServicesExecutionContext(
+        availableCores = Runtime.getRuntime.availableProcessors()
+
+        apiSubmissionServiceThreadPoolSize = availableCores
+        apiQueriesThreadPoolSize = availableCores / 2
+        grpcAppThreadPoolSize = availableCores / 4
+
+        apiSubmissionServiceEC <- buildServicesExecutionContext(
           metrics,
-          servicesThreadPoolSize,
+          metrics.daml.lapi.threadpool.apiServices,
+          apiSubmissionServiceThreadPoolSize,
+        )
+
+        grpcExecutor <- ResourceOwner
+          .forExecutorService(() =>
+            new InstrumentedExecutorService(
+              Executors.newWorkStealingPool(grpcAppThreadPoolSize),
+              metrics.registry,
+              metrics.daml.lapi.threadpool.grpc.toString,
+            )
+          )
+
+        apiQueriesEC <- buildServicesExecutionContext(
+          metrics,
+          metrics.daml.lapi.threadpool.apiQueries,
+          apiQueriesThreadPoolSize,
         )
 
         readServiceWithSubscriber = new BridgeReadService(
@@ -210,7 +231,7 @@ object SandboxOnXRunner {
           config = participantConfig.indexService,
           metrics = metrics,
           engine = sharedEngine,
-          servicesExecutionContext = servicesExecutionContext,
+          servicesExecutionContext = apiQueriesEC,
           lfValueTranslationCache = translationCache,
           dbSupport = dbSupport,
           participantId = participantId,
@@ -224,8 +245,8 @@ object SandboxOnXRunner {
           stateUpdatesFeedSink,
           indexService,
           metrics,
-          servicesExecutionContext,
-          servicesThreadPoolSize,
+          apiSubmissionServiceEC,
+          availableCores,
           timeServiceBackend,
           participantConfig,
           bridgeConfig,
@@ -235,7 +256,7 @@ object SandboxOnXRunner {
           sharedEngine,
           indexService,
           metrics,
-          servicesExecutionContext,
+          apiSubmissionServiceEC,
           new TimedWriteService(writeService, metrics),
           indexerHealthChecks,
           timeServiceBackend,
@@ -244,6 +265,7 @@ object SandboxOnXRunner {
           participantConfig.apiServer,
           participantId,
           configAdaptor.authService(participantConfig),
+          grpcExecutor,
         )
       } yield (apiServer, writeService, indexService)
     }
@@ -262,6 +284,7 @@ object SandboxOnXRunner {
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
       authService: AuthService,
+      grpcExecutor: Executor,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -304,6 +327,7 @@ object SandboxOnXRunner {
       ),
       participantId = participantId,
       authService = authService,
+      grpcExecutor = grpcExecutor,
     )
 
   private def buildIndexerServer(
@@ -335,6 +359,7 @@ object SandboxOnXRunner {
 
   private def buildServicesExecutionContext(
       metrics: Metrics,
+      metricName: MetricName,
       servicesThreadPoolSize: Int,
   ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner
@@ -342,7 +367,7 @@ object SandboxOnXRunner {
         new InstrumentedExecutorService(
           Executors.newWorkStealingPool(servicesThreadPoolSize),
           metrics.registry,
-          metrics.daml.lapi.threadpool.apiServices.toString,
+          metricName.toString,
         )
       )
       .map(ExecutionContext.fromExecutorService)

@@ -25,6 +25,7 @@ import com.daml.telemetry.TelemetryContext
 import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
 
+import java.util.concurrent.Executor
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
@@ -46,6 +47,7 @@ object StandaloneApiServer {
       otherInterceptors: List[ServerInterceptor] = List.empty,
       engine: Engine,
       servicesExecutionContext: ExecutionContextExecutor,
+      grpcExecutor: Executor,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       ledgerFeatures: LedgerFeatures,
@@ -120,7 +122,7 @@ object StandaloneApiServer {
           Option.when(config.userManagement.enabled)(userManagementStore),
           servicesExecutionContext,
         ) :: otherInterceptors,
-        servicesExecutionContext,
+        grpcExecutor,
         metrics,
         config.rateLimitingConfig,
       )
