@@ -35,8 +35,8 @@ object IndexServiceConfig {
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10
-  val DefaultMaxContractStateCacheSize: Long = 100000L
-  val DefaultMaxContractKeyStateCacheSize: Long = 100000L
+  val DefaultMaxContractStateCacheSize: Long = 0
+  val DefaultMaxContractKeyStateCacheSize: Long = 0
   val DefaultMaxTransactionsInMemoryFanOutBufferSize: Int = 10000
   val DefaultEnableInMemoryFanOutForLedgerApi = false
   val DefaultApiStreamShutdownTimeout: Duration = FiniteDuration(5, "seconds")
