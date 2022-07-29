@@ -5,6 +5,7 @@ package com.daml.platform.store.dao.events
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -32,6 +33,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.{FilterRelation, Identifier, Party}
 
+import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] class BufferedTransactionsReader(
@@ -127,9 +129,12 @@ private[platform] object BufferedTransactionsReader {
       eventProcessingParallelism: Int,
       lfValueTranslation: LfValueTranslation,
       metrics: Metrics,
-  )(implicit
-      executionContext: ExecutionContext
   ): BufferedTransactionsReader = {
+    implicit val executionContext: ExecutionContext =
+      ExecutionContext.fromExecutorService(
+        new InstrumentedExecutorService(Executors.newWorkStealingPool(16), metrics.registry, "imfo")
+      )
+
     val flatTransactionsStreamReader =
       new BufferedStreamsReader[(FilterRelation, Boolean), GetTransactionsResponse](
         inMemoryFanoutBuffer = transactionsBuffer,

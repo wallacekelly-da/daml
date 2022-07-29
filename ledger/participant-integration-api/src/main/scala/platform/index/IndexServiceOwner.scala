@@ -76,7 +76,7 @@ final class IndexServiceOwner(
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.eventsProcessingParallelism,
-      )(servicesExecutionContext)
+      )
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
         inMemoryFanoutBuffer = inMemoryState.transactionsBuffer,
