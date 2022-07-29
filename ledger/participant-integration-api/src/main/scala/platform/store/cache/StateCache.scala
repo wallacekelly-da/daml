@@ -137,7 +137,7 @@ private[platform] case class StateCache[K, V](
               // or that the entry has been updated synchronously with `put` with a recent Index DB entry.
               if (pendingForKey.latestValidAt == validAt) {
                 cache.put(key, value)
-                logger.debug(
+                logger.warn(
                   s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt"
                 )
               }

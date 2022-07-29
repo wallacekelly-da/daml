@@ -47,8 +47,10 @@ class ContractStateCaches(
 
       val validAt = eventsBatch.last.eventOffset
       if (keyMappings.nonEmpty) keyState.putBatch(validAt, keyMappings)
-      if (contractMappings.nonEmpty)
+      if (contractMappings.nonEmpty) {
         contractState.putBatch(validAt, contractMappings)
+        logger.warn(s"Updated cache at $validAt with $contractMappings")
+      }
     }
 
   def reset(lastPersistedLedgerEnd: Offset): Unit = {
