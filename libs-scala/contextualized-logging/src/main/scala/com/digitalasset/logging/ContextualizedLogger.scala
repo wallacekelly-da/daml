@@ -87,7 +87,7 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
   )(implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
     Flow[Out].map { item =>
       LoggingContext.withEnrichedLoggingContextFrom(withContext(item)) { implicit loggingContext =>
-        debug(msg)
+        info(msg)
         item
       }
     }

@@ -41,10 +41,10 @@ private[platform] case class StateCache[K, V](
   def get(key: K)(implicit loggingContext: LoggingContext): Option[V] =
     cache.getIfPresent(key) match {
       case Some(value) =>
-        logger.debug(s"Cache hit for $key -> ${truncateValueForLogging(value)}")
+        logger.info(s"Cache hit for $key -> ${truncateValueForLogging(value)}")
         Some(value)
       case None =>
-        logger.debug(s"Cache miss for $key ")
+        logger.info(s"Cache miss for $key ")
         None
     }
 

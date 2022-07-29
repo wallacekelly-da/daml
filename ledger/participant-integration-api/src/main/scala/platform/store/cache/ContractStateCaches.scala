@@ -49,7 +49,11 @@ class ContractStateCaches(
       if (keyMappings.nonEmpty) keyState.putBatch(validAt, keyMappings)
       if (contractMappings.nonEmpty) {
         contractState.putBatch(validAt, contractMappings)
-        logger.warn(s"Updated cache at $validAt with $contractMappings")
+        val debuggableContractMappings = contractMappings.view.mapValues {
+          case _: Active => "Active"
+          case _: Archived => "Archived"
+        }.toMap
+        logger.warn(s"Updated cache at $validAt with $debuggableContractMappings")
       }
     }
 

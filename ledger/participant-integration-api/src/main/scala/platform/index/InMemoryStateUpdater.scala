@@ -107,6 +107,24 @@ private[platform] object InMemoryStateUpdater {
       updates: Vector[TransactionLogUpdate]
   ): Unit =
     updates.foreach { transaction: TransactionLogUpdate =>
+      transaction match {
+        case TransactionLogUpdate.TransactionAccepted(
+              transactionId,
+              commandId,
+              _,
+              _,
+              offset,
+              _,
+              _,
+            ) =>
+          logger.info(
+            s"Updating caches for successful transaction id $transactionId and command id $commandId at offset $offset"
+          )(LoggingContext.empty)
+        case TransactionLogUpdate.TransactionRejected(offset, completionDetails) =>
+          logger.info(
+            s"Updating caches for rejected transaction with transaction id ${completionDetails.completionStreamResponse.completions.head.transactionId} offset $offset"
+          )(LoggingContext.empty)
+      }
       // TODO LLP: Batch update caches
       inMemoryState.transactionsBuffer.push(transaction.offset, transaction)
 

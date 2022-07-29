@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -84,6 +85,28 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
       )
         .map(batch => batch.offsetsUpdates -> batch.lastSeqEventId)
         // TODO LLP: Introduce mechanism (buffer) to allow observing downstream backpressure
+        .map { o =>
+          val evtSeqId = o._2
+          o._1.view
+            .collect { case (offset, update: Update.TransactionAccepted) =>
+              offset -> update
+            }
+            .foreach { case (offset, update) =>
+              val createdContracts = update.transaction.localContracts.keySet
+              val consumedContracts = update.transaction.consumedContracts
+              val updatedContractKeys = update.transaction.updatedContractKeys
+              val context = update.optCompletionInfo
+                .map { cInfo =>
+                  s"application id: ${cInfo.applicationId}, command id: ${cInfo.commandId}, submission id: ${cInfo.submissionId}"
+                }
+                .getOrElse("")
+              logger.info(
+                s"Ingested in IndexDB transaction  with transaction id ${update.transactionId}, $context at $offset with created contracts ($createdContracts), consumed contracts ($consumedContracts) and updated keys ($updatedContractKeys)"
+              )
+            }
+          logger.info(s"Forwarding batch to in-memory state with $evtSeqId")
+          o
+        }
         .via(inMemoryStateUpdaterFlow)
         .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
         .toMat(Sink.ignore)(Keep.both)
