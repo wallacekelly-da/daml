@@ -6,6 +6,7 @@ package com.daml.platform.apiserver
 import java.time.Clock
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
@@ -25,6 +26,7 @@ import com.daml.telemetry.TelemetryContext
 import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
 
+import java.util.concurrent.Executors
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
@@ -110,20 +112,28 @@ object ApiServiceOwner {
         apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
+      grpcExecutor <-  ResourceOwner
+        .forExecutorService(() =>
+          new InstrumentedExecutorService(
+            Executors.newWorkStealingPool(16),
+            metrics.registry,
+            metrics.daml.lapi.threadpool.grpc.toString,
+          )
+        )
       apiService <- new LedgerApiService(
-        apiServicesOwner,
-        config.port,
-        config.maxInboundMessageSize,
-        config.address,
-        config.tls,
-        AuthorizationInterceptor(
+        apiServicesOwner = apiServicesOwner,
+        desiredPort = config.port,
+        maxInboundMessageSize = config.maxInboundMessageSize,
+        address = config.address,
+        tlsConfiguration = config.tls,
+        interceptors = AuthorizationInterceptor(
           authService,
           Option.when(config.userManagement.enabled)(userManagementStore),
           servicesExecutionContext,
         ) :: otherInterceptors,
-        servicesExecutionContext,
-        metrics,
-        config.rateLimit,
+        grpcExecutor = grpcExecutor,
+        metrics = metrics,
+        rateLimitingConfig = config.rateLimit,
       )
       _ <- ResourceOwner.forTry(() => writePortFile(apiService.port))
     } yield {

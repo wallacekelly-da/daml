@@ -79,7 +79,7 @@ case class TlsFixture(
             maxInboundMessageSize = DefaultMaxInboundMessageSize,
             address = None,
             tlsConfiguration = Some(serverTlsConfiguration),
-            servicesExecutor = servicesExecutor,
+            grpcExecutor = servicesExecutor,
             metrics = new Metrics(new MetricRegistry),
             rateLimitingConfig = None,
           )

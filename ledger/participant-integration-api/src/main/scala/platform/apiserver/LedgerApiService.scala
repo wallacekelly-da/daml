@@ -22,7 +22,7 @@ private[daml] final class LedgerApiService(
     address: Option[String],
     tlsConfiguration: Option[TlsConfiguration] = None,
     interceptors: List[ServerInterceptor] = List.empty,
-    servicesExecutor: Executor,
+    grpcExecutor: Executor,
     metrics: Metrics,
     rateLimitingConfig: Option[RateLimitingConfig],
 )(implicit loggingContext: LoggingContext)
@@ -46,7 +46,7 @@ private[daml] final class LedgerApiService(
           sslContext,
           interceptors,
           metrics,
-          servicesExecutor,
+          grpcExecutor,
           apiServices.services,
           rateLimitingConfig,
         )

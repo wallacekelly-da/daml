@@ -26,7 +26,6 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -103,8 +102,6 @@ private[apiserver] final class ApiTransactionService private (
       logger.info("Received request for transaction trees.")
     }
     logger.trace(s"Transaction tree request: $request")
-
-    val zeroLoad = request.parties == Set(Ref.Party.assertFromString("00001"))
     transactionsService
       .transactionTrees(
         request.startExclusive,
@@ -117,11 +114,6 @@ private[apiserver] final class ApiTransactionService private (
       )
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
-      .map { tx =>
-        if (zeroLoad) {
-          tx.copy(transactions = tx.transactions.map(_.copy(eventsById = Map.empty)))
-        } else tx
-      }
   }
 
   override def getTransactionByEventId(

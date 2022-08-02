@@ -130,7 +130,7 @@ object GrpcServerSpec {
         desiredPort = Port.Dynamic,
         maxInboundMessageSize = maxInboundMessageSize,
         metrics = metrics,
-        servicesExecutor = executor,
+        grpcExecutor = executor,
         services = Seq(new TestedHelloService),
         rateLimitingConfig = Some(rateLimitingConfig),
       )

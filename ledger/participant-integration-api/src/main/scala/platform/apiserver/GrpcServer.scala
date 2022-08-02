@@ -38,7 +38,7 @@ private[apiserver] object GrpcServer {
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty,
       metrics: Metrics,
-      servicesExecutor: Executor,
+      grpcExecutor: Executor,
       services: Iterable[BindableService],
       rateLimitingConfig: Option[RateLimitingConfig],
   ): ResourceOwner[Server] = {
@@ -47,7 +47,7 @@ private[apiserver] object GrpcServer {
     builder.sslContext(sslContext.orNull)
     builder.permitKeepAliveTime(10, SECONDS)
     builder.permitKeepAliveWithoutCalls(true)
-    builder.executor(servicesExecutor)
+    builder.executor(grpcExecutor)
     builder.maxInboundMessageSize(maxInboundMessageSize)
     // NOTE: Interceptors run in the reverse order in which they were added.
     interceptors.foreach(builder.intercept)
