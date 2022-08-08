@@ -46,32 +46,12 @@ private[platform] class MutableCacheBackedContractStore(
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Contract]] = {
-
-    val (lookupIndex, lookupF) = contractStateCaches.contractState.pendingUpdates
-      .synchronized {
-        contractStateCaches.contractState.cacheIndex -> contractStateCaches.contractState
-          .get(contractId)
-      }
-    lookupF
-      .map {
-        case ContractStateValue.NotFound =>
-          contractsReader.lookupContractState(contractId, lookupIndex).foreach {
-            case Some(ctr) =>
-              logger.warn(
-                s"Contract not found for id ($contractId) in cache at idx $lookupIndex, with state in IndexDB at $lookupIndex: $ctr"
-              )
-            case None =>
-              logger.warn(
-                s"Contract not found for id ($contractId) in cache at idx $lookupIndex, neither in IndexDB"
-              )
-          }
-          Future.successful(ContractStateValue.NotFound)
-        case value: ExistingContractValue => Future.successful(value)
-      }
+  ): Future[Option[Contract]] =
+    contractStateCaches.contractState
+      .get(contractId)
+      .map(Future.successful)
       .getOrElse(readThroughContractsCache(contractId))
       .flatMap(contractStateToResponse(readers, contractId))
-  }
 
   override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext

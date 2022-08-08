@@ -41,10 +41,10 @@ private[platform] case class StateCache[K, V](
   def get(key: K)(implicit loggingContext: LoggingContext): Option[V] =
     cache.getIfPresent(key) match {
       case Some(value) =>
-        logger.info(s"Cache hit for $key -> ${truncateValueForLogging(value)}")
+        logger.debug(s"Cache hit for $key -> ${truncateValueForLogging(value)}")
         Some(value)
       case None =>
-        logger.info(s"Cache miss for $key ")
+        logger.debug(s"Cache miss for $key ")
         None
     }
 
@@ -137,7 +137,7 @@ private[platform] case class StateCache[K, V](
               // or that the entry has been updated synchronously with `put` with a recent Index DB entry.
               if (pendingForKey.latestValidAt == validAt) {
                 cache.put(key, value)
-                logger.warn(
+                logger.debug(
                   s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt"
                 )
               }
