@@ -26,6 +26,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -38,6 +39,7 @@ import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import io.grpc._
 import scalaz.syntax.tag._
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object ApiTransactionService {
@@ -72,48 +74,58 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactions(
       request: GetTransactionsRequest
   ): Source[GetTransactionsResponse, NotUsed] = {
+    val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.filters(request.filter),
       logging.verbose(request.verbose),
+      logging.submissionId(submissionId),
     ) { implicit loggingContext =>
       logger.info("Received request for transactions.")
+      logger.trace(s"Transaction request: $request")
     }
-    logger.trace(s"Transaction request: $request")
-    transactionsService
-      .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
-      .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
-      .via(logger.logErrorsOnStream)
-      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
+
+    withEnrichedLoggingContext(logging.submissionId(submissionId)) { implicit loggingContext =>
+      transactionsService
+        .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
+        .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
+        .via(logger.logErrorsOnStream)
+        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
+    }
   }
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
   ): Source[GetTransactionTreesResponse, NotUsed] = {
+    val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.parties(request.parties),
       logging.verbose(request.verbose),
+      logging.submissionId(submissionId),
     ) { implicit loggingContext =>
       logger.info("Received request for transaction trees.")
+      logger.trace(s"Transaction tree request: $request")
     }
-    logger.trace(s"Transaction tree request: $request")
-    transactionsService
-      .transactionTrees(
-        request.startExclusive,
-        request.endInclusive,
-        TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
-        request.verbose,
-      )
-      .via(
-        logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
-      )
-      .via(logger.logErrorsOnStream)
-      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
+
+    withEnrichedLoggingContext(logging.submissionId(submissionId)) { implicit loggingContext =>
+      transactionsService
+        .transactionTrees(
+          request.startExclusive,
+          request.endInclusive,
+          TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
+          request.verbose,
+        )
+        .via(
+          logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
+        )
+        .via(logger.logErrorsOnStream)
+        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
+    }
   }
 
   override def getTransactionByEventId(

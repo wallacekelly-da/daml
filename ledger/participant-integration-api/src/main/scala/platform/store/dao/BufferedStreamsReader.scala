@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.offset.Offset
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.InMemoryFanoutBuffer
 import com.daml.platform.store.cache.InMemoryFanoutBuffer.BufferSlice
@@ -34,6 +34,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
     metrics: Metrics,
     streamName: String,
 )(implicit executionContext: ExecutionContext) {
+  private val logger = ContextualizedLogger.get(getClass)
   private val bufferReaderMetrics = metrics.daml.services.index.BufferedReader(streamName)
 
   /** Serves processed and filtered events from the buffer, with fallback to persistence fetches
@@ -81,11 +82,19 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
               filter = bufferFilter,
             ) match {
               case BufferSlice.Inclusive(slice) =>
+                if (slice.nonEmpty)
+                  logger.info(
+                    s"Delivering Inclusive slice of size ${slice.size} with boundaries (${slice.head._1}, ${slice.last._1})"
+                  )
                 val apiResponseSource = toApiResponseStream(slice)
                 val nextSliceStartExclusive = slice.lastOption.map(_._1).getOrElse(endInclusive)
                 Some(nextSliceStartExclusive -> apiResponseSource)
 
               case BufferSlice.LastBufferChunkSuffix(bufferedStartExclusive, slice) =>
+                if (slice.nonEmpty)
+                  logger.info(
+                    s"Delivering LastBufferChunkSuffix slice of size ${slice.size} with boundaries (${slice.head._1}, ${slice.last._1}) and bufferedStartExclusive $bufferedStartExclusive"
+                  )
                 val sourceFromBuffer =
                   fetchFromPersistence(
                     startExclusive = startExclusive,
