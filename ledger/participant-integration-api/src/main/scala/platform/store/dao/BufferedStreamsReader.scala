@@ -97,7 +97,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
                   )
                 val sourceFromBuffer =
                   fetchFromPersistence(
-                    startExclusive = startExclusive,
+                    startExclusive = scannedToInclusive,
                     endInclusive = bufferedStartExclusive,
                     filter = persistenceFetchArgs,
                   )(loggingContext)
