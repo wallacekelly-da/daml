@@ -128,7 +128,8 @@ object UpdateToDbDto {
         )
 
       case u: TransactionAccepted =>
-        val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
+        // Must be pre-computed by previous indexing step
+        val blindingInfo = u.blindingInfo.get
         // TODO LLP: Extract in common functionality together with duplicated code in [[InMemoryStateUpdater]]
         val preorderTraversal = u.transaction
           .foldInExecutionOrder(List.empty[(NodeId, Node)])(
@@ -163,7 +164,7 @@ object UpdateToDbDto {
                   template_id = Some(templateId),
                   flat_event_witnesses = stakeholders,
                   tree_event_witnesses =
-                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                    blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
                   create_argument = Some(createArgument)
                     .map(compressionStrategy.createArgumentCompression.compress),
                   create_signatories = Some(create.signatories.map(_.toString)),
@@ -210,7 +211,7 @@ object UpdateToDbDto {
                   flat_event_witnesses =
                     if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
                   tree_event_witnesses =
-                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                    blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
                   exercise_choice = Some(
@@ -241,7 +242,7 @@ object UpdateToDbDto {
         val divulgedContractIndex = u.divulgedContracts
           .map(divulgedContract => divulgedContract.contractId -> divulgedContract)
           .toMap
-        val divulgences = blinding.divulgence.iterator.collect {
+        val divulgences = blindingInfo.divulgence.iterator.collect {
           // only store divulgence events, which are divulging to parties
           case (contractId, visibleToParties) if visibleToParties.nonEmpty =>
             val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)

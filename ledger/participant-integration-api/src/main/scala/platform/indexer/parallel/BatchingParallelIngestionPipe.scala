@@ -12,6 +12,7 @@ object BatchingParallelIngestionPipe {
 
   def apply[IN, IN_BATCH, DB_BATCH](
       submissionBatchSize: Long,
+      preProcess: Iterable[IN] => Future[Iterable[IN]],
       inputMappingParallelism: Int,
       inputMapper: Iterable[IN] => Future[IN_BATCH],
       seqMapperZero: IN_BATCH,
@@ -27,6 +28,7 @@ object BatchingParallelIngestionPipe {
     source
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
       .via(BatchN(submissionBatchSize.toInt, inputMappingParallelism))
+      .mapAsync(inputMappingParallelism)(preProcess)
       .mapAsync(inputMappingParallelism)(inputMapper)
       // Stage 3: Encapsulates sequential/stateful computation (generation of sequential IDs for events)
       .scan(seqMapperZero)(seqMapper)

@@ -9,6 +9,7 @@ import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
+import com.daml.lf.engine.Blinding
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedGraph._
@@ -53,6 +54,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     initialized =>
       val (killSwitch, completionFuture) = BatchingParallelIngestionPipe(
         submissionBatchSize = submissionBatchSize,
+        preProcess = inputMapperExecutor.execute(preProcess),
         inputMappingParallelism = inputMappingParallelism,
         inputMapper = inputMapperExecutor.execute(
           inputMapper(
@@ -124,6 +126,17 @@ object ParallelIndexerSubscription {
       batchSize: Int,
       offsetsUpdates: Vector[(Offset, state.Update)],
   )
+
+  def preProcess: Iterable[(Offset, state.Update)] => Iterable[(Offset, state.Update)] =
+    _.map {
+      case (offset: Offset, transactionAccepted: state.Update.TransactionAccepted) =>
+        val populatedBlindingInfo =
+          transactionAccepted.blindingInfo.getOrElse(
+            Blinding.blind(transactionAccepted.transaction)
+          )
+        offset -> transactionAccepted.copy(blindingInfo = Some(populatedBlindingInfo))
+      case other => other
+    }
 
   def inputMapper(
       metrics: Metrics,

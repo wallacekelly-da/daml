@@ -4,10 +4,10 @@
 package com.daml.platform.store.cache
 
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.logging.ContextualizedLogger
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.InMemoryFanoutBuffer._
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.collection.View
@@ -15,7 +15,7 @@ import scala.collection.View
 /** The in-memory fan-out buffer.
   *
   * This buffer stores the last ingested `maxBufferSize` accepted and rejected submission updates
-  * as [[TransactionLogUpdate]] and allows bypassing IndexDB persistence fetches for recent updates for:
+  * as [[Update]] and allows bypassing IndexDB persistence fetches for recent updates for:
   *   - flat and transaction tree streams
   *   - command completion streams
   *   - by-event-id and by-transaction-id flat and transaction tree lookups
@@ -30,10 +30,8 @@ class InMemoryFanoutBuffer(
     maxBufferedChunkSize: Int,
 ) {
   private val logger = ContextualizedLogger.get(getClass)
-  @volatile private[cache] var _bufferLog =
-    Vector.empty[(Offset, TransactionLogUpdate)]
-  @volatile private[cache] var _lookupMap =
-    Map.empty[TransactionId, TransactionLogUpdate.TransactionAccepted]
+  @volatile private[cache] var _bufferLog = Vector.empty[(Offset, Update)]
+  @volatile private[cache] var _lookupMap = Map.empty[TransactionId, Update.TransactionAccepted]
 
   private val bufferMetrics = metrics.daml.services.index.InMemoryFanoutBuffer
   private val pushTimer = bufferMetrics.push
@@ -48,7 +46,7 @@ class InMemoryFanoutBuffer(
     *              Must be higher than the last appended entry's offset.
     * @param entry The buffer entry.
     */
-  def push(offset: Offset, entry: TransactionLogUpdate): Unit =
+  def push(offset: Offset, entry: Update): Unit =
     Timed.value(
       pushTimer,
       synchronized {
@@ -84,7 +82,7 @@ class InMemoryFanoutBuffer(
   def slice[FILTER_RESULT](
       startExclusive: Offset,
       endInclusive: Offset,
-      filter: TransactionLogUpdate => Option[FILTER_RESULT],
+      filter: Update => Option[FILTER_RESULT],
   ): BufferSlice[(Offset, FILTER_RESULT)] = {
     val vectorSnapshot = _bufferLog
 
@@ -111,7 +109,7 @@ class InMemoryFanoutBuffer(
   }
 
   /** Lookup the accepted transaction update by transaction id. */
-  def lookup(transactionId: TransactionId): Option[TransactionLogUpdate.TransactionAccepted] =
+  def lookup(transactionId: TransactionId): Option[Update.TransactionAccepted] =
     _lookupMap.get(transactionId)
 
   /** Removes entries starting from the buffer head up until `endInclusive`.
@@ -168,12 +166,12 @@ class InMemoryFanoutBuffer(
   }
 
   private def extractEntryFromMap(
-      transactionLogUpdate: TransactionLogUpdate
-  ): Option[(TransactionId, TransactionLogUpdate.TransactionAccepted)] =
-    transactionLogUpdate match {
-      case txAccepted: TransactionLogUpdate.TransactionAccepted =>
+      update: Update
+  ): Option[(TransactionId, Update.TransactionAccepted)] =
+    update match {
+      case txAccepted: Update.TransactionAccepted =>
         Some(txAccepted.transactionId -> txAccepted)
-      case _: TransactionLogUpdate.TransactionRejected => None
+      case _: Update.CommandRejected => None
     }
 }
 
@@ -210,8 +208,8 @@ private[platform] object InMemoryFanoutBuffer {
     }
 
   private[cache] def filterAndChunkSlice[FILTER_RESULT](
-      sliceView: View[(Offset, TransactionLogUpdate)],
-      filter: TransactionLogUpdate => Option[FILTER_RESULT],
+      sliceView: View[(Offset, Update)],
+      filter: Update => Option[FILTER_RESULT],
       maxChunkSize: Int,
   ): Vector[(Offset, FILTER_RESULT)] =
     sliceView
@@ -220,8 +218,8 @@ private[platform] object InMemoryFanoutBuffer {
       .toVector
 
   private[cache] def lastFilteredChunk[FILTER_RESULT](
-      bufferSlice: Vector[(Offset, TransactionLogUpdate)],
-      filter: TransactionLogUpdate => Option[FILTER_RESULT],
+      bufferSlice: Vector[(Offset, Update)],
+      filter: Update => Option[FILTER_RESULT],
       maxChunkSize: Int,
   ): BufferSlice.LastBufferChunkSuffix[(Offset, FILTER_RESULT)] = {
     val lastChunk =
