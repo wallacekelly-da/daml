@@ -5,14 +5,12 @@ package com.daml.platform.store.cache
 
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update
-import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.lf.transaction.{GlobalKey, Node}
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.{Node, NodeId}
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived, ExistingContractValue}
-import com.daml.platform.store.dao.events.ContractStateEvent
 
 import scala.concurrent.ExecutionContext
 
@@ -20,11 +18,35 @@ class ContractStateCaches(
     private[cache] val keyState: StateCache[GlobalKey, ContractKeyStateValue],
     private[cache] val contractState: StateCache[ContractId, ContractStateValue],
 )(implicit loggingContext: LoggingContext) {
-  private val logger = ContextualizedLogger.get(getClass)
-
   def push(offset: Offset, transactionAccepted: Update.TransactionAccepted): Unit = {
     val keyMappingsBuilder = Map.newBuilder[Key, ContractKeyStateValue]
     val contractMappingsBuilder = Map.newBuilder[ContractId, ExistingContractValue]
+    val txLedgerEffectiveTime = transactionAccepted.transactionMeta.ledgerEffectiveTime
+
+    def cacheArchive(exercise: Node.Exercise): Unit = {
+      exercise.key.foreach { keyWithMaintainers =>
+        val key = GlobalKey.assertBuild(exercise.templateId, keyWithMaintainers.key)
+        keyMappingsBuilder.addOne(key -> Unassigned)
+      }
+      contractMappingsBuilder.addOne(exercise.targetCoid, Archived(exercise.stakeholders))
+    }
+
+    def cacheCreate(create: Node.Create): Unit = {
+      val contractId = create.coid
+      val stakeholders = create.stakeholders
+
+      val activeContract = Active(
+        contract = create.versionedCoinst,
+        stakeholders = stakeholders,
+        createLedgerEffectiveTime = txLedgerEffectiveTime,
+      )
+
+      create.key.foreach { keyWithMaintainers =>
+        val key = GlobalKey.assertBuild(create.templateId, keyWithMaintainers.key)
+        keyMappingsBuilder.addOne(key -> Assigned(contractId, stakeholders))
+      }
+      contractMappingsBuilder.addOne(contractId -> activeContract)
+    }
 
     val transactionEvents = transactionAccepted.transaction
       .foldInExecutionOrder(Vector.empty[Node])(
@@ -36,33 +58,17 @@ class ContractStateCaches(
         rollbackEnd = (acc, _, _) => acc,
       )
 
-    transactionEvents.collect{
-      case
-    }
-
-    transactionAccepted.fold.foreach {
-      case created: ContractStateEvent.Created =>
-        created.globalKey.foreach { key =>
-          keyMappingsBuilder.addOne(key -> Assigned(created.contractId, created.stakeholders))
-        }
-        contractMappingsBuilder.addOne(
-          created.contractId,
-          Active(created.contract, created.stakeholders, created.ledgerEffectiveTime),
-        )
-      case archived: ContractStateEvent.Archived =>
-        archived.globalKey.foreach { key =>
-          keyMappingsBuilder.addOne(key -> Unassigned)
-        }
-        contractMappingsBuilder.addOne(archived.contractId, Archived(archived.stakeholders))
+    transactionEvents.foreach {
+      case create: Node.Create => cacheCreate(create)
+      case exercise: Node.Exercise if exercise.consuming => cacheArchive(exercise)
+      case _ =>
     }
 
     val keyMappings = keyMappingsBuilder.result()
     val contractMappings = contractMappingsBuilder.result()
 
-    val validAt = eventsBatch.last.eventOffset
-    if (keyMappings.nonEmpty) keyState.putBatch(validAt, keyMappings)
-    if (contractMappings.nonEmpty)
-      contractState.putBatch(validAt, contractMappings)
+    if (keyMappings.nonEmpty) keyState.putBatch(offset, keyMappings)
+    if (contractMappings.nonEmpty) contractState.putBatch(offset, contractMappings)
   }
 
   def reset(lastPersistedLedgerEnd: Offset): Unit = {

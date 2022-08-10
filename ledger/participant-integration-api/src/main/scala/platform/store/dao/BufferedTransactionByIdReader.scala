@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.dao
 
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.cache.InMemoryFanoutBuffer
@@ -10,7 +11,6 @@ import com.daml.platform.store.dao.BufferedTransactionByIdReader.{
   FetchTransactionByIdFromPersistence,
   ToApiResponse,
 }
-import com.daml.platform.store.interfaces.TransactionLogUpdate.TransactionAccepted
 
 import scala.concurrent.Future
 
@@ -20,7 +20,7 @@ import scala.concurrent.Future
   *
   * @param inMemoryFanoutBuffer The in-memory fan-out buffer.
   * @param fetchFromPersistence Fetch a transaction by id from persistence.
-  * @param toApiResponse Convert a [[com.daml.platform.store.interfaces.TransactionLogUpdate.TransactionAccepted]] to a specific [[API_RESPONSE]]
+  * @param toApiResponse Convert a [[com.daml.ledger.participant.state.v2.Update.TransactionAccepted]] to a specific [[API_RESPONSE]]
   *                      while also filtering for visibility.
   * @tparam API_RESPONSE The Ledger API response type.
   */
@@ -60,7 +60,7 @@ object BufferedTransactionByIdReader {
 
   trait ToApiResponse[API_RESPONSE] {
     def apply(
-        transactionAccepted: TransactionAccepted,
+        transactionAccepted: Update.TransactionAccepted,
         requestingParties: Set[Party],
         loggingContext: LoggingContext,
     ): Future[Option[API_RESPONSE]]

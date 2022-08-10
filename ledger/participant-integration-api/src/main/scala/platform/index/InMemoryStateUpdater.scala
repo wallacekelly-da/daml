@@ -12,14 +12,11 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref.HexString
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.InMemoryState
 import com.daml.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.{Contract, InMemoryState, Key, Party}
 
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}

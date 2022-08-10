@@ -6,12 +6,12 @@ package com.daml.platform.store.dao
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.InMemoryFanoutBuffer
 import com.daml.platform.store.cache.InMemoryFanoutBuffer.BufferSlice
 import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
-import com.daml.platform.store.interfaces.TransactionLogUpdate
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -52,7 +52,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
       startExclusive: Offset,
       endInclusive: Offset,
       persistenceFetchArgs: PERSISTENCE_FETCH_ARGS,
-      bufferFilter: TransactionLogUpdate => Option[BUFFER_OUT],
+      bufferFilter: Update => Option[BUFFER_OUT],
       toApiResponse: BUFFER_OUT => Future[API_RESPONSE],
   )(implicit
       loggingContext: LoggingContext

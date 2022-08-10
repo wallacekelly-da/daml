@@ -16,14 +16,17 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.api.v1.{event => apiEvent}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
+import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.{Node, NodeId}
+import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.{CreatedEvent, ExercisedEvent}
 import com.daml.platform.{ApiOffset, FilterRelation, Value}
 import com.google.protobuf.timestamp.Timestamp
 
@@ -32,32 +35,25 @@ import scala.concurrent.{ExecutionContext, Future}
 private[events] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
     def filter(
+        // LLP TODO: Why wildcardParties AND requestingParties ???
         wildcardParties: Set[Party],
         templateSpecificParties: Map[Identifier, Set[Party]],
         requestingParties: Set[Party],
-    ): TransactionLogUpdate => Option[
-      TransactionLogUpdate.TransactionAccepted
+    ): (Offset, Update) => Option[
+      (Offset, Update.TransactionAccepted)
     ] = {
-      case transaction: TransactionLogUpdate.TransactionAccepted =>
-        val flatTransactionEvents = transaction.events.collect {
-          case createdEvent: TransactionLogUpdate.CreatedEvent => createdEvent
-          case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
-            exercisedEvent
-        }
-        val filteredFlatEvents = flatTransactionEvents
-          .filter(flatTransactionPredicate(wildcardParties, templateSpecificParties))
-        val commandId = getCommandId(filteredFlatEvents, requestingParties)
+      case (offset, transaction: Update.TransactionAccepted) =>
+        val filteredFlatEvents =
+          flatTransactionNodes(transaction)
+            .filter(flatTransactionPredicate(wildcardParties, templateSpecificParties))
+
+        val commandId = getCommandId(transaction, requestingParties)
         val nonTransient = removeTransient(filteredFlatEvents)
         // Allows emitting flat transactions with no events, a use-case needed
         // for the functioning of Daml triggers.
         // (more details in https://github.com/digital-asset/daml/issues/6975)
-        Option.when(nonTransient.nonEmpty || commandId.nonEmpty)(
-          transaction.copy(
-            commandId = commandId,
-            events = nonTransient,
-          )
-        )
-      case _: TransactionLogUpdate.TransactionRejected => None
+        Option.when(nonTransient.nonEmpty || commandId.nonEmpty)(offset -> transaction)
+      case _ => None
     }
 
     def toGetTransactionsResponse(
@@ -67,32 +63,35 @@ private[events] object TransactionLogUpdatesConversions {
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionsResponse] =
-      toFlatTransaction(_, filter, verbose, lfValueTranslation)
-        .map(transaction => GetTransactionsResponse(Seq(transaction)))
+    ): (Offset, Update.TransactionAccepted) => Future[GetTransactionsResponse] =
+      (offset, transaction) =>
+        toFlatTransaction(offset, transaction, filter, verbose, lfValueTranslation)
+          .map(transaction => GetTransactionsResponse(Seq(transaction)))
 
     def toGetFlatTransactionResponse(
-        transactionLogUpdate: TransactionLogUpdate,
         requestingParties: Set[Party],
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Option[GetFlatTransactionResponse]] =
-      filter(requestingParties, Map.empty, requestingParties)(transactionLogUpdate)
-        .map(transactionAccepted =>
-          toFlatTransaction(
-            transactionAccepted = transactionAccepted,
-            filter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
-            verbose = true,
-            lfValueTranslation = lfValueTranslation,
-          )
-        )
-        .map(_.map(flatTransaction => Some(GetFlatTransactionResponse(Some(flatTransaction)))))
-        .getOrElse(Future.successful(None))
+    ): (Offset, Update.TransactionAccepted) => Future[Option[GetFlatTransactionResponse]] =
+      (offset, transaction) =>
+        filter(requestingParties, Map.empty, requestingParties)(offset, transaction)
+          .map { case (offset, transactionAccepted) =>
+            toFlatTransaction(
+              offset = offset,
+              transactionAccepted = transactionAccepted,
+              filter = requestingParties.map(_ -> Set.empty[Ref.Identifier]).toMap,
+              verbose = true,
+              lfValueTranslation = lfValueTranslation,
+            )
+          }
+          .map(_.map(flatTransaction => Some(GetFlatTransactionResponse(Some(flatTransaction)))))
+          .getOrElse(Future.successful(None))
 
     private def toFlatTransaction(
-        transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+        offset: Offset,
+        transactionAccepted: Update.TransactionAccepted,
         filter: FilterRelation,
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
@@ -103,48 +102,64 @@ private[events] object TransactionLogUpdatesConversions {
       Future.delegate {
         val requestingParties = filter.keySet
         Future
-          .traverse(transactionAccepted.events)(event =>
+          .traverse(flatTransactionNodes(transactionAccepted))(event =>
             toFlatEvent(event, requestingParties, verbose, lfValueTranslation)
           )
           .map(flatEvents =>
             FlatTransaction(
               transactionId = transactionAccepted.transactionId,
-              commandId = transactionAccepted.commandId,
-              workflowId = transactionAccepted.workflowId,
-              effectiveAt = Some(timestampToTimestamp(transactionAccepted.effectiveAt)),
+              commandId = getCommandId(transactionAccepted, requestingParties),
+              workflowId = transactionAccepted.transactionMeta.workflowId.getOrElse(""),
+              effectiveAt =
+                // TODO LLP: Check
+                Some(timestampToTimestamp(transactionAccepted.transactionMeta.ledgerEffectiveTime)),
               events = flatEvents,
-              offset = ApiOffset.toApiString(transactionAccepted.offset),
+              offset = ApiOffset.toApiString(offset),
             )
           )
       }
 
-    private def removeTransient(aux: Vector[TransactionLogUpdate.Event]) = {
+    private def removeTransient(aux: Vector[Node.Action]): Vector[Node.Action] = {
       val permanent = aux.foldLeft(Set.empty[ContractId]) {
-        case (contractIds, event) if !contractIds(event.contractId) =>
-          contractIds + event.contractId
-        case (contractIds, event: ExercisedEvent) if event.consuming =>
-          contractIds - event.contractId
+        case (contractIds, event: Node.Create) if !contractIds(event.coid) =>
+          contractIds + event.coid
+        case (contractIds, event: Node.Exercise) if event.consuming =>
+          contractIds - event.targetCoid
         case (contractIds, _) =>
           val prettyCids = contractIds.iterator.map(_.coid).mkString(", ")
           throw new RuntimeException(s"Unexpected non-consuming event for contractIds $prettyCids")
       }
-      aux.filter(ev => permanent(ev.contractId))
+
+      aux.filter {
+        case ev: Node.Create => permanent(ev.coid)
+        case ev: Node.Exercise => permanent(ev.targetCoid)
+        case otherNode => throw new RuntimeException(s"Unsupported node $otherNode")
+      }
     }
 
     private def flatTransactionPredicate(
         wildcardParties: Set[Party],
         templateSpecificParties: Map[Identifier, Set[Party]],
-    )(event: TransactionLogUpdate.Event) = {
+    )(event: Node.Action) = {
+      val stakeholders = event match {
+        case create: Node.Create => create.stakeholders
+        case exercise: Node.Exercise if exercise.consuming => exercise.stakeholders
+        case other =>
+          throw new IllegalArgumentException(s"Unexpected node type for flatTransaction $other")
+      }
+
       val stakeholdersMatchingParties =
-        event.flatEventWitnesses.exists(wildcardParties)
+        stakeholders.exists(wildcardParties)
 
       stakeholdersMatchingParties || templateSpecificParties
         .get(event.templateId)
-        .exists(_.exists(event.flatEventWitnesses))
+        .exists(_.exists(stakeholders))
     }
 
     private def toFlatEvent(
-        event: TransactionLogUpdate.Event,
+        transactionId: LedgerString,
+        event: Node.Action,
+        nodeId: NodeId,
         requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
@@ -153,33 +168,38 @@ private[events] object TransactionLogUpdatesConversions {
         executionContext: ExecutionContext,
     ): Future[apiEvent.Event] =
       event match {
-        case createdEvent: TransactionLogUpdate.CreatedEvent =>
+        case createdEvent: Node.Create =>
           createdToApiCreatedEvent(
+            transactionId,
             requestingParties,
             verbose,
             lfValueTranslation,
+            nodeId,
             createdEvent,
-            _.flatEventWitnesses,
+            _.stakeholders,
           ).map(apiCreatedEvent => apiEvent.Event(apiEvent.Event.Event.Created(apiCreatedEvent)))
 
-        case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
-          Future.successful(exercisedToFlatEvent(requestingParties, exercisedEvent))
+        case exercisedEvent: Node.Exercise if exercisedEvent.consuming =>
+          Future.successful(
+            exercisedToFlatEvent(requestingParties, transactionId, exercisedEvent, nodeId)
+          )
 
         case _ => Future.failed(new RuntimeException("Not a flat transaction event"))
       }
 
     private def exercisedToFlatEvent(
         requestingParties: Set[Party],
-        exercisedEvent: ExercisedEvent,
+        transactionId: LedgerString,
+        exercisedEvent: Node.Exercise,
+        nodeId: NodeId,
     ): apiEvent.Event =
       apiEvent.Event(
         apiEvent.Event.Event.Archived(
           apiEvent.ArchivedEvent(
-            eventId = exercisedEvent.eventId.toLedgerString,
-            contractId = exercisedEvent.contractId.coid,
+            eventId = EventId(transactionId, nodeId).toLedgerString,
+            contractId = exercisedEvent.targetCoid.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
-            witnessParties =
-              requestingParties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq,
+            witnessParties = requestingParties.iterator.filter(exercisedEvent.stakeholders).toSeq,
           )
         )
       )
@@ -188,19 +208,19 @@ private[events] object TransactionLogUpdatesConversions {
   object ToTransactionTree {
     def filter(
         requestingParties: Set[Party]
-    ): TransactionLogUpdate => Option[TransactionLogUpdate.TransactionAccepted] = {
-      case transaction: TransactionLogUpdate.TransactionAccepted =>
+    ): (Offset, Update) => Option[(Offset, Update.TransactionAccepted)] = {
+      case (offset, transaction: Update.TransactionAccepted) =>
         val filteredForVisibility =
           transaction.events.filter(transactionTreePredicate(requestingParties))
 
         Option.when(filteredForVisibility.nonEmpty)(
-          transaction.copy(events = filteredForVisibility)
+          offset -> transaction.copy(events = filteredForVisibility)
         )
-      case _: TransactionLogUpdate.TransactionRejected => None
+      case _ => None
     }
 
     def toGetTransactionResponse(
-        transactionLogUpdate: TransactionLogUpdate,
+        update: Update,
         requestingParties: Set[Party],
         lfValueTranslation: LfValueTranslation,
     )(implicit
@@ -226,12 +246,12 @@ private[events] object TransactionLogUpdatesConversions {
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionTreesResponse] =
+    ): Update.TransactionAccepted => Future[GetTransactionTreesResponse] =
       toTransactionTree(_, requestingParties, verbose, lfValueTranslation)
         .map(txTree => GetTransactionTreesResponse(Seq(txTree)))
 
     private def toTransactionTree(
-        transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+        transactionAccepted: Update.TransactionAccepted,
         requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
@@ -281,12 +301,12 @@ private[events] object TransactionLogUpdatesConversions {
         requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
-    )(event: TransactionLogUpdate.Event)(implicit
+    )(event: Node.Action)(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): Future[TreeEvent] =
       event match {
-        case createdEvent: TransactionLogUpdate.CreatedEvent =>
+        case createdEvent: Node.Create =>
           createdToApiCreatedEvent(
             requestingParties,
             verbose,
@@ -295,7 +315,7 @@ private[events] object TransactionLogUpdatesConversions {
             _.treeEventWitnesses,
           ).map(apiCreatedEvent => TreeEvent(TreeEvent.Kind.Created(apiCreatedEvent)))
 
-        case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
+        case exercisedEvent: Node.Exercise =>
           exercisedToTransactionTreeEvent(
             requestingParties,
             verbose,
@@ -308,7 +328,7 @@ private[events] object TransactionLogUpdatesConversions {
         requestingParties: Set[Party],
         verbose: Boolean,
         lfValueTranslation: LfValueTranslation,
-        exercisedEvent: ExercisedEvent,
+        exercisedEvent: Node.Exercise,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
@@ -318,24 +338,24 @@ private[events] object TransactionLogUpdatesConversions {
           .enrichChoiceArgument(
             exercisedEvent.templateId,
             exercisedEvent.interfaceId,
-            Ref.Name.assertFromString(exercisedEvent.choice),
+            exercisedEvent.choiceId,
             value.unversioned,
           )
 
       val eventualChoiceArgument = lfValueTranslation.toApiValue(
-        exercisedEvent.exerciseArgument,
+        exercisedEvent.versionedChosenValue,
         verbose,
         "exercise argument",
         choiceArgumentEnricher,
       )
 
-      val eventualExerciseResult = exercisedEvent.exerciseResult
+      val eventualExerciseResult = exercisedEvent.versionedExerciseResult
         .map { exerciseResult =>
           val choiceResultEnricher = (value: Value) =>
             lfValueTranslation.enricher.enrichChoiceResult(
               exercisedEvent.templateId,
               exercisedEvent.interfaceId,
-              Ref.Name.assertFromString(exercisedEvent.choice),
+              exercisedEvent.choiceId,
               value.unversioned,
             )
 
@@ -357,14 +377,14 @@ private[events] object TransactionLogUpdatesConversions {
         TreeEvent.Kind.Exercised(
           apiEvent.ExercisedEvent(
             eventId = exercisedEvent.eventId.toLedgerString,
-            contractId = exercisedEvent.contractId.coid,
+            contractId = exercisedEvent.targetCoid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
             interfaceId = exercisedEvent.interfaceId.map(LfEngineToApi.toApiIdentifier),
-            choice = exercisedEvent.choice,
+            choice = exercisedEvent.choiceId,
             choiceArgument = Some(choiceArgument),
             actingParties = exercisedEvent.actingParties.toSeq,
             consuming = exercisedEvent.consuming,
-            witnessParties = requestingParties.view.filter(exercisedEvent.treeEventWitnesses).toSeq,
+            witnessParties = requestingParties.view.filter(exercisedEvent.informeesOfNode).toSeq,
             childEventIds = exercisedEvent.children,
             exerciseResult = maybeExerciseResult,
           )
@@ -374,24 +394,26 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def transactionTreePredicate(
         requestingParties: Set[Party]
-    ): TransactionLogUpdate.Event => Boolean = {
-      case createdEvent: CreatedEvent => requestingParties.exists(createdEvent.treeEventWitnesses)
-      case exercised: ExercisedEvent => requestingParties.exists(exercised.treeEventWitnesses)
+    ): Node.Action => Boolean = {
+      case create: Node.Create => requestingParties.exists(create.informeesOfNode)
+      case exercised: Node.Exercise => requestingParties.exists(exercised.informeesOfNode)
       case _ => false
     }
   }
 
   private def createdToApiCreatedEvent(
+      transactionId: LedgerString,
       requestingParties: Set[Party],
       verbose: Boolean,
       lfValueTranslation: LfValueTranslation,
-      createdEvent: CreatedEvent,
-      createdWitnesses: CreatedEvent => Set[Party],
+      nodeId: NodeId,
+      createdEvent: Node.Create,
+      createdWitnesses: Node.Create => Set[Party],
   )(implicit
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
   ): Future[apiEvent.CreatedEvent] = {
-    val eventualContractKey = createdEvent.contractKey
+    val eventualContractKey = createdEvent.versionedKey
       .map { contractKey =>
         val contractKeyEnricher = (value: Value) =>
           lfValueTranslation.enricher.enrichContractKey(
@@ -401,7 +423,7 @@ private[events] object TransactionLogUpdatesConversions {
 
         lfValueTranslation
           .toApiValue(
-            value = contractKey,
+            value = contractKey.map(_.key), // TODO LLP ???
             verbose = verbose,
             attribute = "create key",
             enrich = contractKeyEnricher,
@@ -414,7 +436,7 @@ private[events] object TransactionLogUpdatesConversions {
       lfValueTranslation.enricher.enrichContract(createdEvent.templateId, value.unversioned)
 
     val eventualCreateArguments = lfValueTranslation.toApiRecord(
-      value = createdEvent.createArgument,
+      value = createdEvent.versionedArg,
       verbose = verbose,
       attribute = "create argument",
       enrich = contractEnricher,
@@ -424,15 +446,15 @@ private[events] object TransactionLogUpdatesConversions {
       maybeContractKey <- eventualContractKey
       createArguments <- eventualCreateArguments
     } yield apiEvent.CreatedEvent(
-      eventId = createdEvent.eventId.toLedgerString,
-      contractId = createdEvent.contractId.coid,
+      eventId = EventId(transactionId, nodeId).toLedgerString,
+      contractId = createdEvent.coid.coid,
       templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
       contractKey = maybeContractKey,
       createArguments = Some(createArguments),
       witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
-      signatories = createdEvent.createSignatories.toSeq,
-      observers = createdEvent.createObservers.toSeq,
-      agreementText = createdEvent.createAgreementText.orElse(Some("")),
+      signatories = createdEvent.signatories.toSeq,
+      observers = (createdEvent.stakeholders -- createdEvent.signatories).toSeq, // TODO LLP: ???
+      agreementText = Some(createdEvent.agreementText), // TODO LLP: Some("")?,
     )
   }
 
@@ -440,13 +462,28 @@ private[events] object TransactionLogUpdatesConversions {
     fromInstant(t.toInstant)
 
   private def getCommandId(
-      flatTransactionEvents: Vector[TransactionLogUpdate.Event],
+      transaction: Update.TransactionAccepted,
       requestingParties: Set[Party],
-  ) =
-    flatTransactionEvents
-      .collectFirst {
-        case event if requestingParties.exists(event.submitters) =>
-          event.commandId
+  ): String =
+    transaction.optCompletionInfo
+      .collect {
+        case completionInfo if completionInfo.actAs.exists(requestingParties) =>
+          completionInfo.commandId
       }
       .getOrElse("")
+
+  private def flatTransactionNodes(in: Update.TransactionAccepted): Vector[Node.Action] =
+    in.transaction
+      .foldInExecutionOrder(Vector.empty[Node])(
+        exerciseBegin = (acc, _, node) => (acc :+ node, ChildrenRecursion.DoRecurse),
+        // Rollback nodes are not included in the indexer
+        rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
+        leaf = (acc, _, node) => acc :+ node,
+        exerciseEnd = (acc, _, _) => acc,
+        rollbackEnd = (acc, _, _) => acc,
+      )
+      .collect {
+        case createdEvent: Node.Create => createdEvent
+        case exercisedEvent: Node.Exercise if exercisedEvent.consuming => exercisedEvent
+      }
 }

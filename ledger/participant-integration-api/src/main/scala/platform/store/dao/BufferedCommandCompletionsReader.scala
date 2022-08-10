@@ -7,13 +7,12 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.InMemoryFanoutBuffer
 import com.daml.platform.store.dao.BufferedCommandCompletionsReader.CompletionsFilter
 import com.daml.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
-import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.daml.platform.{ApplicationId, Party}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -39,13 +38,13 @@ class BufferedCommandCompletionsReader(
     )
 
   private def filterCompletions(
-      transactionLogUpdate: TransactionLogUpdate,
-      parties: Set[Party],
-      applicationId: String,
-  ): Option[CompletionStreamResponse] = (transactionLogUpdate match {
-    case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, _, Some(completionDetails)) =>
+                                 update: Update,
+                                 parties: Set[Party],
+                                 applicationId: String,
+  ): Option[CompletionStreamResponse] = (update match {
+    case Update.TransactionAccepted(_, _, _, _, _, _, Some(completionDetails)) =>
       Some(completionDetails)
-    case TransactionLogUpdate.TransactionRejected(_, completionDetails) => Some(completionDetails)
+    case Update.CommandRejected(_, completionDetails) => Some(completionDetails)
     case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, _, None) =>
       // Completion details missing highlights submitter is not local to this participant
       None
