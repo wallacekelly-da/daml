@@ -47,6 +47,7 @@ object ApiServiceOwner {
       otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
       otherInterceptors: List[ServerInterceptor] = List.empty,
       engine: Engine,
+      grpcExecutorService: ExecutionContextExecutor,
       servicesExecutionContext: ExecutionContextExecutor,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
@@ -125,7 +126,7 @@ object ApiServiceOwner {
           Option.when(config.userManagement.enabled)(userManagementStore),
           servicesExecutionContext,
         ) :: otherInterceptors,
-        servicesExecutionContext,
+        grpcExecutorService,
         metrics,
         config.rateLimit,
       )

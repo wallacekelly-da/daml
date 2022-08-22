@@ -5,6 +5,7 @@ package com.daml.platform
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.domain
@@ -28,6 +29,7 @@ import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
+import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
 class LedgerApiServer(
@@ -137,8 +139,17 @@ class LedgerApiServer(
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
-  ): ResourceOwner[ApiService] =
-    ApiServiceOwner(
+  ): ResourceOwner[ApiService] = for {
+    grpcExecutor <- ResourceOwner
+      .forExecutorService(() =>
+        new InstrumentedExecutorService(
+          Executors.newWorkStealingPool(Runtime.getRuntime.availableProcessors()),
+          metrics.registry,
+          metrics.daml.lapi.threadpool.grpc.toString,
+        )
+      )
+      .map(ExecutionContext.fromExecutorService)
+    apiServices <- ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
       config = apiServerConfig,
@@ -161,7 +172,9 @@ class LedgerApiServer(
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
       authService = authService,
+      grpcExecutorService = grpcExecutor,
     )
+  } yield apiServices
 }
 
 object LedgerApiServer {

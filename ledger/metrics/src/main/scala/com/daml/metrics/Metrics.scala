@@ -279,6 +279,8 @@ final class Metrics(val registry: MetricRegistry) {
 
         val apiServices: MetricName = Prefix :+ "api-services"
 
+        val grpc: MetricName = Prefix :+ "grpc"
+
         val inMemoryFanOut: MetricName = Prefix :+ "in_memory_fan_out"
 
         object indexBypass {
