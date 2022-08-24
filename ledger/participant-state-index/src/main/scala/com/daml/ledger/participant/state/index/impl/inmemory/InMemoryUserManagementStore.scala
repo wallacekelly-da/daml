@@ -3,8 +3,12 @@
 
 package com.daml.ledger.participant.state.index.impl.inmemory
 
-import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
+import com.daml.ledger.participant.state.index.v2.{
+  AnnotationsUpdate,
+  UserManagementStore,
+  UserUpdate,
+}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -30,12 +34,46 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   ): Future[Result[UserManagementStore.UserInfo]] =
     withUser(id)(identity)
 
+  // TODO pbatko: Handle resource versions
   override def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Unit]] =
+  ): Future[Result[User]] =
     withoutUser(user.id) {
-      state.update(user.id, UserInfo(user, rights))
+      val userWithResourceVersion =
+        user.copy(metadata = user.metadata.copy(resourceVersionO = Some("0")))
+      state.update(user.id, UserInfo(userWithResourceVersion, rights))
+      userWithResourceVersion
     }
+
+  // TODO pbatko: Handle resource versions
+  override def updateUser(
+      userUpdate: UserUpdate
+  )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
+    withUser(userUpdate.id) { userInfo =>
+      val updatedPrimaryParty = userUpdate.primaryPartyUpdate.getOrElse(userInfo.user.primaryParty)
+
+      val existingAnnotations = userInfo.user.metadata.annotations
+      val updatedAnnotations =
+        userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) {
+          case AnnotationsUpdate.Merge(newAnnotations) => existingAnnotations.concat(newAnnotations)
+          case AnnotationsUpdate.Replace(newAnnotations) => newAnnotations
+        }
+      val newResourceVersion = (userInfo.user.metadata.resourceVersionO
+        .getOrElse(sys.error("TODO pbatko"))
+        .toLong + 1).toString
+      val updatedUserInfo = userInfo.copy(
+        user = userInfo.user.copy(
+          primaryParty = updatedPrimaryParty,
+          metadata = ObjectMeta(
+            resourceVersionO = Some(newResourceVersion),
+            annotations = updatedAnnotations,
+          ),
+        )
+      )
+      state.update(userUpdate.id, updatedUserInfo)
+      updatedUserInfo.user
+    }
+  }
 
   override def deleteUser(
       id: Ref.UserId
@@ -91,7 +129,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   }
 
   private def withState[T](t: => T): Future[T] =
-    synchronized(
+    state.synchronized(
       Future.successful(t)
     )
 
@@ -127,8 +165,13 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
 object InMemoryUserManagementStore {
 
   private val AdminUser = UserInfo(
-    user =
-      User(Ref.UserId.assertFromString(UserManagementStore.DefaultParticipantAdminUserId), None),
+    user = User(
+      id = Ref.UserId.assertFromString(UserManagementStore.DefaultParticipantAdminUserId),
+      primaryParty = None,
+      isDeactivated = false,
+      // TODO pbatko: Add resource version
+      metadata = ObjectMeta.empty,
+    ),
     rights = Set(UserRight.ParticipantAdmin),
   )
 }

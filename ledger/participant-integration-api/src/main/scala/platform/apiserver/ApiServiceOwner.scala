@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver
 
 import java.time.Clock
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
@@ -12,7 +13,11 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.participant.state.index.v2.{IndexService, UserManagementStore}
+import com.daml.ledger.participant.state.index.v2.{
+  IndexService,
+  ParticipantPartyRecordStore,
+  UserManagementStore,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -37,6 +42,7 @@ object ApiServiceOwner {
   def apply(
       indexService: IndexService,
       userManagementStore: UserManagementStore,
+      participantPartyRecordStore: ParticipantPartyRecordStore,
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
       config: ApiServerConfig,
@@ -108,6 +114,7 @@ object ApiServiceOwner {
         managementServiceTimeout = config.managementServiceTimeout,
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
+        participantPartyRecordStore = participantPartyRecordStore,
         ledgerFeatures = ledgerFeatures,
         userManagementConfig = config.userManagement,
         apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,

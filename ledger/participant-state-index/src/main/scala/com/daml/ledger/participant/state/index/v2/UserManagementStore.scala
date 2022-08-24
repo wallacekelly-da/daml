@@ -6,8 +6,77 @@ package com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
+import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 
 import scala.concurrent.{ExecutionContext, Future}
+
+// TODO pbatko: Rename, move, cleanup?
+object MyFieldMaskUtils {
+  def fieldNameForNumber[M <: GeneratedMessage: GeneratedMessageCompanion](
+      fieldNumber: Int
+  ): String = {
+    val companion = implicitly[GeneratedMessageCompanion[M]]
+    companion.scalaDescriptor
+      .findFieldByNumber(fieldNumber)
+      .getOrElse(sys.error(s"Unknown field number $fieldNumber on $companion"))
+      .name
+  }
+
+  def fieldNameForNumber2[A <: GeneratedMessageCompanion[_]](
+      companion: A
+  )(fieldNumberFun: A => Int): String = {
+    val fieldNumber = fieldNumberFun(companion)
+    companion.scalaDescriptor
+      .findFieldByNumber(fieldNumber)
+      .getOrElse(sys.error(s"Unknown field number $fieldNumber on $companion"))
+      .name
+  }
+}
+
+case class UserUpdate(
+    id: Ref.UserId,
+    primaryPartyUpdate: Option[Option[Ref.Party]] = None,
+    isDeactivatedUpdate: Option[Boolean] = None,
+    metadataUpdate: ObjectMetaUpdate,
+)
+
+case class PartyRecordUpdate(
+    party: Ref.Party,
+    metadataUpdate: ObjectMetaUpdate,
+)
+
+sealed trait AnnotationsUpdate {
+  def annotations: Map[String, String]
+}
+
+object AnnotationsUpdate {
+  final case class Merge private (nonEmptyAnnotations: Map[String, String])
+      extends AnnotationsUpdate {
+    def annotations: Map[String, String] = nonEmptyAnnotations
+  }
+
+  object Merge {
+    def apply(annotations: Map[String, String]): Option[Merge] = {
+      if (annotations.isEmpty) None
+      else Some(new Merge(annotations))
+    }
+
+    def fromNonEmpty(annotations: Map[String, String]): Merge = {
+      require(annotations.nonEmpty, "TODO pbatko")
+      new Merge(annotations)
+    }
+  }
+
+  final case class Replace(annotations: Map[String, String]) extends AnnotationsUpdate
+}
+
+case class ObjectMetaUpdate(
+    resourceVersionO: Option[String],
+    //    annotationsUpdate: Option[Map[String, String]],
+    // TODO pbatko: Consider bespoke ADT
+    //    replaceAnnotations: Boolean,
+    annotationsUpdateO: Option[AnnotationsUpdate],
+)
 
 trait UserManagementStore {
 
@@ -30,7 +99,11 @@ trait UserManagementStore {
 
   def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Unit]]
+  ): Future[Result[User]]
+
+  def updateUser(userUpdate: UserUpdate)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[User]]
 
   def deleteUser(id: Ref.UserId)(implicit loggingContext: LoggingContext): Future[Result[Unit]]
 
@@ -75,4 +148,5 @@ object UserManagementStore {
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
+  final case class ConcurrentUserUpdateDetected(userId: Ref.UserId) extends Error
 }
