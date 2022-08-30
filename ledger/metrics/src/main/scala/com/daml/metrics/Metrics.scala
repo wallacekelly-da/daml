@@ -3,6 +3,9 @@
 
 package com.daml.metrics
 
+// import com.daml.metrics.MetricHandle.TimerM
+import com.daml.metrics.MetricHandle._
+
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics._
 
@@ -53,7 +56,18 @@ final class Metrics(val registry: MetricRegistry) {
 
       val lookupActiveContract: Timer = registry.timer(Prefix :+ "lookup_active_contract")
       val lookupActiveContractPerExecution: Timer =
-        registry.timer(Prefix :+ "lookup_active_contract_per_execution")
+        registry.timer(Prefix :+ "lookup_active_contract_per_execution_2")
+
+      @SuppressWarnings(Array("org.wartremover.warts.Null"))
+      @MetricDoc.Tag(
+        summary = "Timer from daml-sdk",
+        description = """Description for timer from daml-sdk.""",
+      )
+      val lookupActiveContractPerExecutionTagged: TimerM =
+        TimerM("lookup_active_contract_per_execution_tagged", registry.timer("lookup_active_contract_per_execution_tagged"))
+        // TimerM(Prefix :+ "lookup_active_contract_per_execution_tagged", registry.timer(Prefix :+ "lookup_active_contract_per_execution_tagged"))
+        // registry.timer(Prefix :+ "lookup_active_contract_per_execution_tagged")
+
       val lookupActiveContractCountPerExecution: Histogram =
         registry.histogram(Prefix :+ "lookup_active_contract_count_per_execution")
       val lookupContractKey: Timer = registry.timer(Prefix :+ "lookup_contract_key")

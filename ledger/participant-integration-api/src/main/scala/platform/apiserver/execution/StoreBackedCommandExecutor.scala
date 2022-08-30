@@ -225,6 +225,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
     resolveStep(result).andThen { case _ =>
       metrics.daml.execution.lookupActiveContractPerExecution
         .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
+      metrics.daml.execution.lookupActiveContractPerExecutionTagged.metric
+        .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
       metrics.daml.execution.lookupActiveContractCountPerExecution
         .update(lookupActiveContractCount.get)
       metrics.daml.execution.lookupContractKeyPerExecution
