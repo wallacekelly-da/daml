@@ -183,7 +183,7 @@ object MetricDoc {
   }
 
   // private def extractTag[T: ClassTag](annotations: Seq[ru.Annotation]): Option[Tag] = {
-  private def extractTag(annotations: Seq[ru.Annotation]): Option[Tag] = {
+  def extractTag(annotations: Seq[ru.Annotation]): Option[Tag] = {
     annotations.map(fromAnnotation(_, tagParser)).collect({ case Some(s) => s }) match {
       case Nil =>
         None
