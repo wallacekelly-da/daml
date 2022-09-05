@@ -64,9 +64,10 @@ final class Metrics(val registry: MetricRegistry) {
         description = """Description for timer from daml-sdk.""",
       )
       val lookupActiveContractPerExecutionTagged: TimerM =
-        TimerM("lookup_active_contract_per_execution_tagged", registry.timer("lookup_active_contract_per_execution_tagged"))
-        // TimerM(Prefix :+ "lookup_active_contract_per_execution_tagged", registry.timer(Prefix :+ "lookup_active_contract_per_execution_tagged"))
-        // registry.timer(Prefix :+ "lookup_active_contract_per_execution_tagged")
+        TimerM(
+          Prefix :+ "lookup_active_contract_per_execution_tagged",
+          registry.timer(Prefix :+ "lookup_active_contract_per_execution_tagged"),
+        )
 
       val lookupActiveContractCountPerExecution: Histogram =
         registry.histogram(Prefix :+ "lookup_active_contract_count_per_execution")
@@ -281,7 +282,14 @@ final class Metrics(val registry: MetricRegistry) {
     object lapi {
       private val Prefix: MetricName = daml.Prefix :+ "lapi"
 
-      def forMethod(name: String): Timer = registry.timer(Prefix :+ name)
+      def forMethod(name: String): Timer =
+        TimerM(Prefix :+ name, registry.timer(Prefix :+ name)).metric
+
+      @MetricDoc.Tag(
+        summary = "Timer for given method",
+        description = """Description for timer for given method.""",
+      )
+      val forMethodforDocs: TimerM = TimerM(Prefix :+ "<method>", null)
 
       object return_status {
         private val Prefix: MetricName = lapi.Prefix :+ "return_status"
@@ -375,6 +383,8 @@ final class Metrics(val registry: MetricRegistry) {
         val waitAll: Timer = overall.waitTimer
         val execAll: Timer = overall.executionTimer
 
+        val dbMetricsForDocs: DatabaseMetricsForDocs =
+          new DatabaseMetricsForDocs(Prefix, "<command>")
         val getCompletions: DatabaseMetrics = createDbMetrics("get_completions")
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
         val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")

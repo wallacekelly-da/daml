@@ -86,7 +86,8 @@ object MetricHandle {
   //   def dbStorage: DbStorageMetrics
   // }
 
-  sealed case class TimerM(name: String, metric: metrics.Timer) extends MetricHandle[metrics.Timer] {
+  sealed case class TimerM(name: String, metric: metrics.Timer)
+      extends MetricHandle[metrics.Timer] {
     def metricType: String = "Timer"
 
     def timeEitherT[E, A](ev: EitherT[Future, E, A]): EitherT[Future, E, A] = {
@@ -100,11 +101,13 @@ object MetricHandle {
     def metricType: String = "Gauge"
   }
 
-  sealed case class MeterM(name: String, metric: metrics.Meter) extends MetricHandle[metrics.Meter] {
+  sealed case class MeterM(name: String, metric: metrics.Meter)
+      extends MetricHandle[metrics.Meter] {
     def metricType: String = "Meter"
   }
 
-  sealed case class CounterM(name: String, metric: metrics.Counter) extends MetricHandle[metrics.Counter] {
+  sealed case class CounterM(name: String, metric: metrics.Counter)
+      extends MetricHandle[metrics.Counter] {
     def metricType: String = "Counter"
   }
 

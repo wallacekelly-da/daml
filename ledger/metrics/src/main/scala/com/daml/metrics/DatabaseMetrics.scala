@@ -3,6 +3,8 @@
 
 package com.daml.metrics
 
+import com.daml.metrics.MetricHandle.TimerM
+
 import com.codahale.metrics.{MetricRegistry, Timer}
 
 class DatabaseMetrics private[metrics] (
@@ -18,6 +20,25 @@ class DatabaseMetrics private[metrics] (
   val compressionTimer: Timer = registry.timer(dbPrefix :+ "compression")
   val commitTimer: Timer = registry.timer(dbPrefix :+ "commit")
   val queryTimer: Timer = registry.timer(dbPrefix :+ "query")
+}
+
+class DatabaseMetricsForDocs private[metrics] (
+    prefix: MetricName,
+    val name: String,
+) {
+  protected val dbPrefix: MetricName = prefix :+ name
+
+  @MetricDoc.Tag(
+    summary = "Wait timer from DatabaseMetrics",
+    description = """Description for wait timer from DatabaseMetrics.""",
+  )
+  val waitTimerForDocs: TimerM = TimerM(dbPrefix :+ "wait", null)
+
+  // val executionTimer: Timer = registry.timer(dbPrefix :+ "exec")
+  // val translationTimer: Timer = registry.timer(dbPrefix :+ "translation")
+  // val compressionTimer: Timer = registry.timer(dbPrefix :+ "compression")
+  // val commitTimer: Timer = registry.timer(dbPrefix :+ "commit")
+  // val queryTimer: Timer = registry.timer(dbPrefix :+ "query")
 }
 
 object DatabaseMetrics {
