@@ -268,7 +268,7 @@ To exercise a choice:
 .. image:: images/choice-exercise.png
   :width: 85%
   :align: center
-  :alt: The Contract Details view with the Mergeb choice selected.
+  :alt: The Contract Details view with the Merged choice selected.
 
 Or
 
