@@ -60,4 +60,4 @@ interface FooI3 where
   viewtype FooData
 
   interface instance FooI3 for Foo.Foo3 where
-    view = foo3ToFooData $ foo3Roundtrip 100 this
+    view = foo3ToFooData $ foo3Roundtrip 1000 this
