@@ -14,7 +14,12 @@ class DatabaseMetrics private[metrics] (
 ) {
   protected val dbPrefix: MetricName = prefix :+ name
 
-  val waitTimer: Timer = registry.timer(dbPrefix :+ "wait")
+  @MetricDoc.MultiTag(
+    summary = "Wait timer from DatabaseMetrics",
+    description = """Description for wait timer from DatabaseMetrics.""",
+  )
+  val waitTimer: TimerM = TimerM(dbPrefix :+ "wait", registry.timer(dbPrefix :+ "wait"))
+
   val executionTimer: Timer = registry.timer(dbPrefix :+ "exec")
   val translationTimer: Timer = registry.timer(dbPrefix :+ "translation")
   val compressionTimer: Timer = registry.timer(dbPrefix :+ "compression")

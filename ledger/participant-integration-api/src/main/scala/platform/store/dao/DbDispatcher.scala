@@ -57,7 +57,7 @@ private[dao] final class DbDispatcherImpl private[dao] (
       Future {
         val waitNanos = System.nanoTime() - startWait
         logger.trace(s"Waited ${(waitNanos / 1e6).toLong} ms to acquire connection")
-        databaseMetrics.waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
+        databaseMetrics.waitTimer.metric.update(waitNanos, TimeUnit.NANOSECONDS)
         overallWaitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
         val startExec = System.nanoTime()
         try {

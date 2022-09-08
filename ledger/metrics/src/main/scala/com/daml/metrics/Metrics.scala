@@ -380,7 +380,7 @@ final class Metrics(val registry: MetricRegistry) {
           new DatabaseMetrics(registry, Prefix, _)
 
         private val overall = createDbMetrics("all")
-        val waitAll: Timer = overall.waitTimer
+        val waitAll: Timer = overall.waitTimer.metric
         val execAll: Timer = overall.executionTimer
 
         val dbMetricsForDocs: DatabaseMetricsForDocs =

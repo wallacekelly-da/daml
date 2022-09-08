@@ -124,7 +124,9 @@ object MetricDoc {
 
   case class Tag(summary: String, description: String) extends StaticAnnotation
 
-  case class Item(tag: Tag, name: String, metricType: String)
+  case class MultiTag(summary: String, description: String) extends StaticAnnotation
+
+  case class Item(tag: Tag, name: String, metricType: String, unique: Boolean = true, representer: String = "")
 
   // ignore scala / java packages
   private val ignorePackages = Seq("scala.", "java.")
@@ -165,9 +167,15 @@ object MetricDoc {
               rf.get match {
                 // if it is a metric handle, try to grab the annotation and the name
                 case x: MetricHandle[_] =>
-                  extractTag(rf.symbol.annotations)
-                    .map(tag => Item(tag = tag, name = x.name, metricType = x.metricType))
-                    .toList
+                  val uniqueTags =
+                    extractTag(rf.symbol.annotations)
+                      .map(tag => Item(tag = tag, name = x.name, metricType = x.metricType))
+                      .toList
+                  if (! uniqueTags.isEmpty) uniqueTags
+                  else
+                    extractMultiTag(rf.symbol.annotations)
+                      .map({case MultiTag(s, d, r) => Item(tag = Tag(s, d), name = x.name, metricType = x.metricType, unique = false, representer = r)})
+                      .toList
                 // otherwise, continue scanning for metrics
                 case _ =>
                   val fm = rf.get
@@ -197,6 +205,17 @@ object MetricDoc {
     }
   }
 
+  def extractMultiTag(annotations: Seq[ru.Annotation]): Option[MultiTag] = {
+    annotations.map(fromAnnotation(_, multiTagParser)).collect({ case Some(s) => s }) match {
+      case Nil =>
+        None
+      case multiTag :: Nil =>
+        Some(multiTag)
+      case x =>
+        throw new IllegalArgumentException(s"Multiple tags observed! $x")
+    }
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def tagParser(tree: ru.Tree): Tag = {
     try {
@@ -204,6 +223,24 @@ object MetricDoc {
         tree.children(_).asInstanceOf[ru.Literal].value.value.asInstanceOf[String]
       ) match {
         case s :: d :: Nil => Tag(summary = s, description = d.stripMargin)
+        case _ => throw new IllegalStateException("Unreachable code.")
+      }
+    } catch {
+      case x: RuntimeException =>
+        println(
+          "Failed to process description (description needs to be a constant-string. i.e. don't apply stripmargin here ...): " + tree.toString
+        )
+        throw x
+    }
+  }
+
+@SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  private def multiTagParser(tree: ru.Tree): MultiTag = {
+    try {
+      Seq(1, 2, 3).map(
+        tree.children(_).asInstanceOf[ru.Literal].value.value.asInstanceOf[String]
+      ) match {
+        case s :: d :: r :: Nil => MultiTag(summary = s, description = d.stripMargin, representer = r)
         case _ => throw new IllegalStateException("Unreachable code.")
       }
     } catch {
