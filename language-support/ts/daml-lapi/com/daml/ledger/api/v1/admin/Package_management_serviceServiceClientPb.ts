@@ -1,0 +1,125 @@
+/**
+ * @fileoverview gRPC-Web generated client stub for com.daml.ledger.api.v1.admin
+ * @enhanceable
+ * @public
+ */
+
+// GENERATED CODE -- DO NOT EDIT!
+
+
+/* eslint-disable */
+// @ts-nocheck
+
+
+import * as grpcWeb from 'grpc-web';
+
+import * as com_daml_ledger_api_v1_admin_package_management_service_pb from '../../../../../../com/daml/ledger/api/v1/admin/package_management_service_pb';
+
+
+export class PackageManagementServiceClient {
+  client_: grpcWeb.AbstractClientBase;
+  hostname_: string;
+  credentials_: null | { [index: string]: string; };
+  options_: null | { [index: string]: any; };
+
+  constructor (hostname: string,
+               credentials?: null | { [index: string]: string; },
+               options?: null | { [index: string]: any; }) {
+    if (!options) options = {};
+    if (!credentials) credentials = {};
+    options['format'] = 'text';
+
+    this.client_ = new grpcWeb.GrpcWebClientBase(options);
+    this.hostname_ = hostname;
+    this.credentials_ = credentials;
+    this.options_ = options;
+  }
+
+  methodInfoListKnownPackages = new grpcWeb.MethodDescriptor(
+    '/com.daml.ledger.api.v1.admin.PackageManagementService/ListKnownPackages',
+    grpcWeb.MethodType.UNARY,
+    com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesRequest,
+    com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesResponse,
+    (request: com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesRequest) => {
+      return request.serializeBinary();
+    },
+    com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesResponse.deserializeBinary
+  );
+
+  listKnownPackages(
+    request: com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesRequest,
+    metadata: grpcWeb.Metadata | null): Promise<com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesResponse>;
+
+  listKnownPackages(
+    request: com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesRequest,
+    metadata: grpcWeb.Metadata | null,
+    callback: (err: grpcWeb.RpcError,
+               response: com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesResponse) => void): grpcWeb.ClientReadableStream<com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesResponse>;
+
+  listKnownPackages(
+    request: com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesRequest,
+    metadata: grpcWeb.Metadata | null,
+    callback?: (err: grpcWeb.RpcError,
+               response: com_daml_ledger_api_v1_admin_package_management_service_pb.ListKnownPackagesResponse) => void) {
+    if (callback !== undefined) {
+      return this.client_.rpcCall(
+        this.hostname_ +
+          '/com.daml.ledger.api.v1.admin.PackageManagementService/ListKnownPackages',
+        request,
+        metadata || {},
+        this.methodInfoListKnownPackages,
+        callback);
+    }
+    return this.client_.unaryCall(
+    this.hostname_ +
+      '/com.daml.ledger.api.v1.admin.PackageManagementService/ListKnownPackages',
+    request,
+    metadata || {},
+    this.methodInfoListKnownPackages);
+  }
+
+  methodInfoUploadDarFile = new grpcWeb.MethodDescriptor(
+    '/com.daml.ledger.api.v1.admin.PackageManagementService/UploadDarFile',
+    grpcWeb.MethodType.UNARY,
+    com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileRequest,
+    com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileResponse,
+    (request: com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileRequest) => {
+      return request.serializeBinary();
+    },
+    com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileResponse.deserializeBinary
+  );
+
+  uploadDarFile(
+    request: com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileRequest,
+    metadata: grpcWeb.Metadata | null): Promise<com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileResponse>;
+
+  uploadDarFile(
+    request: com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileRequest,
+    metadata: grpcWeb.Metadata | null,
+    callback: (err: grpcWeb.RpcError,
+               response: com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileResponse) => void): grpcWeb.ClientReadableStream<com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileResponse>;
+
+  uploadDarFile(
+    request: com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileRequest,
+    metadata: grpcWeb.Metadata | null,
+    callback?: (err: grpcWeb.RpcError,
+               response: com_daml_ledger_api_v1_admin_package_management_service_pb.UploadDarFileResponse) => void) {
+    if (callback !== undefined) {
+      return this.client_.rpcCall(
+        this.hostname_ +
+          '/com.daml.ledger.api.v1.admin.PackageManagementService/UploadDarFile',
+        request,
+        metadata || {},
+        this.methodInfoUploadDarFile,
+        callback);
+    }
+    return this.client_.unaryCall(
+    this.hostname_ +
+      '/com.daml.ledger.api.v1.admin.PackageManagementService/UploadDarFile',
+    request,
+    metadata || {},
+    this.methodInfoUploadDarFile);
+  }
+
+}
+

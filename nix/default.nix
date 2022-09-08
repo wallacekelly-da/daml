@@ -48,6 +48,7 @@ in rec {
 
     thrift          = pkgs.thrift;
     protoc          = bazel_dependencies.protobuf3_8;
+    protoc-gen-grpc-web          = pkgs.protoc-gen-grpc-web;
 
     # Haskell development
     ghc             = bazel_dependencies.ghc;

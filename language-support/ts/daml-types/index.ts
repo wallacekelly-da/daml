@@ -3,6 +3,7 @@
 import * as jtv from "@mojotech/json-type-validation";
 import _ from "lodash";
 import * as com_daml_ledger_api_v1_value_pb from '@daml/ledger-api/com/daml/ledger/api/v1/value_pb';
+import { Empty } from 'google-protobuf/google/protobuf/empty_pb';
 
 /**
  * Interface for companion objects of serializable types. Its main purpose is
@@ -21,6 +22,7 @@ export interface Serializable<T> {
   encode: (t: T) => unknown;
 
   decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value) => T;
+  encodeProto: (t: T) => com_daml_ledger_api_v1_value_pb.Value;
 }
 
 /**
@@ -50,6 +52,7 @@ export interface Template<
    * @internal
    */
   keyEncode: (k: K) => unknown;
+  keyEncodeProto: (k: K) => com_daml_ledger_api_v1_value_pb.Value;
   // eslint-disable-next-line @typescript-eslint/ban-types
   Archive: Choice<T, {}, {}, K>;
 }
@@ -79,10 +82,14 @@ export interface Choice<T extends object, C, R, K = unknown> {
    * @internal
    */
   argumentEncode: (c: C) => unknown;
+
+  argumentSerializable: Serializable<C>;
   /**
    * @internal Returns a deocoder to decode the return value.
    */
   resultDecoder: jtv.Decoder<R>;
+
+  resultSerializable: Serializable<R>;
   // note: no encoder for result, as they cannot be sent, only received.
   /**
    * The choice name.
@@ -198,6 +205,8 @@ export const Unit: Serializable<Unit> = {
     }
     return {};
   },
+  encodeProto: (_t: Unit) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setUnit(new Empty())
 };
 
 /**
@@ -217,6 +226,8 @@ export const Bool: Serializable<Bool> = {
     }
     return v.getBool();
   },
+  encodeProto: (v: Bool) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setBool(v)
 };
 
 /**
@@ -238,6 +249,8 @@ export const Int: Serializable<Int> = {
     }
     return v.getInt64();
   },
+  encodeProto: (v: Int) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setInt64(v)
 };
 
 /**
@@ -269,6 +282,8 @@ export const Numeric = (_: number): Serializable<Numeric> => ({
     }
     return v.getNumeric();
   },
+  encodeProto: (v: Numeric) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setNumeric(v)
 });
 
 /**
@@ -293,6 +308,8 @@ export const Text: Serializable<Text> = {
     }
     return v.getText();
   },
+  encodeProto: (v: Text) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setText(v)
 };
 
 /**
@@ -314,6 +331,8 @@ export const Time: Serializable<Time> = {
     }
     return v.getTimestamp();
   },
+  encodeProto: (v: Time) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setTimestamp(v)
 };
 
 /**
@@ -335,6 +354,8 @@ export const Party: Serializable<Party> = {
     }
     return v.getParty();
   },
+  encodeProto: (v: Party) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setParty(v)
 };
 
 /**
@@ -358,6 +379,8 @@ export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
     }
     return v.getList()!.getElementsList().map(e => t.decodeProto(e))
   },
+  encodeProto: (v: List<T>) =>
+    new com_daml_ledger_api_v1_value_pb.Value().setList(new com_daml_ledger_api_v1_value_pb.List().setElementsList(v.map(e => t.encodeProto(e)))),
 });
 
 /**
@@ -375,6 +398,9 @@ export const Date: Serializable<Date> = {
   encode: (d: Date) => d,
   decodeProto: (_v: com_daml_ledger_api_v1_value_pb.Value): Date => {
     throw new Error("Date decoding not implemented");
+  },
+  encodeProto: (_v: Date) => {
+    throw new Error("Data encoding not implemented")
   },
 };
 
@@ -412,6 +438,8 @@ export const ContractId = <T>(
     }
     return v.getContractId() as ContractId<T>;
   },
+  encodeProto: (v: ContractId<T>) =>
+  new com_daml_ledger_api_v1_value_pb.Value().setContractId(v)
 });
 
 /**
@@ -439,6 +467,7 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
   encode: (o: Optional<T>) => unknown;
   decodeProto: (v: com_daml_ledger_api_v1_value_pb.Value) => Optional<T>;
   private innerProtoDecoder: (v: com_daml_ledger_api_v1_value_pb.Value) => OptionalInner<T>;
+  encodeProto: (v : Optional<T>) => com_daml_ledger_api_v1_value_pb.Value
 
   constructor(payload: Serializable<T>) {
     if (payload instanceof OptionalWorker) {
@@ -476,6 +505,15 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
           return (o as unknown as T[]).map(nested => payload.encode(nested));
         }
       };
+      this.encodeProto = (o: Optional<T>) => {
+        if (o === null) {
+          return new com_daml_ledger_api_v1_value_pb.Value().setOptional(new com_daml_ledger_api_v1_value_pb.Optional());
+        } else {
+          const inner = o as unknown as T[];
+          const innerEncoded = payload.encodeProto((inner.length === 0 ? null : inner[0]) as T);
+          return new com_daml_ledger_api_v1_value_pb.Value().setOptional(new com_daml_ledger_api_v1_value_pb.Optional().setValue(innerEncoded));
+        }
+      }
     } else {
       // NOTE(MH): `T` is not of the form `Optional<U>` here and hence `null`
       // does not extend `T`. Thus, `OptionalInner<T> = T`.
@@ -493,6 +531,13 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
           return payload.encode(o as unknown as T);
         }
       };
+      this.encodeProto = (o: Optional<T>) => {
+        if (o === null) {
+          return new com_daml_ledger_api_v1_value_pb.Value().setOptional(new com_daml_ledger_api_v1_value_pb.Optional());
+        } else {
+          return new com_daml_ledger_api_v1_value_pb.Value().setOptional(new com_daml_ledger_api_v1_value_pb.Optional().setValue(payload.encodeProto(o as unknown as T)));
+        }
+      }
     }
     this.decoder = jtv.oneOf(jtv.constant(null), this.innerDecoder);
     this.decodeProto = (v: com_daml_ledger_api_v1_value_pb.Value): Optional<T> => {
@@ -535,6 +580,9 @@ export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
   decodeProto: (_v: com_daml_ledger_api_v1_value_pb.Value): TextMap<T> => {
     throw new Error("Decoding of textmap not implememented");
   },
+  encodeProto: (_v: TextMap<T>) => {
+    throw new Error("Encoding of textmap not implemented");
+  }
 });
 
 /**
@@ -647,7 +695,10 @@ export const Map = <K, V>(
     .map(kvs => new MapImpl(kvs)),
   encode: (m: Map<K, V>): unknown =>
     m.entriesArray().map(e => [kd.encode(e[0]), vd.encode(e[1])]),
-    decodeProto: (_v: com_daml_ledger_api_v1_value_pb.Value): Map<K, V> => {
-      throw new Error("Decoding of map not implememented");
-    },
+  decodeProto: (_v: com_daml_ledger_api_v1_value_pb.Value): Map<K, V> => {
+    throw new Error("Decoding of map not implememented");
+  },
+  encodeProto: (_v: Map<K, V>) => {
+    throw new Error("Encoding of map not implemented");
+  }
 });

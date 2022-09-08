@@ -435,6 +435,7 @@ renderTemplateDef TemplateDef {..} =
                 , [ "  templateId: '" <> templateId <> "',"
                   , "  keyDecoder: " <> renderDecoder (DecoderLazy keyDec) <> ","
                   , "  keyEncode: " <> renderEncode tplKeyEncode <> ","
+                  , "  keyEncodeProto: " <> renderEncodeProto tplKeyEncode <> ","
                   , "  decoder: " <> renderDecoder (DecoderLazy tplDecoder) <> ","
                   , "  decodeProto: " <> renderProtoDecoder tplProtoDecoder <> ","
                   , "  encode: " <> renderEncode tplEncode <> ","
@@ -496,8 +497,10 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
           , "    choiceName: '" <> chcName' <> "',"
           , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
           , "    argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
+          , "    argumentSerializable: " <> renderSerializableRef chcArgTy <> ","
           , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <> ","
           , "    resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
+          , "    resultSerializable: " <> renderSerializableRef chcRetTy <> ","
           , "  },"
           ]
           | ChoiceDef{..} <- ifChoices
@@ -677,7 +680,7 @@ renderSerializableDef SerializableDef{..}
 data TypeRef = TypeRef
   { _refFromModule :: ModuleName
   , refType :: Type
-  }
+  } deriving Show
 
 data Decoder
     = DecoderOneOf [Decoder]
@@ -738,6 +741,18 @@ data Encode
     | EncodeAsIs
     | EncodeRecord [(T.Text, TypeRef)]
     | EncodeThrow
+    deriving Show
+
+renderSerializableRef :: TypeRef -> T.Text
+renderSerializableRef ref =
+    let (GenType _ companion) = genType ref Nothing in companion
+
+renderEncodeProto :: Encode -> T.Text
+renderEncodeProto = \case
+    EncodeRef ref -> let (GenType _ companion) = genType ref Nothing in
+        "function (__typed__) { return " <> companion <> ".encodeProto(__typed__); }"
+    EncodeThrow -> "function () { throw 'EncodeError'; }"
+    e -> error $ "renderEncodeProto " <> show e <> " not supported"
 
 renderEncode :: Encode -> T.Text
 renderEncode = \case
