@@ -11,7 +11,7 @@ trap "rm -rf $PROTO_DIR" EXIT
 cp -r ../../../ledger-api/grpc-definitions/com $PROTO_DIR/com
 cp -r ../../../3rdparty/protobuf/google $PROTO_DIR/google
 
-PROTOS="$(cd $PROTO_DIR && find . -name '*.proto' | sed 's|^\./||' | xargs)"
+PROTOS="com/daml/ledger/api/v1/value.proto"
 
 # We only generate sources for the subset we use.
 protoc -I $PROTO_DIR $PROTOS \
