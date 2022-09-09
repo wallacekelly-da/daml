@@ -247,6 +247,7 @@ genModule pkgMap (Scope scope) curPkgId mod
       , "var damlTypes = require('@daml/types');"
       , "/* eslint-disable-next-line no-unused-vars */"
       , "var damlLedger = require('@daml/ledger');"
+      , "var com_daml_ledger_api_v1_value_pb = require('@daml/ledger-api/com/daml/ledger/api/v1/value_pb');"
       ]
     modHeader ES6 =
       [ "// Generated from " <> modPath (unModuleName modName) <> ".daml"
@@ -416,9 +417,11 @@ data TemplateDef = TemplateDef
   , tplDecoder :: Decoder
   , tplProtoDecoder :: ProtoDecoder
   , tplEncode :: Encode
+  , tplEncodeProto :: EncodeProto
   , tplKeyDecoder :: Maybe Decoder
   -- ^ Nothing if we do not have a key.
   , tplKeyEncode :: Encode
+  , tplKeyEncodeProto :: EncodeProto
   , tplChoices' :: [ChoiceDef]
   , tplImplements' :: [(TsTypeConRef, JsSerializerConRef, Set.Set ChoiceName)]
   }
@@ -435,21 +438,23 @@ renderTemplateDef TemplateDef {..} =
                 , [ "  templateId: '" <> templateId <> "',"
                   , "  keyDecoder: " <> renderDecoder (DecoderLazy keyDec) <> ","
                   , "  keyEncode: " <> renderEncode tplKeyEncode <> ","
-                  , "  keyEncodeProto: " <> renderEncodeProto tplKeyEncode <> ","
+                  , "  keyEncodeProto: " <> renderEncodeProto tplKeyEncodeProto <> ","
                   , "  decoder: " <> renderDecoder (DecoderLazy tplDecoder) <> ","
                   , "  decodeProto: " <> renderProtoDecoder tplProtoDecoder <> ","
                   , "  encode: " <> renderEncode tplEncode <> ","
+                  , "  encodeProto: " <> renderEncodeProto tplEncodeProto <> ","
                   ]
                 , concat
                     [ [ "  " <> chcName' <> ": {"
                       , "    template: function () { return exports." <> tplName <> "; },"
                       , "    choiceName: '" <> chcName' <> "',"
-                      , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <>
-                        ","
+                      , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
+                      , "    argumentSerializable: " <> serializerRef (genType chcArgTy Nothing) <> ","
                       , "    argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
                       , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <>
                         ","
                       , "    resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
+                      , "    resultSerializable: " <> serializerRef (genType chcRetTy Nothing) <> ","
                       , "  },"
                     ]
                     | ChoiceDef {..} <- tplChoices'
@@ -599,6 +604,7 @@ data SerializableDef = SerializableDef
   , serNested :: [NestedSerializable]
   -- ^ For sums of products, e.g., `data X = Y { a : Int }
   , serProtoDecoder :: ProtoDecoder
+  , serEncodeProto :: EncodeProto
   }
 
 data NestedSerializable = NestedSerializable
@@ -606,6 +612,7 @@ data NestedSerializable = NestedSerializable
   , decoder :: Decoder
   , protoDecoder :: ProtoDecoder
   , encode :: Encode
+  , encodeProto :: EncodeProto
   }
 
 renderSerializableDef :: SerializableDef -> (T.Text, T.Text)
@@ -627,16 +634,18 @@ renderSerializableDef SerializableDef{..}
           , [ "  keys: [" <> T.concat (map (\s -> "'" <> s <> "',") serKeys) <> "]," | notNull serKeys ]
           , [ "  decoder: " <> renderDecoder (DecoderLazy serDecoder) <> ",",
               "  decodeProto: " <> renderProtoDecoder serProtoDecoder <> ",",
-              "  encode: " <> renderEncode serEncode <> ","
+              "  encode: " <> renderEncode serEncode <> ",",
+              "  encodeProto: " <> renderEncodeProto serEncodeProto <> ","
             ]
           , concat $
             [ [ "  " <> field <> ":({"
               , "    decoder: " <> renderDecoder (DecoderLazy decoder) <> ","
               , "    decodeProto: " <> renderProtoDecoder protoDecoder <> ","
               , "    encode: " <> renderEncode encode <> ","
+              , "    encodeProto: " <> renderEncodeProto encodeProto <> ","
               , "  }),"
               ]
-            | NestedSerializable { field, decoder, protoDecoder, encode } <- serNested
+            | NestedSerializable { field, decoder, protoDecoder, encode, encodeProto } <- serNested
             ]
           , [ "};" ]
           ]
@@ -662,15 +671,17 @@ renderSerializableDef SerializableDef{..}
             , "  decoder: " <> renderDecoder (DecoderLazy serDecoder) <> ","
             , "  decodeProto: " <> renderProtoDecoder serProtoDecoder <> ","
             , "  encode: " <> renderEncode serEncode <> ","
+            , "  encodeProto: " <> renderEncodeProto serEncodeProto <> ","
             , "}); };"
             ] <> concat
             [ [ "exports" <.> serName <.> field <> " = function " <> jsTyArgs <> " { return ({"
               , "  decoder: " <> renderDecoder (DecoderLazy decoder) <> ","
               , "  decodeProto: " <> renderProtoDecoder protoDecoder <> ","
               , "  encode: " <> renderEncode encode <> ","
+              , "  encodeProto: " <> renderEncodeProto encodeProto <> ","
               , "}); };"
               ]
-            | NestedSerializable { field, encode, decoder, protoDecoder } <- serNested
+            | NestedSerializable { field, encode, encodeProto, decoder, protoDecoder } <- serNested
             ]
     in (jsSource, tsDecl)
   where tyParams = "<" <> T.intercalate ", " serParams <> ">"
@@ -743,16 +754,17 @@ data Encode
     | EncodeThrow
     deriving Show
 
+data EncodeProto
+    = EncodeProtoRef TypeRef
+    | EncodeProtoVariant T.Text [(T.Text, TypeRef)]
+    | EncodeProtoEnum
+    | EncodeProtoRecord [(T.Text, TypeRef)]
+    | EncodeProtoThrow
+    deriving Show
+
 renderSerializableRef :: TypeRef -> T.Text
 renderSerializableRef ref =
     let (GenType _ companion) = genType ref Nothing in companion
-
-renderEncodeProto :: Encode -> T.Text
-renderEncodeProto = \case
-    EncodeRef ref -> let (GenType _ companion) = genType ref Nothing in
-        "function (__typed__) { return " <> companion <> ".encodeProto(__typed__); }"
-    EncodeThrow -> "function () { throw 'EncodeError'; }"
-    e -> error $ "renderEncodeProto " <> show e <> " not supported"
 
 renderEncode :: Encode -> T.Text
 renderEncode = \case
@@ -775,6 +787,28 @@ renderEncode = \case
         , [ "  };"
           , "}" ] ]
     EncodeThrow -> "function () { throw 'EncodeError'; }"
+
+renderEncodeProto :: EncodeProto -> T.Text
+renderEncodeProto = \case
+    EncodeProtoRef ref -> let (GenType _ companion) = genType ref Nothing in
+        "function (__typed__) { return " <> companion <> ".encodeProto(__typed__); }"
+    EncodeProtoVariant typ alts -> T.unlines $ concat
+        [ [ "function (__typed__) {" -- Note: switch uses ===
+          , "  switch(__typed__.tag) {" ]
+        , [ "    case '" <> name <> "': return new com_daml_ledger_api_v1_value_pb.Value().setVariant(new com_daml_ledger_api_v1_value_pb.Variant().setConstructor(__typed__.tag).setValue(" <> companion <> ".encodeProto(__typed__.value)));"
+          | (name, tr) <- alts, let (GenType _ companion) = genType tr Nothing]
+        , [ "    default: throw 'unrecognized type tag: ' + __typed__.tag + ' while serializing a value of type " <> typ <> "';"
+          , "  }"
+          , "}" ] ]
+    EncodeProtoEnum -> "function (__typed__) { return new com_daml_ledger_api_v1_value_pb.Value().setEnum(new com_daml_ledger_api_v1_value_pb.Enum().setConstructor(__typed__)); }"
+    EncodeProtoRecord fields -> T.unlines $ concat
+        [ [ "function (__typed__) {"
+          , "  return new com_daml_ledger_api_v1_value_pb.Value().setRecord(new com_daml_ledger_api_v1_value_pb.Record().setFieldsList([" ]
+        , [ "    new com_daml_ledger_api_v1_value_pb.RecordField().setLabel(\"" <> name <> "\").setValue(" <> companion <> ".encodeProto(__typed__." <> name <> ")),"
+          | (name, tr) <- fields, let (GenType _ companion) = genType tr Nothing]
+        , [ "  ]))"
+          , "}" ] ]
+    EncodeProtoThrow -> "function () { throw 'EncodeError'; }"
 
 data TypeDef
     = UnionDef T.Text [T.Text] [(T.Text, TypeRef)]
@@ -816,12 +850,14 @@ genSerializableDef curPkgId conName mod def =
                  , serDecoder = DecoderOneOf (map genDecBranch bs)
                  , serProtoDecoder = ProtoDecoderVariant (map genProtoDecBranch bs)
                  , serEncode = EncodeVariant conName (map genEncBranch bs)
+                 , serEncodeProto = EncodeProtoVariant conName (map genEncBranch bs)
                  , serNested =
                    [ NestedSerializable
                        { field = name
                        , decoder = serDecoder nested
                        , protoDecoder = serProtoDecoder nested
                        , encode = serEncode nested
+                       , encodeProto = serEncodeProto nested
                        }
                    | (name, b) <- nestedDefDataTypes
                    , let nested = genSerializableDef curPkgId (conName <.> name) mod b
@@ -836,6 +872,7 @@ genSerializableDef curPkgId conName mod def =
                  , serDecoder = DecoderOneOf [DecoderConstant (ConstantRef ("exports" <.> conName <.> cons)) | cons <- cs]
                  , serProtoDecoder = ProtoDecoderEnum
                  , serEncode = EncodeAsIs
+                 , serEncodeProto = EncodeProtoEnum
                  , serNested = []
                  }
         DataRecord fields ->
@@ -848,6 +885,7 @@ genSerializableDef curPkgId conName mod def =
                  , serDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldTypes]
                  , serProtoDecoder = ProtoDecoderRecord [(x, ProtoDecoderRef ser) | (x, ser) <- zip fieldNames fieldTypes]
                  , serEncode = EncodeRecord $ zip fieldNames fieldTypes
+                 , serEncodeProto = EncodeProtoRecord $ zip fieldNames fieldTypes
                  , serNested = []
                  }
         DataInterface -> error "interfaces are not serializable"
@@ -923,14 +961,15 @@ genDefDataType curPkgId conName mod (InterfaceChoices ifcChoices) tpls def =
                             , let argRefs = Set.setOf typeModuleRef (refType argTy)
                             , let retRefs = Set.setOf typeModuleRef (refType rTy)
                             ]
-                        (keyDecoder, keyEncode, keyRefs) = case tplKey tpl of
-                            Nothing -> (Nothing, EncodeThrow, Set.empty)
+                        (keyDecoder, keyEncode, keyEncodeProto, keyRefs) = case tplKey tpl of
+                            Nothing -> (Nothing, EncodeThrow, EncodeProtoThrow, Set.empty)
                             Just key ->
                                 let keyType = tplKeyType key
                                     typeRef = TypeRef (moduleName mod) keyType
                                 in
                                 ( Just $ DecoderRef typeRef
                                 , EncodeRef typeRef
+                                , EncodeProtoRef typeRef
                                 , Set.setOf typeModuleRef keyType)
                         (impls, implRefs) = unzip
                             [((tsRef, serRef, inheritedChoices), ifaceRefs)
@@ -945,8 +984,10 @@ genDefDataType curPkgId conName mod (InterfaceChoices ifcChoices) tpls def =
                             , tplDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldTypes]
                             , tplProtoDecoder = ProtoDecoderRecord [(x, ProtoDecoderRef ser) | (x, ser) <- zip fieldNames fieldTypes]
                             , tplEncode = EncodeRecord $ zip fieldNames fieldTypes
+                            , tplEncodeProto = EncodeProtoRecord $ zip fieldNames fieldTypes
                             , tplKeyDecoder = keyDecoder
                             , tplKeyEncode = keyEncode
+                            , tplKeyEncodeProto = keyEncodeProto
                             , tplChoices' = chcs
                             , tplImplements' = impls
                             }
