@@ -18,12 +18,11 @@ import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
+import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId}
 import com.daml.platform.store._
 import com.daml.platform.store.dao.events._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -494,51 +493,6 @@ private class JdbcLedgerDao(
       queryNonPruned,
       metrics,
     )
-
-  /** This is a combined store transaction method to support sandbox-classic and tests
-    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
-    */
-  override def storeTransaction(
-      completionInfo: Option[state.CompletionInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      ledgerEffectiveTime: Timestamp,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      divulgedContracts: Iterable[state.DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
-      recordTime: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
-    logger.info("Storing transaction")
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
-        sequentialIndexer.store(
-          conn,
-          offset,
-          Some(
-            state.Update.TransactionAccepted(
-              optCompletionInfo = completionInfo,
-              transactionMeta = state.TransactionMeta(
-                ledgerEffectiveTime = ledgerEffectiveTime,
-                workflowId = workflowId,
-                submissionTime = null, // not used for DbDto generation
-                submissionSeed = null, // not used for DbDto generation
-                optUsedPackages = None, // not used for DbDto generation
-                optNodeSeeds = None, // not used for DbDto generation
-                optByKeyNodes = None, // not used for DbDto generation
-              ),
-              transaction = transaction,
-              transactionId = transactionId,
-              recordTime = recordTime,
-              divulgedContracts = divulgedContracts.toList,
-              blindingInfo = blindingInfo,
-              contractMetadata = Map.empty,
-            )
-          ),
-        )
-        PersistenceResponse.Ok
-      }
-  }
 
   /** Returns all TransactionMetering records matching given criteria */
   override def meteringReportData(

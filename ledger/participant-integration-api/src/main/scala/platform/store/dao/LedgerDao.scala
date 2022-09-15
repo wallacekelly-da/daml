@@ -10,24 +10,18 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
+import com.daml.platform._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
-import com.daml.platform._
 
 import scala.concurrent.Future
 
@@ -208,22 +202,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
-
-  /** This is a combined store transaction method to support sandbox-classic and tests
-    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
-    */
-  def storeTransaction(
-      completionInfo: Option[state.CompletionInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      ledgerEffectiveTime: Timestamp,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      divulgedContracts: Iterable[state.DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
-      recordTime: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
-
 }
 
 private[platform] trait LedgerDao extends LedgerReadDao with LedgerWriteDao

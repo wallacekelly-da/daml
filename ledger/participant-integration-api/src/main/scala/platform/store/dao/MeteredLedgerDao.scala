@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -174,34 +173,5 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     Timed.future(
       metrics.daml.index.db.storePackageEntry,
       ledgerDao.storePackageEntry(offset, packages, entry),
-    )
-
-  /** This is a combined store transaction method to support sandbox-classic and tests
-    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
-    */
-  override def storeTransaction(
-      completionInfo: Option[state.CompletionInfo],
-      workflowId: Option[Ref.WorkflowId],
-      transactionId: Ref.TransactionId,
-      ledgerEffectiveTime: Timestamp,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      divulgedContracts: Iterable[state.DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
-      recordTime: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    Timed.future(
-      metrics.daml.index.db.storeTransactionCombined,
-      ledgerDao.storeTransaction(
-        completionInfo,
-        workflowId,
-        transactionId,
-        ledgerEffectiveTime,
-        offset,
-        transaction,
-        divulgedContracts,
-        blindingInfo,
-        recordTime,
-      ),
     )
 }
