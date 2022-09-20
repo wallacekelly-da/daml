@@ -84,9 +84,17 @@ da_scala_dar_resources_library(
             "simple_package_variant",
             "simple_package_tuple",
         ],
+        "1.14": [
+            "simple_package_party",
+            "simple_package_optional",
+            "simple_package_list",
+            "simple_package_text_map",
+            "simple_package_variant",
+            "simple_package_tuple",
+        ],
     },
     daml_root_dir = "src/test/lib/daml",
-    lf_versions = ["1.dev"],
+    lf_versions = ["1.14", "1.dev"],
     maven_name_prefix = "participant-state-test",
     visibility = ["//:__subpackages__"],
 )
