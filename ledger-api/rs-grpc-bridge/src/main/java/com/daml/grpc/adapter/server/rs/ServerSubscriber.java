@@ -16,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ServerSubscriber<Resp> implements Subscriber<Resp> {
-
   private static final Logger logger = LoggerFactory.getLogger(ServerSubscriber.class);
 
   @Nonnull private final ServerCallStreamObserver<Resp> responseObserver;

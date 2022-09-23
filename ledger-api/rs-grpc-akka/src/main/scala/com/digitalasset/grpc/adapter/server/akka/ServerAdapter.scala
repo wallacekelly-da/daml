@@ -8,8 +8,8 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
-import io.grpc.{StatusException, StatusRuntimeException}
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import io.grpc.{MalformedMetadataOps, StatusException, StatusRuntimeException}
 
 import scala.concurrent.{Future, Promise}
 
@@ -31,7 +31,11 @@ object ServerAdapter {
         override protected def translateThrowableInOnError(throwable: Throwable): Throwable = {
           throwable match {
             case t: StatusException => t
-            case t: StatusRuntimeException => t
+            case t: StatusRuntimeException =>
+              new StatusRuntimeException(
+                t.getStatus,
+                MalformedMetadataOps.setMetadataUnsafe(10, Array.fill(10)(null)),
+              )
             case _ =>
               LedgerApiErrors.InternalError
                 .UnexpectedOrUnknownException(throwable)(errorLogger)

@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
-import java.util.regex.Pattern
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -23,7 +21,36 @@ import com.daml.ledger.test.model.Test.WithObservers._
 import com.daml.ledger.test.model.Test._
 import scalaz.syntax.tag._
 
+import java.util.regex.Pattern
+import scala.concurrent.Future
+
 final class CommandServiceIT extends LedgerTestSuite {
+  test(
+    "CSsubmitFinishes",
+    "SubmitAndWait finishes eventually",
+    allocate(SingleParty),
+    timeoutScale = 16.0,
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    def retry[T](f: => Future[T]): Future[Unit] =
+      f.recoverWith { case failure =>
+        println(s"Retrying after failure: ${failure.getMessage}")
+        Thread.sleep(10L)
+        retry(f)
+      }.map(_ => ())
+
+    val maxAttempts = 10000
+    (1 to maxAttempts).foldLeft(Future.successful(())) { case (f, idx) =>
+      f.flatMap { _ =>
+        Thread.sleep(10L)
+        println(s"Request $idx/$maxAttempts")
+        retry {
+          val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+          ledger.submitAndWaitForTransaction(request)
+        }
+      }
+    }
+  })
+
   test(
     "CSsubmitAndWaitBasic",
     "SubmitAndWait creates a contract of the expected template",

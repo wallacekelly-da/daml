@@ -27,7 +27,6 @@ class BridgeReadService(
     loggingContext: LoggingContext
 ) extends ReadService {
   private val logger = ContextualizedLogger.get(getClass)
-  private var stateUpdatesWasCalledAlready = false
 
   logger.info("Starting Sandbox-on-X read service...")
 
@@ -51,11 +50,6 @@ class BridgeReadService(
     //   This method may only be called once, either with `beginAfter` set or unset.
     //   A second call will result in an error unless the server is restarted.
     //   Bootstrapping the bridge from indexer persistence is supported.
-    synchronized {
-      if (stateUpdatesWasCalledAlready)
-        throw new IllegalStateException("not allowed to call this twice")
-      else stateUpdatesWasCalledAlready = true
-    }
     logger.info("Indexer subscribed to state updates.")
     beginAfter.foreach(offset =>
       logger.warn(
