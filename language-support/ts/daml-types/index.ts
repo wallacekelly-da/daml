@@ -83,13 +83,13 @@ export interface Choice<T extends object, C, R, K = unknown> {
    */
   argumentEncode: (c: C) => unknown;
 
-  argumentSerializable: Serializable<C>;
+  argumentSerializable: () => Serializable<C>;
   /**
    * @internal Returns a deocoder to decode the return value.
    */
   resultDecoder: jtv.Decoder<R>;
 
-  resultSerializable: Serializable<R>;
+  resultSerializable: () => Serializable<R>;
   // note: no encoder for result, as they cannot be sent, only received.
   /**
    * The choice name.

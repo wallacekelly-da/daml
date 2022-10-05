@@ -449,12 +449,12 @@ renderTemplateDef TemplateDef {..} =
                       , "    template: function () { return exports." <> tplName <> "; },"
                       , "    choiceName: '" <> chcName' <> "',"
                       , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
-                      , "    argumentSerializable: " <> serializerRef (genType chcArgTy Nothing) <> ","
+                      , "    argumentSerializable: () => " <> serializerRef (genType chcArgTy Nothing) <> ","
                       , "    argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
                       , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <>
                         ","
                       , "    resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
-                      , "    resultSerializable: " <> serializerRef (genType chcRetTy Nothing) <> ","
+                      , "    resultSerializable: () => " <> serializerRef (genType chcRetTy Nothing) <> ","
                       , "  },"
                     ]
                     | ChoiceDef {..} <- tplChoices'
@@ -502,10 +502,10 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSourc
           , "    choiceName: '" <> chcName' <> "',"
           , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
           , "    argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
-          , "    argumentSerializable: " <> renderSerializableRef chcArgTy <> ","
+          , "    argumentSerializable: () => " <> renderSerializableRef chcArgTy <> ","
           , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <> ","
           , "    resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
-          , "    resultSerializable: " <> renderSerializableRef chcRetTy <> ","
+          , "    resultSerializable: () => " <> renderSerializableRef chcRetTy <> ","
           , "  },"
           ]
           | ChoiceDef{..} <- ifChoices
