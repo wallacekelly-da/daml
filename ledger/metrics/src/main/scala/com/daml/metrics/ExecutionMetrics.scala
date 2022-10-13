@@ -3,13 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Counter, Histogram, Meter, Timer}
-
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Meter, Timer}
+import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ExecutionMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.DropwizardFactory {
+    extends DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The time to lookup individual active contracts during interpretation.",
@@ -118,7 +119,7 @@ class ExecutionMetrics(override val prefix: MetricName, override val registry: M
   )
   val engineRunning: Meter = meter(prefix :+ "engine_running")
 
-  object cache extends MetricHandle.DropwizardFactory {
+  object cache extends DropwizardFactory {
     override val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
     override val registry = ExecutionMetrics.this.registry
 

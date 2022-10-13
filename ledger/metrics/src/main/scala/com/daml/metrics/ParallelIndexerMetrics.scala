@@ -3,13 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Counter, Histogram, Timer}
-
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
+import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ParallelIndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.DropwizardFactory {
+    extends DropwizardFactory {
   val initialization = new DatabaseMetrics(prefix, "initialization", registry)
 
   // Number of state updates persisted to the database

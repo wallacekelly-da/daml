@@ -4,11 +4,13 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
 
 class PartyRecordStoreMetrics(
     override val prefix: MetricName,
     override val registry: MetricRegistry,
-) extends MetricHandle.FactoryWithDBMetrics {
+) extends FactoryWithDBMetrics {
 
   val getPartyRecord: DatabaseMetrics = createDbMetrics("get_party_record")
   val createPartyRecord: DatabaseMetrics = createDbMetrics("create_party_record")
