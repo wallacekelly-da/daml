@@ -95,17 +95,18 @@ private[platform] case class StateCache[K, V](
   def putAsync(key: K, fetchAsync: Offset => Future[V])(implicit
       loggingContext: LoggingContext
   ): Future[V] = Timed.value(
-    registerUpdateTimer,
-    pendingUpdates.synchronized {
+    registerUpdateTimer, {
       val validAt = cacheIndex
       val eventualValue = Future.delegate(fetchAsync(validAt))
-      val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
-      if (pendingUpdatesForKey.latestValidAt < validAt) {
-        pendingUpdatesForKey.latestValidAt = validAt
-        pendingUpdatesForKey.pendingCount += 1
-        registerEventualCacheUpdate(key, eventualValue, validAt)
-          .flatMap(_ => eventualValue)
-      } else eventualValue
+      pendingUpdates.synchronized {
+        val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
+        if (pendingUpdatesForKey.latestValidAt < validAt) {
+          pendingUpdatesForKey.latestValidAt = validAt
+          pendingUpdatesForKey.pendingCount += 1
+          val _ = registerEventualCacheUpdate(key, eventualValue, validAt)
+        }
+      }
+      eventualValue
     },
   )
 
