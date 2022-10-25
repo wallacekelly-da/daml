@@ -6,11 +6,14 @@ package com.daml.ledger.api.benchtool.config
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import java.io.StringReader
 
+import java.io.StringReader
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.PartySet
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.PartyNamePrefixFilter
+
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.Duration
 
 class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
 
@@ -56,6 +59,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |    subscription_delay: 7min         
           |    objectives:
           |      min_item_rate: 123
           |      max_item_rate: 456
@@ -125,6 +129,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               maxItemCount = Some(700),
               timeoutInSecondsO = None,
+              subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
         )
@@ -231,6 +236,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |      templates: [Foo1, Foo2]
           |    begin_offset: foo
           |    end_offset: bar
+          |    subscription_delay: 7min    
           |    objectives:
           |      max_delay_seconds: 123
           |      min_consumption_speed: 2.34
@@ -269,6 +275,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               maxItemCount = None,
               timeoutInSecondsO = None,
+              subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
         )
@@ -287,6 +294,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         - Foo3
           |    begin_offset: foo
           |    end_offset: bar
+          |    subscription_delay: 7min    
           |    objectives:
           |      min_consumption_speed: 2.34
           |      min_item_rate: 12""".stripMargin
@@ -314,6 +322,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               maxItemCount = None,
               timeoutInSecondsO = None,
+              subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
         )
@@ -330,6 +339,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |    subscription_delay: 7min         
           |    begin_offset: foo
           |    end_offset: bar""".stripMargin
       parseYaml(yaml) shouldBe Right(
@@ -349,6 +359,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               objectives = None,
               maxItemCount = None,
               timeoutInSecondsO = None,
+              subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
         )
@@ -367,6 +378,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         - Foo3
           |    begin_offset: foo
           |    end_offset: bar
+          |    subscription_delay: 7min    
           |    objectives:
           |      max_delay_seconds: 123
           |      min_consumption_speed: 2.34
@@ -396,6 +408,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               maxItemCount = None,
               timeoutInSecondsO = None,
+              subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
         )
@@ -412,6 +425,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |    subscription_delay: 7min         
           |    objectives:
           |      min_item_rate: 123
           |      max_item_rate: 4567""".stripMargin
@@ -435,6 +449,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               maxItemCount = None,
               timeoutInSecondsO = None,
+              subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
         )
@@ -451,6 +466,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    application_id: foobar
           |    timeout_in_seconds: 100
           |    max_item_count: 101
+          |    subscription_delay: 7min    
           |    objectives:
           |      min_item_rate: 12
           |      max_item_rate: 345""".stripMargin
@@ -471,6 +487,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               timeoutInSecondsO = Some(100),
               maxItemCount = Some(101L),
+              subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
         )
@@ -487,6 +504,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |    subscription_delay: 7min         
           |    begin_offset: ledger-begin
           |    end_offset: ledger-end""".stripMargin
       parseYaml(yaml) shouldBe Right(
@@ -506,6 +524,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               objectives = None,
               maxItemCount = None,
               timeoutInSecondsO = None,
+              subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
         )
@@ -524,6 +543,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |         - FooInterface
         |    begin_offset: foo
         |    end_offset: bar
+        |    subscription_delay: 7min    
         |    objectives:
         |      min_consumption_speed: 2.34
         |      min_item_rate: 12""".stripMargin
@@ -551,6 +571,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
             ),
             maxItemCount = None,
             timeoutInSecondsO = None,
+            subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
           )
         ),
       )
@@ -572,6 +593,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |      interfaces: [FooInterface]
         |    begin_offset: foo
         |    end_offset: bar
+        |    subscription_delay: 7min    
         |    objectives:
         |      max_delay_seconds: 123
         |      min_consumption_speed: 2.34
@@ -610,6 +632,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
             ),
             maxItemCount = None,
             timeoutInSecondsO = None,
+            subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
           )
         ),
       )
