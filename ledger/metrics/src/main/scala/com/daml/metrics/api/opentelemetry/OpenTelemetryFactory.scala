@@ -36,7 +36,7 @@ trait OpenTelemetryFactory extends Factory {
         otelMeter.gaugeBuilder(name).buildWithCallback(_.record(varGauge.getValue))
         OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case _ =>
-        // A NoOp guage as opentelemetry only supports longs and doubles
+        // A NoOp gauge as OpenTelemetry only supports longs and doubles
         OpentelemetryGauge(name, VarGauge(initial))
     }
   }
