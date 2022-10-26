@@ -38,6 +38,8 @@ object MetricHandle {
 
   }
 
+  /** A Timer is a Histogram that measures durations between two different events.
+    */
   trait Timer extends MetricHandle {
 
     def metricType: String = "Timer"
@@ -66,6 +68,10 @@ object MetricHandle {
 
   }
 
+  /** A gauge reports on a given value at that respective moment.
+    * Eg: queue size, threads running.
+    * It should be used for values that are numeric.
+    */
   trait Gauge[T] extends MetricHandle {
     def metricType: String = "Gauge"
 
@@ -76,6 +82,9 @@ object MetricHandle {
     def getValue: T
   }
 
+  /** A meter represents a monotonically increasing value.
+    * It should never be `marked` with a negative value.
+    */
   trait Meter extends MetricHandle {
     def metricType: String = "Meter"
 
@@ -84,6 +93,8 @@ object MetricHandle {
 
   }
 
+  /** A counter represents a value that can go up and down.
+    */
   trait Counter extends MetricHandle {
 
     override def metricType: String = "Counter"
