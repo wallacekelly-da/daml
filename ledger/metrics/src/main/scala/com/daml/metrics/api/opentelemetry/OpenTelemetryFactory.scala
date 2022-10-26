@@ -24,20 +24,20 @@ trait OpenTelemetryFactory extends Factory {
   override def timer(
       name: MetricName
   ): MetricHandle.Timer =
-    OpentelemetryTimer(name, otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build())
+    OpenTelemetryTimer(name, otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build())
   override def gauge[T](name: MetricName, initial: T): MetricHandle.Gauge[T] = {
     initial match {
       case longInitial: Long =>
         val varGauge = new VarGauge[Long](longInitial)
         otelMeter.gaugeBuilder(name).ofLongs().buildWithCallback(_.record(varGauge.getValue))
-        OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
+        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case doubleInitial: Double =>
         val varGauge = new VarGauge[Double](doubleInitial)
         otelMeter.gaugeBuilder(name).buildWithCallback(_.record(varGauge.getValue))
-        OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
+        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case _ =>
         // A NoOp gauge as OpenTelemetry only supports longs and doubles
-        OpentelemetryGauge(name, VarGauge(initial))
+        OpenTelemetryGauge(name, VarGauge(initial))
     }
   }
 
@@ -60,24 +60,24 @@ trait OpenTelemetryFactory extends Factory {
     }
   }
 
-  override def meter(name: MetricName): Meter = OpentelemetryMeter(
+  override def meter(name: MetricName): Meter = OpenTelemetryMeter(
     name,
     otelMeter.counterBuilder(name).build(),
   )
 
-  override def counter(name: MetricName): MetricHandle.Counter = OpentelemetryCounter(
+  override def counter(name: MetricName): MetricHandle.Counter = OpenTelemetryCounter(
     name,
     otelMeter.upDownCounterBuilder(name).build(),
   )
 
-  override def histogram(name: MetricName): MetricHandle.Histogram = OpentelemetryHistogram(
+  override def histogram(name: MetricName): MetricHandle.Histogram = OpenTelemetryHistogram(
     name,
     otelMeter.histogramBuilder(name).ofLongs().build(),
   )
 
 }
 
-case class OpentelemetryTimer(name: String, histogram: LongHistogram) extends Timer {
+case class OpenTelemetryTimer(name: String, histogram: LongHistogram) extends Timer {
 
   override def update(duration: Long, unit: TimeUnit): Unit =
     histogram.record(TimeUnit.MILLISECONDS.convert(duration, unit))
@@ -100,7 +100,7 @@ case class OpentelemetryTimer(name: String, histogram: LongHistogram) extends Ti
   override def update(duration: Duration): Unit = update(duration.toNanos, TimeUnit.NANOSECONDS)
 }
 
-case class OpentelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Gauge[T] {
+case class OpenTelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Gauge[T] {
 
   override def updateValue(newValue: T): Unit = varGauge.updateValue(newValue)
 
@@ -108,13 +108,13 @@ case class OpentelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Ga
 
 }
 
-case class OpentelemetryMeter(name: String, counter: LongCounter) extends Meter {
+case class OpenTelemetryMeter(name: String, counter: LongCounter) extends Meter {
 
   override def mark(value: Long): Unit = counter.add(value)
 
 }
 
-case class OpentelemetryCounter(name: String, counter: LongUpDownCounter) extends Counter {
+case class OpenTelemetryCounter(name: String, counter: LongUpDownCounter) extends Counter {
 
   override def inc(): Unit = counter.add(1)
 
@@ -128,7 +128,7 @@ case class OpentelemetryCounter(name: String, counter: LongUpDownCounter) extend
 
 }
 
-case class OpentelemetryHistogram(name: String, histogram: LongHistogram) extends Histogram {
+case class OpenTelemetryHistogram(name: String, histogram: LongHistogram) extends Histogram {
 
   override def update(value: Long): Unit = histogram.record(value)
 
