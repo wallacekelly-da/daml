@@ -136,13 +136,19 @@ class LedgerApiBenchTool(
                 },
               )
             case Some(submissionConfig) =>
-              submissionStep(
+              val x: Future[AllocatedParties] = submissionStep(
                 regularUserServices = regularUserServices,
                 adminServices = adminServices,
                 submissionConfig = submissionConfig,
                 metricRegistry = metricRegistry,
                 partyAllocating = partyAllocating,
               )
+              x.map { a =>
+                logger.warn("Sleeping for 10 minutes..")
+                Thread.sleep(1000 * 60 * 10)
+                logger.warn("Slept for 10 minutes")
+                a
+              }
           }
         }
 
