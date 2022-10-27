@@ -194,12 +194,13 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalactic_scalactic",
     ],
+    scalacopts = scalacopts + test_scalacopts,
+    visibility = ["//test-evidence:__pkg__"],
     deps = [
         ":middleware-api",
         ":oauth2-api",
         ":oauth2-middleware",
         ":oauth2-test-server",
-        "@maven//:org_scalatest_scalatest_compatible",
         "//bazel_tools/runfiles:scala_runfiles",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
@@ -215,9 +216,8 @@ da_scala_library(
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_config",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
-    scalacopts = scalacopts + test_scalacopts,
-    visibility = ["//test-evidence:__pkg__"],
 )
 
 da_scala_test(
