@@ -40,6 +40,8 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+import com.daml.platform.apiserver.services.ScalaPbOptimizationsFlow._
+
 private[apiserver] object ApiTransactionService {
   def create(
       ledgerId: LedgerId,
@@ -84,6 +86,7 @@ private[apiserver] final class ApiTransactionService private (
     logger.trace(s"Transaction request: $request")
     transactionsService
       .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
+      .precomputeSerializedSize
       .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
@@ -109,6 +112,7 @@ private[apiserver] final class ApiTransactionService private (
         TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
         request.verbose,
       )
+      .precomputeSerializedSize
       .via(
         logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
       )

@@ -17,6 +17,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.services.ScalaPbOptimizationsFlow.ScalaPbOptimizationsFlow
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
@@ -51,6 +52,7 @@ private[apiserver] final class ApiActiveContractsService private (
             backend.getActiveContracts(filters, request.verbose)
           },
       )
+      .precomputeSerializedSize
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
 
