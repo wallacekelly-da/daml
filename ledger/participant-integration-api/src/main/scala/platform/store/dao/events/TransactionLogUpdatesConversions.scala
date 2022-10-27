@@ -68,6 +68,7 @@ private[events] object TransactionLogUpdatesConversions {
         filter: TemplatePartiesFilter,
         eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
+        optimizeGrpcStreamThroughput: Boolean,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
@@ -78,7 +79,11 @@ private[events] object TransactionLogUpdatesConversions {
         eventProjectionProperties,
         lfValueTranslation,
       )
-        .map(transaction => GetTransactionsResponse(Seq(transaction)))
+        .map(transaction =>
+          GetTransactionsResponse(Seq(transaction)).precomputeSerializedSize(
+            optimizeGrpcStreamThroughput
+          )
+        )
 
     def toGetFlatTransactionResponse(
         transactionLogUpdate: TransactionLogUpdate,
@@ -242,12 +247,17 @@ private[events] object TransactionLogUpdatesConversions {
         requestingParties: Set[Party],
         eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
+        optimizeGrpcStreamThroughput: Boolean,
     )(implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionTreesResponse] =
       toTransactionTree(_, requestingParties, eventProjectionProperties, lfValueTranslation)
-        .map(txTree => GetTransactionTreesResponse(Seq(txTree)))
+        .map(txTree =>
+          GetTransactionTreesResponse(Seq(txTree)).precomputeSerializedSize(
+            optimizeGrpcStreamThroughput
+          )
+        )
 
     private def toTransactionTree(
         transactionAccepted: TransactionLogUpdate.TransactionAccepted,

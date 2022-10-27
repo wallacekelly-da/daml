@@ -133,6 +133,7 @@ private[platform] object BufferedTransactionsReader {
       eventProcessingParallelism: Int,
       lfValueTranslation: LfValueTranslation,
       metrics: Metrics,
+      optimizeGrpcStreamThroughput: Boolean,
   )(implicit
       executionContext: ExecutionContext
   ): BufferedTransactionsReader = {

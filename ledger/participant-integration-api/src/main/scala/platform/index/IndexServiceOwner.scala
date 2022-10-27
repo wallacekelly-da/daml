@@ -38,6 +38,7 @@ final class IndexServiceOwner(
     engine: Engine,
     participantId: Ref.ParticipantId,
     inMemoryState: InMemoryState,
+    optimizeGrpcStreamThroughput: Boolean,
 )(implicit
     loggingContext: LoggingContext
 ) extends ResourceOwner[IndexService] {
@@ -80,6 +81,7 @@ final class IndexServiceOwner(
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.eventsProcessingParallelism,
+        optimizeGrpcStreamThroughput = optimizeGrpcStreamThroughput,
       )(inMemoryFanOutExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(

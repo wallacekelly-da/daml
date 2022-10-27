@@ -52,9 +52,9 @@ private[apiserver] object ApiTransactionService {
       loggingContext: LoggingContext,
   ): GrpcTransactionService with BindableService =
     new GrpcTransactionService(
-      new ApiTransactionService(transactionsService, metrics),
-      ledgerId,
-      PartyNameChecker.AllowAllParties,
+      service = new ApiTransactionService(transactionsService, metrics),
+      ledgerId = ledgerId,
+      partyNameChecker = PartyNameChecker.AllowAllParties,
     )
 }
 

@@ -53,5 +53,4 @@ class GrpcCommandCompletionService(
               CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value))))
             ),
       )
-
 }

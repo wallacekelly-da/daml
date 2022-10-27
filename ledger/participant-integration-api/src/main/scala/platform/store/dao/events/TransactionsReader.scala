@@ -57,6 +57,7 @@ private[dao] final class TransactionsReader(
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
     acsReader: ACSReader,
+    optimizeGrpcStreamThroughput: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 

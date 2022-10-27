@@ -23,6 +23,8 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.store.backend.EventStorageBackend.Entry
 
+import com.daml.platform.store.ScalaPbOptimizations._
+
 // TODO append-only: FIXME: move to the right place
 object EventsTable {
 
@@ -132,9 +134,12 @@ object EventsTable {
       }
 
     def toGetTransactionTreesResponse(
-        events: Vector[Entry[TreeEvent]]
+        events: Vector[Entry[TreeEvent]],
+        optimizeForGrpcThroughput: Boolean,
     ): List[GetTransactionTreesResponse] =
-      transactionTree(events).toList.map(tx => GetTransactionTreesResponse(Seq(tx)))
+      transactionTree(events).toList.map(tx =>
+        GetTransactionTreesResponse(Seq(tx)).precomputeSerializedSize(optimizeForGrpcThroughput)
+      )
 
     def toGetTransactionResponse(
         events: Vector[Entry[TreeEvent]]

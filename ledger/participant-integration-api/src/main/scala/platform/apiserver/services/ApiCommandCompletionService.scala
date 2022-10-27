@@ -103,8 +103,8 @@ private[apiserver] object ApiCommandCompletionService {
       new ApiCommandCompletionService(completionsService, validator, metrics)
 
     impl -> new GrpcCommandCompletionService(
-      impl,
-      validator,
+      service = impl,
+      validator = validator,
     ) with GrpcApiService {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, executionContext)

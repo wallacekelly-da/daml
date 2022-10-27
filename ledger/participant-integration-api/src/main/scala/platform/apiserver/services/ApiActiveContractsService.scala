@@ -64,6 +64,7 @@ private[apiserver] object ApiActiveContractsService {
       ledgerId: LedgerId,
       backend: ACSBackend,
       metrics: Metrics,
+      optimizeGrpcStreamsThroughput: Boolean,
   )(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
