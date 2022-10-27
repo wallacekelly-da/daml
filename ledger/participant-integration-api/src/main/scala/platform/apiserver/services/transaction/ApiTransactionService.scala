@@ -20,8 +20,6 @@ import com.daml.ledger.api.messages.transaction._
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
 }
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
@@ -29,7 +27,6 @@ import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
@@ -39,6 +36,14 @@ import io.grpc._
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetTransactionsResponse,
+  GetTransactionTreesResponse,
+}
+import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
+  GetTransactionTreesResponse => JGetTransactionTreesResponse,
+  GetTransactionsResponse => JGetTransactionsResponse,
+}
 
 private[apiserver] object ApiTransactionService {
   def create(
@@ -71,7 +76,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getTransactions(
       request: GetTransactionsRequest
-  ): Source[GetTransactionsResponse, NotUsed] = {
+  ): Source[JGetTransactionsResponse, NotUsed] = {
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
@@ -84,14 +89,16 @@ private[apiserver] final class ApiTransactionService private (
     logger.trace(s"Transaction request: $request")
     transactionsService
       .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
-      .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
+      .mapAsync(4) { tx =>
+        Future(GetTransactionsResponse.toJavaProto(tx))
+      }
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
   }
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
-  ): Source[GetTransactionTreesResponse, NotUsed] = {
+  ): Source[JGetTransactionTreesResponse, NotUsed] = {
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
@@ -109,9 +116,9 @@ private[apiserver] final class ApiTransactionService private (
         TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
         request.verbose,
       )
-      .via(
-        logger.enrichedDebugStream("Responding with transaction trees.", transactionTreesLoggable)
-      )
+      .mapAsync(4) { tx =>
+        Future(GetTransactionTreesResponse.toJavaProto(tx))
+      }
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
   }
@@ -231,34 +238,4 @@ private[apiserver] final class ApiTransactionService private (
           )
         case Some(transaction) => Future.successful(transaction)
       }
-
-  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): LoggingEntries =
-    LoggingEntries(
-      "transactions" -> LoggingValue.OfIterable(
-        trees.transactions.toList.map(t =>
-          entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset)
-        )
-      )
-    )
-
-  private def transactionsLoggable(trees: GetTransactionsResponse): LoggingEntries = LoggingEntries(
-    "transactions" -> LoggingValue.OfIterable(
-      trees.transactions.toList.map(t =>
-        entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset)
-      )
-    )
-  )
-
-  private def entityLoggable(
-      commandId: String,
-      transactionId: String,
-      workflowId: String,
-      offset: String,
-  ): LoggingValue.Nested =
-    LoggingValue.Nested.fromEntries(
-      logging.commandId(commandId),
-      logging.transactionId(transactionId),
-      logging.workflowId(workflowId),
-      logging.offset(offset),
-    )
 }
