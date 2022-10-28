@@ -35,11 +35,10 @@ steps:
   - bash: |
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
-      bazel build //test-evidence:generate-security-test-evidence-files
+      timeout --kill-after=30s 5m bazel build //test-evidence:generate-security-test-evidence-files
     displayName: 'Generate security test evidence CSV'
 
   - task: PublishBuildArtifacts@1
-    condition: succeededOrFailed()
     continueOnError: true
     inputs:
       pathtoPublish: '$(Build.StagingDirectory)/bazel-bin/test-evidence/'
