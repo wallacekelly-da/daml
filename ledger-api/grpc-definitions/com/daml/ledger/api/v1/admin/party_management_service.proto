@@ -80,7 +80,7 @@ service PartyManagementService {
   rpc UpdatePartyDetails (UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message GetParticipantIdRequest {
 }
 
@@ -91,7 +91,7 @@ message GetParticipantIdResponse {
   string participant_id = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message GetPartiesRequest {
 
   // The stable, unique identifier of the Daml parties.
@@ -108,7 +108,7 @@ message GetPartiesResponse {
   repeated PartyDetails party_details = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message ListKnownPartiesRequest {
 }
 
@@ -119,7 +119,7 @@ message ListKnownPartiesResponse {
   repeated PartyDetails party_details = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message AllocatePartyRequest {
 
   // A hint to the participant which party ID to allocate. It can be
@@ -144,7 +144,7 @@ message AllocatePartyResponse {
   PartyDetails party_details = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 // In a scenario when a party is known to this participant
 // but has been allocated through a different participant, the resource version of it might be not set on
 // this participant until after the first update RPC has been completed.
@@ -200,4 +200,9 @@ message PartyDetails {
   // Optional,
   // Modifiable
   ObjectMeta local_metadata = 4;
+
+  // The id of the ``Identity Provider Config``
+  // If not provided, it would be assumed a default identity provider config.
+  // Optional
+  string identity_provider_config_id = 5;
 }
