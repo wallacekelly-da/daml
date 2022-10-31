@@ -51,7 +51,7 @@ abstract class PerformanceTest extends Bench[Double] {
 
   protected def daConfig: Seq[org.scalameter.KeyValue] =
     Seq[org.scalameter.KeyValue](
-      exec.independentSamples -> 1,
+      exec.independentSamples -> 5,
       exec.minWarmupRuns -> 5,
       exec.benchRuns -> 20,
       exec.jvmflags -> List("-Xmx4096m", "-Xms4096m"),

@@ -113,7 +113,6 @@ da_scala_binary(
     ],
     deps = [
         ":rs-grpc-akka",
-        ":rs-grpc-akka-tests-lib",
         "//ledger-api/perf-testing",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/sample-service",
