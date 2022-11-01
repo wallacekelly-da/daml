@@ -84,3 +84,29 @@ test = script do
   asset2 === Asset with {issuer = p, owner = p, amount = 10}
   asset3 === Asset with {issuer = p, owner = p, amount = 5}
   pure ()
+
+
+-- NICK...
+
+interface MyInterface1 where
+  viewtype MyView1
+
+data MyView1 = MyView1 { info : Int } deriving (Eq,Ord)
+
+template MyTemplateA
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+    interface instance MyInterface1 for MyTemplateA where
+      view = MyView1 { info = 100 + v }
+
+test_queryView : Script ()
+test_queryView = script do
+  p <- allocateParty "Alice"
+  a1 <- submit p do createCmd (MyTemplateA p 42)
+  let i1a1 = toInterfaceContractId @MyInterface1 a1
+  Some v <- queryViewContractId p i1a1
+  v.info === 142
+  pure ()

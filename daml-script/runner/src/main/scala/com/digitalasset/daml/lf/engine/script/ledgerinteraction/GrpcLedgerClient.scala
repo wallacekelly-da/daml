@@ -5,6 +5,11 @@ package com.daml.lf.engine.script.ledgerinteraction
 
 import java.util.UUID
 
+//import com.daml.ledger.javaapi.data.GetActiveContractsResponse // NICK: no!
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse //NICK
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.event.InterfaceView
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
@@ -51,7 +56,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ) = {
+  ): Future[Vector[ScriptLedgerClient.ActiveContract]] = { // NICK
     queryWithKey(parties, templateId).map(_.map(_._1))
   }
 
@@ -67,15 +72,16 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   private def queryWithKey(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
+  ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = { // NICK
     val filter = transactionFilter(parties, templateId)
     val acsResponses =
       grpcClient.activeContractSetClient
         .getActiveContracts(filter, verbose = false)
         .runWith(Sink.seq)
-    acsResponses.map(acsPages =>
-      acsPages.toVector.flatMap(page =>
-        page.activeContracts.toVector.map(createdEvent => {
+    val _: Future[Seq[GetActiveContractsResponse]] = acsResponses // NICK
+    acsResponses.map((acsPages: Seq[GetActiveContractsResponse]) => // NICK
+      acsPages.toVector.flatMap((page: GetActiveContractsResponse) => // NICK
+        page.activeContracts.toVector.map((createdEvent: CreatedEvent) => { // NICK
           val argument =
             NoLoggingValueValidator.validateRecord(createdEvent.getCreateArguments) match {
               case Left(err) => throw new ConverterException(err.toString)
@@ -116,6 +122,43 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
   }
 
+  // ----------------------------------------------------------------------
+
+  def getyAllViews(parties: OneAnd[Set, Ref.Party])(
+      implicit // NICK
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Vector[Value]] = { // NICK
+    def templateId: Identifier = ??? // NICK: temp
+    val filter = transactionFilter(parties, templateId) // NICK: need no filter, or interface filter
+    val acsResponses =
+      grpcClient.activeContractSetClient
+        .getActiveContracts(filter, verbose = false)
+        .runWith(Sink.seq)
+    acsResponses.map((acsPages: Seq[GetActiveContractsResponse]) =>
+      acsPages.toVector.flatMap((page: GetActiveContractsResponse) =>
+        page.activeContracts.toVector.flatMap((createdEvent: CreatedEvent) => {
+          createdEvent.interfaceViews.map((iv: InterfaceView) => {
+
+            val viewValue =
+              NoLoggingValueValidator.validateRecord(iv.getViewValue) match {
+                case Left(err) => throw new ConverterException(err.toString)
+                case Right(argument) => argument
+              }
+            import com.daml.lf.value.Value.ValueRecord
+            val _: ValueRecord = viewValue
+            val _: Value = viewValue
+
+            val _ = iv
+            viewValue
+          })
+        })
+      )
+    )
+  }
+
+  // ----------------------------------------------------------------------
+
   override def queryView(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
@@ -131,7 +174,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[Value]] = {
-    sys.error("not implemented") // TODO https://github.com/digital-asset/daml/issues/14830
+    sys.error("NICK not implemented") // TODO https://github.com/digital-asset/daml/issues/14830
   }
 
   // TODO (MK) https://github.com/digital-asset/daml/issues/11737
