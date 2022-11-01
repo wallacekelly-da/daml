@@ -33,6 +33,8 @@ import com.google.protobuf.timestamp.Timestamp
 import scala.concurrent.{ExecutionContext, Future}
 import com.google.protobuf.ByteString
 
+import com.daml.platform.store.ScalaPbOptimizations._
+
 private[events] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
     def filter(

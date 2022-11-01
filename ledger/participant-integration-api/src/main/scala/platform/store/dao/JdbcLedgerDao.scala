@@ -53,6 +53,7 @@ private class JdbcLedgerDao(
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
+    optimizeGrpcStreamsThroughput: Boolean,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -478,6 +479,7 @@ private class JdbcLedgerDao(
           new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
         executionContext = servicesExecutionContext,
       ),
+      optimizeGrpcStreamsThroughput = optimizeGrpcStreamsThroughput,
     )(
       servicesExecutionContext
     )
@@ -578,6 +580,7 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      optimizeGrpcStreamsThroughput: Boolean,
   ): LedgerReadDao =
     new JdbcLedgerDao(
       dbSupport.dbDispatcher,
@@ -596,6 +599,7 @@ private[platform] object JdbcLedgerDao {
       participantId,
       dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       dbSupport.storageBackendFactory.createParameterStorageBackend,
+      optimizeGrpcStreamsThroughput,
     )
 
   def write(
@@ -633,6 +637,7 @@ private[platform] object JdbcLedgerDao {
       participantId,
       dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       dbSupport.storageBackendFactory.createParameterStorageBackend,
+      optimizeGrpcStreamsThroughput = true,
     )
 
   val acceptType = "accept"

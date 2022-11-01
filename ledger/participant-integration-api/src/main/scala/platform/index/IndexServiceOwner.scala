@@ -38,7 +38,7 @@ final class IndexServiceOwner(
     engine: Engine,
     participantId: Ref.ParticipantId,
     inMemoryState: InMemoryState,
-    optimizeGrpcStreamThroughput: Boolean,
+    optimizeGrpcStreamsThroughput: Boolean,
 )(implicit
     loggingContext: LoggingContext
 ) extends ResourceOwner[IndexService] {
@@ -51,6 +51,7 @@ final class IndexServiceOwner(
     val ledgerDao = createLedgerReadDao(
       ledgerEndCache = inMemoryState.ledgerEndCache,
       stringInterning = inMemoryState.stringInterningView,
+      optimizeGrpcStreamsThroughput = optimizeGrpcStreamsThroughput,
     )
 
     for {
@@ -81,7 +82,7 @@ final class IndexServiceOwner(
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.eventsProcessingParallelism,
-        optimizeGrpcStreamThroughput = optimizeGrpcStreamThroughput,
+        optimizeGrpcStreamsThroughput = optimizeGrpcStreamsThroughput,
       )(inMemoryFanOutExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
@@ -164,6 +165,7 @@ final class IndexServiceOwner(
   private def createLedgerReadDao(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      optimizeGrpcStreamsThroughput: Boolean,
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
@@ -181,6 +183,7 @@ final class IndexServiceOwner(
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
+      optimizeGrpcStreamsThroughput = optimizeGrpcStreamsThroughput,
     )
 
   private def buildInMemoryFanOutExecutionContext(

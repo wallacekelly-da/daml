@@ -90,7 +90,6 @@ private[daml] object ApiServices {
       meteringReportKey: MeteringReportKey,
       explicitDisclosureUnsafeEnabled: Boolean,
       createExternalServices: () => List[BindableService] = () => Nil,
-      optimizeGrpcStreamsThroughput: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -146,18 +145,16 @@ private[daml] object ApiServices {
         checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
-        ApiTransactionService.create(
-          ledgerId,
-          transactionsService,
-          metrics,
-          optimizeGrpcStreamsThroughput,
-        )
+        ApiTransactionService.create(ledgerId, transactionsService, metrics)
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(ledgerId)
 
       val apiVersionService =
-        ApiVersionService.create(ledgerFeatures, userManagementConfig)
+        ApiVersionService.create(
+          ledgerFeatures,
+          userManagementConfig = userManagementConfig,
+        )
 
       val apiPackageService =
         ApiPackageService.create(ledgerId, packagesService)
@@ -170,7 +167,6 @@ private[daml] object ApiServices {
           ledgerId,
           completionsService,
           metrics,
-          optimizeGrpcStreamsThroughput,
         )
 
       val apiActiveContractsService =
@@ -178,7 +174,6 @@ private[daml] object ApiServices {
           ledgerId,
           activeContractsService,
           metrics,
-          optimizeGrpcStreamsThroughput,
         )
 
       val apiTimeServiceOpt =

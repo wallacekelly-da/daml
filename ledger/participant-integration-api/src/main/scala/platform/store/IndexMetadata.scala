@@ -87,6 +87,7 @@ object IndexMetadata {
           participantId = Ref.ParticipantId.assertFromString("1"),
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning = new StringInterningView(), // not used
+          optimizeGrpcStreamsThroughput = true, // not used
         )
       )
   }

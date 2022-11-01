@@ -51,6 +51,7 @@ private[events] class BufferedTransactionsReader(
       GetTransactionResponse,
     ],
     lfValueTranslation: LfValueTranslation,
+    optimizeGrpcStreamsThroughput: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
@@ -72,6 +73,7 @@ private[events] class BufferedTransactionsReader(
             filter,
             eventProjectionProperties,
             lfValueTranslation,
+            optimizeGrpcStreamsThroughput,
           )(
             loggingContext,
             executionContext,
@@ -98,6 +100,7 @@ private[events] class BufferedTransactionsReader(
             requestingParties,
             eventProjectionProperties,
             lfValueTranslation,
+            optimizeGrpcStreamsThroughput,
           )(
             loggingContext,
             executionContext,
@@ -133,7 +136,7 @@ private[platform] object BufferedTransactionsReader {
       eventProcessingParallelism: Int,
       lfValueTranslation: LfValueTranslation,
       metrics: Metrics,
-      optimizeGrpcStreamThroughput: Boolean,
+      optimizeGrpcStreamsThroughput: Boolean,
   )(implicit
       executionContext: ExecutionContext
   ): BufferedTransactionsReader = {
@@ -248,6 +251,7 @@ private[platform] object BufferedTransactionsReader {
       lfValueTranslation = lfValueTranslation,
       bufferedFlatTransactionByIdReader = bufferedFlatTransactionByIdReader,
       bufferedTransactionTreeByIdReader = bufferedTransactionTreeByIdReader,
+      optimizeGrpcStreamsThroughput = optimizeGrpcStreamsThroughput,
     )
   }
 }

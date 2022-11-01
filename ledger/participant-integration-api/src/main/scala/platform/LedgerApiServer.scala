@@ -103,6 +103,7 @@ class LedgerApiServer(
           servicesExecutionContext = servicesExecutionContext,
           participantId = participantId,
           inMemoryState = inMemoryState,
+          optimizeGrpcStreamsThroughput = participantConfig.apiServer.optimizeGrpcStreamsThroughput,
         )(loggingContext)
 
         writeService <- buildWriteService(indexService)

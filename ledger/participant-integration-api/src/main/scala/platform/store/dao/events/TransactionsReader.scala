@@ -57,7 +57,7 @@ private[dao] final class TransactionsReader(
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
     acsReader: ACSReader,
-    optimizeGrpcStreamThroughput: Boolean,
+    optimizeGrpcStreamsThroughput: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
@@ -130,7 +130,8 @@ private[dao] final class TransactionsReader(
     TransactionsReader
       .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
-        val response = TransactionConversions.toGetTransactionsResponse(events)
+        val response =
+          TransactionConversions.toGetTransactionsResponse(events, optimizeGrpcStreamsThroughput)
         response.map(r => offsetFor(r) -> r)
       }
       .wireTap(_ match {
@@ -232,7 +233,10 @@ private[dao] final class TransactionsReader(
     TransactionsReader
       .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
-        val response = TransactionConversions.toGetTransactionTreesResponse(events)
+        val response = TransactionConversions.toGetTransactionTreesResponse(
+          events,
+          optimizeGrpcStreamsThroughput,
+        )
         response.map(r => offsetFor(r) -> r)
       }
       .wireTap(_ match {

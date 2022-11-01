@@ -52,9 +52,12 @@ object EventsTable {
       }
 
     def toGetTransactionsResponse(
-        events: Vector[Entry[Event]]
+        events: Vector[Entry[Event]],
+        optimizeGrpcStreamsThroughput: Boolean,
     ): List[GetTransactionsResponse] =
-      flatTransaction(events).toList.map(tx => GetTransactionsResponse(Seq(tx)))
+      flatTransaction(events).toList.map(tx =>
+        GetTransactionsResponse(Seq(tx)).precomputeSerializedSize(optimizeGrpcStreamsThroughput)
+      )
 
     def toGetFlatTransactionResponse(
         events: Vector[Entry[Event]]
